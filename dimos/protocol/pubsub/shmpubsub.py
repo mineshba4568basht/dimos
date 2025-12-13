@@ -39,16 +39,18 @@ logger = setup_logger("dimos.protocol.pubsub.sharedmemory")
 # Configuration (kept local to PubSub now that Service is gone)
 # --------------------------------------------------------------------------------------
 
+
 @dataclass
 class SharedMemoryConfig:
-    prefer: str = "auto"              # "auto" | "cuda" | "cpu"  (DIMOS_IPC_BACKEND overrides)
-    default_capacity: int = 64 * 1024 # payload bytes (excludes 4-byte header)
+    prefer: str = "auto"  # "auto" | "cuda" | "cpu"  (DIMOS_IPC_BACKEND overrides)
+    default_capacity: int = 64 * 1024  # payload bytes (excludes 4-byte header)
     close_channels_on_stop: bool = True
 
 
 # --------------------------------------------------------------------------------------
 # Core PubSub with integrated SHM/CUDA-IPC transport (previously the Service logic)
 # --------------------------------------------------------------------------------------
+
 
 class SharedMemoryPubSubBase(PubSub[str, Any]):
     """
@@ -68,19 +70,28 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
     # Per-topic state
     class _TopicState:
         __slots__ = (
-            "channel", "subs", "stop", "thread", "last_seq",
-            "shape", "dtype", "capacity", "is_cuda", "cp",
+            "channel",
+            "subs",
+            "stop",
+            "thread",
+            "last_seq",
+            "shape",
+            "dtype",
+            "capacity",
+            "is_cuda",
+            "cp",
             "last_local_payload",
         )
+
         def __init__(self, channel, capacity: int, is_cuda: bool, cp_mod):
             self.channel = channel
             self.capacity = int(capacity)
-            self.shape = (self.capacity + 4,)      # +4 for uint32 length header
+            self.shape = (self.capacity + 4,)  # +4 for uint32 length header
             self.dtype = np.uint8
             self.subs: list[Callable[[bytes, str], None]] = []
             self.stop = threading.Event()
             self.thread: Optional[threading.Thread] = None
-            self.last_seq = 0                      # start at 0 to avoid b"" on first poll
+            self.last_seq = 0  # start at 0 to avoid b"" on first poll
             self.is_cuda = is_cuda
             self.cp = cp_mod
             self.last_local_payload: Optional[bytes] = None
@@ -147,7 +158,7 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
         host = np.zeros(st.shape, dtype=st.dtype)
         host[:4] = np.frombuffer(struct.pack("<I", L), dtype=np.uint8)
         if L:
-            host[4:4 + L] = np.frombuffer(payload, dtype=np.uint8)
+            host[4 : 4 + L] = np.frombuffer(payload, dtype=np.uint8)
 
         # Publish to channel (CUDA if available)
         if st.is_cuda:
@@ -187,6 +198,7 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
                 st.thread.join(timeout=0.5)
                 st.thread = None
                 st.stop.clear()
+
         return _unsub
 
     # Optional utility like in LCMPubSubBase
@@ -247,6 +259,7 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
                 try:
                     import cupy as cp  # type: ignore
                     from dimos.protocol.pubsub.shm.ipc_factory import CUDA_IPC_Factory
+
                     ch = CUDA_IPC_Factory.create(shape, dtype=dtype)
                     is_cuda = True
                     cp_mod = cp
@@ -258,7 +271,9 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
                 ch = CPU_IPC_Factory.create(shape, dtype=dtype)
                 logger.info("SharedMemory using CPU backend")
 
-            st = SharedMemoryPubSubBase._TopicState(ch, int(self.config.default_capacity), is_cuda, cp_mod)
+            st = SharedMemoryPubSubBase._TopicState(
+                ch, int(self.config.default_capacity), is_cuda, cp_mod
+            )
             self._topics[topic] = st
             return st
 
@@ -282,11 +297,11 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
             # Decode header + payload
             try:
                 L = struct.unpack("<I", host[:4].tobytes())[0]
-                if L == 0:                          # drop initial/empty frames
+                if L == 0:  # drop initial/empty frames
                     continue
                 if L < 0 or L > st.capacity:
                     continue
-                payload = host[4:4 + L].tobytes()
+                payload = host[4 : 4 + L].tobytes()
 
                 # Suppress echo of our own synchronous publish
                 if st.last_local_payload is not None and payload == st.last_local_payload:
@@ -306,12 +321,15 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
 # Encoders + concrete PubSub classes (parallel to LCM / PickleLCM)
 # --------------------------------------------------------------------------------------
 
+
 class SharedMemoryBytesEncoderMixin(PubSubEncoderMixin[str, bytes]):
     """Identity encoder for raw bytes."""
+
     def encode(self, msg: bytes, _: str) -> bytes:
         if isinstance(msg, (bytes, bytearray, memoryview)):
             return bytes(msg)
         raise TypeError(f"SharedMemory expects bytes-like, got {type(msg)!r}")
+
     def decode(self, msg: bytes, _: str) -> bytes:
         return msg
 
@@ -321,6 +339,7 @@ class SharedMemory(
     SharedMemoryPubSubBase,
 ):
     """SharedMemory pubsub that transports raw bytes."""
+
     ...
 
 
@@ -329,5 +348,5 @@ class PickleSharedMemory(
     SharedMemoryPubSubBase,
 ):
     """SharedMemory pubsub that transports arbitrary Python objects via pickle."""
-    ...
 
+    ...
