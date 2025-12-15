@@ -193,7 +193,26 @@ class Metric3D:
             std = cp.array([58.395, 57.12, 57.375], dtype=cp.float32)[:, None, None]
             chw = rgb.transpose(2, 0, 1)
             chw = (chw - mean) / std
-            x_np = cp.asnumpy(chw[None])  # ORT still needs numpy unless binding device ptr
+            chw = cp.ascontiguousarray(chw[None])
+            self.intrinsic_scaled = [self.intrinsic[0] * scale,
+                         self.intrinsic[1] * scale,
+                         self.intrinsic[2] * scale,
+                         self.intrinsic[3] * scale]
+            self.pad_info = [pad_h_half, pad_h - pad_h_half, pad_w_half, pad_w - pad_w_half]
+
+            if self.contains_io_binding:
+                self.io_binding.bind_input(
+                    name="image",
+                    device_type="cuda",
+                    device_id=0,
+                    element_type=np.float32,
+                    shape=chw.shape,
+                    buffer_ptr=int(chw.data.ptr),  # raw GPU pointer
+                )
+                return self.io_binding, rgb_image.shape[:2]
+            else:
+                # Fallback: copy to host
+                return {"image": cp.asnumpy(chw)}, rgb_image.shape[:2]
         else:
             # ---- CPU path ----
             rgb = cv2.resize(rgb_image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
@@ -209,21 +228,21 @@ class Metric3D:
             chw = (chw - mean) / std
             x_np = np.ascontiguousarray(chw[None], dtype=np.float32)
 
-        self.intrinsic_scaled = [self.intrinsic[0] * scale,
-                                 self.intrinsic[1] * scale,
-                                 self.intrinsic[2] * scale,
-                                 self.intrinsic[3] * scale]
-        self.pad_info = [pad_h_half, pad_h - pad_h_half, pad_w_half, pad_w - pad_w_half]
+            self.intrinsic_scaled = [self.intrinsic[0] * scale,
+                                     self.intrinsic[1] * scale,
+                                     self.intrinsic[2] * scale,
+                                     self.intrinsic[3] * scale]
+            self.pad_info = [pad_h_half, pad_h - pad_h_half, pad_w_half, pad_w - pad_w_half]
 
-        if self.contains_io_binding:
-            x_dev = ort.OrtValue.ortvalue_from_numpy(x_np, 'cuda', 0)
-            self.io_binding.bind_input(
-                name='image', device_type='cuda', device_id=0,
-                element_type=np.float32, shape=x_dev.shape(), buffer_ptr=x_dev.data_ptr()
-            )
-            return self.io_binding, rgb_image.shape[:2]
-        else:
-            return {"image": x_np}, rgb_image.shape[:2]
+            if self.contains_io_binding:
+                x_dev = ort.OrtValue.ortvalue_from_numpy(x_np, 'cuda', 0)
+                self.io_binding.bind_input(
+                    name='image', device_type='cuda', device_id=0,
+                    element_type=np.float32, shape=x_dev.shape(), buffer_ptr=x_dev.data_ptr()
+                )
+                return self.io_binding, rgb_image.shape[:2]
+            else:
+                return {"image": x_np}, rgb_image.shape[:2]
 
     def infer_depth(self, img, debug=False):
         if debug:
@@ -241,10 +260,16 @@ class Metric3D:
         if self.contains_io_binding:
             self.session.run_with_iobinding(onnx_input)
             out_dev = self.io_binding.get_outputs()[0]
-            depth = out_dev.numpy().squeeze()
+            shape = tuple(out_dev.shape())
+            dtype = np.float32
+            ptr = out_dev.data_ptr()
+            mem = cp.cuda.UnownedMemory(ptr, np.prod(shape) * np.dtype(dtype).itemsize, self)
+            depth = cp.ndarray(shape=shape, dtype=dtype, memptr=cp.cuda.MemoryPointer(mem, 0))
         else:
             outputs = self.session.run(None, onnx_input)
-            depth = outputs[0].squeeze()
+            depth = outputs[0]
+
+        depth = depth.squeeze()
 
         # Remove padding
         pad_info = self.pad_info
@@ -253,15 +278,16 @@ class Metric3D:
 
         if HAS_GPU and isinstance(depth, cp.ndarray):
             depth = resize_bilinear_hwc(depth[..., None], original_shape[0], original_shape[1])[..., 0]
-            depth = cp.asnumpy(depth)
+            if self.intrinsic_scaled is not None:
+                canonical_to_real_scale = self.intrinsic_scaled[0] / 1000.0
+                depth = depth * canonical_to_real_scale
+            return depth.astype(cp.float32)
         else:
             depth = cv2.resize(depth, (original_shape[1], original_shape[0]), interpolation=cv2.INTER_LINEAR)
-
-        if self.intrinsic_scaled is not None:
-            canonical_to_real_scale = self.intrinsic_scaled[0] / 1000.0
-            depth = depth * canonical_to_real_scale
-
-        return depth.astype(np.float32)
+            if self.intrinsic_scaled is not None:
+                canonical_to_real_scale = self.intrinsic_scaled[0] / 1000.0
+                depth = depth * canonical_to_real_scale
+            return depth.astype(np.float32)
 
     def save_depth(self, pred_depth):
         if isinstance(pred_depth, np.ndarray):

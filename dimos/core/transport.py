@@ -40,6 +40,7 @@ import dimos.core.colors as colors
 from dimos.core.stream import In, RemoteIn, Transport
 from dimos.protocol.pubsub.lcmpubsub import LCM, PickleLCM
 from dimos.protocol.pubsub.lcmpubsub import Topic as LCMTopic
+from dimos.protocol.pubsub.shmpubsub import SharedMemory, PickleSharedMemory
 
 T = TypeVar("T")
 
@@ -105,6 +106,28 @@ class LCMTransport(PubSubTransport[T]):
             self._started = True
         return self.lcm.subscribe(self.topic, lambda msg, topic: callback(msg))
 
+class SHMTransport(PubSubTransport[T]):
+    _started: bool = False
+
+    def __init__(self, topic: str, **kwargs):
+        super().__init__(topic)
+        self.shm = SharedMemory(**kwargs)
+
+    def __reduce__(self):
+        return (SHMTransport, (self.topic,))
+
+    def broadcast(self, _, msg):
+        if not self._started:
+            self.shm.start()
+            self._started = True
+
+        self.shm.publish(self.topic, msg)
+
+    def subscribe(self, callback: Callable[[T], None], selfstream: In[T] = None) -> None:
+        if not self._started:
+            self.shm.start()
+            self._started = True
+        return self.shm.subscribe(self.topic, lambda msg, topic: callback(msg))
 
 class DaskTransport(Transport[T]):
     subscribers: List[Callable[[T], None]]

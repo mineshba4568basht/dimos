@@ -89,7 +89,7 @@ class MultiRateProcessor:
                     continue
 
             try:
-                handler(view, {"seq": seq, "ts_ns": ts_ns, "device": self.slot.device})
+                handler(view)
             except Exception as e:
                 logger.error("Handler '%s' failed: %s", name, e, exc_info=True)
             finally:

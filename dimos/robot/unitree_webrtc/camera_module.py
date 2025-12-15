@@ -21,6 +21,7 @@ from collections import deque
 
 import cv2
 import numpy as np
+import cupy as cp
 
 from dimos.core import Module, In, Out, rpc
 from dimos.msgs.geometry_msgs import PoseStamped
@@ -218,14 +219,14 @@ class UnitreeCameraModule(Module):
 
             # Push this frame into the channel via SourceActor
             start = time.time()
-            self._source.publish(msg.data)
+            self._source.publish(cp.asarray(msg.data) if self.backend == "cuda" else msg.data)
             end = time.time()
             logger.info(
                 f"self.source_publish returned. Time: {end}. Time taken: {end - start:.4f} seconds"
             )
 
             # Keep last image for publishing (color topic)
-            self._last_image = msg.data
+            self._last_image = cp.asarray(msg.data) if self.backend == "cuda" else msg.data
 
         except Exception as e:
             logger.error(f"Error in _on_video: {e}", exc_info=True)
@@ -255,7 +256,7 @@ class UnitreeCameraModule(Module):
             frame_start = time.time()
             logger.info(f"Frame PROCESS START {frame_start:.6f}")
 
-            depth_array = self.metric3d.infer_depth(img_array) / self.gt_depth_scale
+            depth_array = self.metric3d.infer_depth(cp.asarray(img_array) if self.backend == "cuda" else img_array) / self.gt_depth_scale
             self._last_depth = depth_array
 
             logger.info(f"Frame PROCESS END {time.time():.6f}")
@@ -309,13 +310,14 @@ class UnitreeCameraModule(Module):
                     frame_id=header.frame_id,
                     ts=header.ts,
                 )
-                self.depth_image.publish(depth_msg)
+                logger.info(f"Depth MSG is CUDA? {depth_msg.is_cuda}")
+                self.depth_image.publish(depth_msg.as_cuda_ipc_bytes() if depth_msg.is_cuda else depth_msg.as_memoryview())
                 depth_end = time.perf_counter()
                 logger.info(f"Depth publish: {(depth_end - publish_start) * 1000:.1f}ms")
-
+                
                 """
                 depth_colorized_array = colorize_depth(
-                    self._last_depth, max_depth=10.0, overlay_stats=True
+                    cp.asnumpy(self._last_depth) if self.backend == "cuda" else self._last_depth, max_depth=10.0, overlay_stats=True
                 )
                 if depth_colorized_array is not None:
                     depth_colorized_msg = Image(

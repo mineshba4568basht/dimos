@@ -78,8 +78,7 @@ def main():
 
     # Create robot instance
     robot = UnitreeGo2(
-        ip=os.getenv("ROBOT_IP"),
-        playback=True,
+        ip=os.getenv("ROBOT_IP")
     )
 
     robot.start()

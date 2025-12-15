@@ -105,7 +105,7 @@ class FakeRTC:
     def video_stream(self):
         print("video stream start")
         video_store = TimedSensorReplay(
-            "unitree_office_walk/video", autocast=lambda x: Image.from_numpy(x).to_rgb()
+            "unitree_office_walk/video", autocast=lambda x: Image.from_numpy(x).to_cupy().to_rgb()
         )
         return video_store.stream()
 
@@ -437,16 +437,12 @@ class UnitreeGo2(Robot):
             base_frame_id="base_link",
         )
 
-        from dimos.core.shared_memory_transport import SharedMemoryImageTransport
-
-        self.camera_module.depth_image.transport = SharedMemoryImageTransport(
-            "/go2/depth_image",
-            (720, 1280),  # Shape of depth image
-            np.float32,  # Data type
+        self.camera_module.depth_image.transport = core.SHMTransport(
+            "/go2/depth_image", default_capacity=720*1280*4
         )
 
-        self.camera_module.color_image.transport = SharedMemoryImageTransport(
-            "/go2/color_image", (720, 1280, 3), np.uint8
+        self.camera_module.color_image.transport = core.SHMTransport(
+            "/go2/color_image", default_capacity=720*1080*3
         )
 
         # Set up transports

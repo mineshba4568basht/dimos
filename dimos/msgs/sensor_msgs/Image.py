@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pickle
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -251,9 +252,9 @@ class Image(Timestamped):
 
     @classmethod
     def from_numpy(
-        cls, np_image: np.ndarray, format: ImageFormat = ImageFormat.BGR, **kwargs
+        cls, np_image: np.ndarray, format: ImageFormat = ImageFormat.BGR, to_gpu: bool = False, **kwargs
     ) -> "Image":
-        return cls(data=np_image, format=format, **kwargs)
+        return cls(data=np_image, format=format, **kwargs) if to_gpu == False else cls(data=cp.asarray(np_image), format=format, **kwargs)
 
     @classmethod
     def from_file(
@@ -613,6 +614,71 @@ class Image(Timestamped):
         if encoding not in encoding_map:
             raise ValueError(f"Unsupported encoding: {encoding}")
         return encoding_map[encoding]
+
+    def as_memoryview(self) -> memoryview:
+        """Return a memoryview of the image data for CPU shared memory transport.
+        If the data is CuPy, this will copy to host (NumPy) first.
+        """
+        if isinstance(self.data, (bytes, bytearray)):
+            return memoryview(self.data)
+        elif isinstance(self.data, np.ndarray):
+            return memoryview(self.data.tobytes())
+        elif _is_cu(self.data):
+            # Falls back to host copy, since memoryview can't wrap device pointers
+            return memoryview(cp.asnumpy(self.data).tobytes())
+        else:
+            raise TypeError(f"Unsupported data type {type(self.data)}")
+
+    def as_cuda_ipc_handle(self):
+        """Return a CUDA IPC handle for GPU-resident images (CuPy).
+        This should be used instead of as_memoryview for zero-copy GPU transport.
+        """
+        if not _is_cu(self.data):
+            raise TypeError("CUDA IPC handle requested but data is not a CuPy array")
+
+        # Ensure contiguous device buffer
+        arr = _ascontig(self.data)
+        ptr = arr.data.ptr
+        size = arr.nbytes
+
+        # Export IPC handle
+        handle = cp.cuda.runtime.ipcGetMemHandle(ptr)
+        return handle, size, arr.shape, arr.dtype
+
+    @classmethod
+    def from_memoryview(cls, mem: memoryview, width: int, height: int, format: "ImageFormat"):
+        """Reconstruct an Image from a CPU memoryview (SharedMemory buffer)."""
+        return cls(bytes(mem), width=width, height=height, format=format)
+
+    @classmethod
+    def from_cuda_ipc_handle(cls, handle, size, shape, dtype, width: int, height: int, format: "ImageFormat"):
+        """Reconstruct an Image from a CUDA IPC handle."""
+        ptr = cp.cuda.runtime.ipcOpenMemHandle(handle)
+        arr = cp.ndarray(shape=shape, dtype=dtype, memptr=cp.cuda.MemoryPointer(cp.cuda.UnownedMemory(ptr, size, None), 0))
+        return cls(arr, width=width, height=height, format=format)
+
+    def as_cuda_ipc_bytes(self) -> bytes:
+        """Return CUDA IPC handle + metadata as a serialized bytes object."""
+        handle, size, shape, dtype = self.as_cuda_ipc_handle()
+        payload = {
+            "handle": handle,
+            "size": size,
+            "shape": shape,
+            "dtype": str(dtype),
+        }
+        return pickle.dumps(payload)
+
+    @classmethod
+    def from_cuda_ipc_bytes(cls, payload: bytes, width: int, height: int, format: "ImageFormat"):
+        """Reconstruct an Image from a serialized CUDA IPC payload."""
+        obj = pickle.loads(payload)
+        ptr = cp.cuda.runtime.ipcOpenMemHandle(obj["handle"])
+        arr = cp.ndarray(
+            shape=obj["shape"],
+            dtype=np.dtype(obj["dtype"]),
+            memptr=cp.cuda.MemoryPointer(cp.cuda.UnownedMemory(ptr, obj["size"], None), 0)
+        )
+        return cls(arr, width=width, height=height, format=format)
 
     # ------------- Repr / equality -------------
 

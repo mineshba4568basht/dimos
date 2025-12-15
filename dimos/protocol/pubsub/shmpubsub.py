@@ -43,7 +43,7 @@ logger = setup_logger("dimos.protocol.pubsub.sharedmemory")
 @dataclass
 class SharedMemoryConfig:
     prefer: str = "auto"  # "auto" | "cuda" | "cpu"  (DIMOS_IPC_BACKEND overrides)
-    default_capacity: int = 64 * 1024  # payload bytes (excludes 4-byte header)
+    default_capacity: int = 3686400  # payload bytes (excludes 4-byte header)
     close_channels_on_stop: bool = True
 
 
@@ -102,7 +102,7 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
         self,
         *,
         prefer: str = "auto",
-        default_capacity: int = 64 * 1024,
+        default_capacity: int = 3686400,
         close_channels_on_stop: bool = True,
         **_: Any,
     ) -> None:
