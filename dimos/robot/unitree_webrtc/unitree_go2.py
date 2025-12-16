@@ -39,6 +39,11 @@ from dimos.perception.common.utils import (
     rectify_image,
 )
 from dimos.protocol import pubsub
+from dimos.stream.rust_transport_shim import should_use_rust_transport
+try:
+    from dimos.stream.rust_transport_shim import RustLCMTransport
+except Exception:
+    RustLCMTransport = None
 from dimos.protocol.pubsub.lcmpubsub import LCM, Topic
 from dimos.protocol.tf import TF
 from dimos.robot.foxglove_bridge import FoxgloveBridge
@@ -386,13 +391,15 @@ class UnitreeGo2(Robot):
         self.connection = self.dimos.deploy(
             ConnectionModule, self.ip, connection_type=self.connection_type
         )
+        use_rust = should_use_rust_transport() and RustLCMTransport is not None
+        TX = RustLCMTransport if use_rust else core.LCMTransport
 
-        self.connection.lidar.transport = core.LCMTransport("/lidar", LidarMessage)
-        self.connection.odom.transport = core.LCMTransport("/odom", PoseStamped)
-        self.connection.video.transport = core.LCMTransport("/go2/color_image", Image)
-        self.connection.movecmd.transport = core.LCMTransport("/cmd_vel", Twist)
-        self.connection.camera_info.transport = core.LCMTransport("/go2/camera_info", CameraInfo)
-        self.connection.camera_pose.transport = core.LCMTransport("/go2/camera_pose", PoseStamped)
+        self.connection.lidar.transport = TX("/lidar", LidarMessage)
+        self.connection.odom.transport = TX("/odom", PoseStamped)
+        self.connection.video.transport = TX("/go2/color_image", Image)
+        self.connection.movecmd.transport = TX("/cmd_vel", Twist)
+        self.connection.camera_info.transport = TX("/go2/camera_info", CameraInfo)
+        self.connection.camera_pose.transport = TX("/go2/camera_pose", PoseStamped)
 
     def _deploy_mapping(self):
         """Deploy and configure the mapping module."""
@@ -401,9 +408,12 @@ class UnitreeGo2(Robot):
             Map, voxel_size=0.5, global_publish_interval=2.5, min_height=min_height
         )
 
-        self.mapper.global_map.transport = core.LCMTransport("/global_map", LidarMessage)
-        self.mapper.global_costmap.transport = core.LCMTransport("/global_costmap", OccupancyGrid)
-        self.mapper.local_costmap.transport = core.LCMTransport("/local_costmap", OccupancyGrid)
+        use_rust = should_use_rust_transport() and RustLCMTransport is not None
+        TX = RustLCMTransport if use_rust else core.LCMTransport
+
+        self.mapper.global_map.transport = TX("/global_map", LidarMessage)
+        self.mapper.global_costmap.transport = TX("/global_costmap", OccupancyGrid)
+        self.mapper.local_costmap.transport = TX("/local_costmap", OccupancyGrid)
 
         self.mapper.lidar.connect(self.connection.lidar)
 
@@ -418,21 +428,24 @@ class UnitreeGo2(Robot):
         )
         self.frontier_explorer = self.dimos.deploy(WavefrontFrontierExplorer)
 
-        self.navigator.goal.transport = core.LCMTransport("/navigation_goal", PoseStamped)
-        self.navigator.goal_request.transport = core.LCMTransport("/goal_request", PoseStamped)
-        self.navigator.goal_reached.transport = core.LCMTransport("/goal_reached", Bool)
-        self.navigator.navigation_state.transport = core.LCMTransport("/navigation_state", String)
-        self.navigator.global_costmap.transport = core.LCMTransport(
+        use_rust = should_use_rust_transport() and RustLCMTransport is not None
+        TX = RustLCMTransport if use_rust else core.LCMTransport
+
+        self.navigator.goal.transport = TX("/navigation_goal", PoseStamped)
+        self.navigator.goal_request.transport = TX("/goal_request", PoseStamped)
+        self.navigator.goal_reached.transport = TX("/goal_reached", Bool)
+        self.navigator.navigation_state.transport = TX("/navigation_state", String)
+        self.navigator.global_costmap.transport = TX(
             "/global_costmap", OccupancyGrid
         )
-        self.global_planner.path.transport = core.LCMTransport("/global_path", Path)
-        self.local_planner.cmd_vel.transport = core.LCMTransport("/cmd_vel", Twist)
-        self.frontier_explorer.goal_request.transport = core.LCMTransport(
+        self.global_planner.path.transport = TX("/global_path", Path)
+        self.local_planner.cmd_vel.transport = TX("/cmd_vel", Twist)
+        self.frontier_explorer.goal_request.transport = TX(
             "/goal_request", PoseStamped
         )
-        self.frontier_explorer.goal_reached.transport = core.LCMTransport("/goal_reached", Bool)
-        self.frontier_explorer.explore_cmd.transport = core.LCMTransport("/explore_cmd", Bool)
-        self.frontier_explorer.stop_explore_cmd.transport = core.LCMTransport(
+        self.frontier_explorer.goal_reached.transport = TX("/goal_reached", Bool)
+        self.frontier_explorer.explore_cmd.transport = TX("/explore_cmd", Bool)
+        self.frontier_explorer.stop_explore_cmd.transport = TX(
             "/stop_explore_cmd", Bool
         )
 
@@ -455,10 +468,12 @@ class UnitreeGo2(Robot):
     def _deploy_visualization(self):
         """Deploy and configure visualization modules."""
         self.websocket_vis = self.dimos.deploy(WebsocketVisModule, port=self.websocket_port)
-        self.websocket_vis.click_goal.transport = core.LCMTransport("/goal_request", PoseStamped)
-        self.websocket_vis.explore_cmd.transport = core.LCMTransport("/explore_cmd", Bool)
-        self.websocket_vis.stop_explore_cmd.transport = core.LCMTransport("/stop_explore_cmd", Bool)
-        self.websocket_vis.movecmd.transport = core.LCMTransport("/cmd_vel", Twist)
+        use_rust = should_use_rust_transport() and RustLCMTransport is not None
+        TX = RustLCMTransport if use_rust else core.LCMTransport
+        self.websocket_vis.click_goal.transport = TX("/goal_request", PoseStamped)
+        self.websocket_vis.explore_cmd.transport = TX("/explore_cmd", Bool)
+        self.websocket_vis.stop_explore_cmd.transport = TX("/stop_explore_cmd", Bool)
+        self.websocket_vis.movecmd.transport = TX("/cmd_vel", Twist)
 
         self.websocket_vis.robot_pose.connect(self.connection.odom)
         self.websocket_vis.path.connect(self.global_planner.path)
@@ -477,8 +492,11 @@ class UnitreeGo2(Robot):
             output_dir=self.spatial_memory_dir,
         )
 
-        self.spatial_memory_module.video.transport = core.LCMTransport("/go2/color_image", Image)
-        self.spatial_memory_module.odom.transport = core.LCMTransport(
+        use_rust = should_use_rust_transport() and RustLCMTransport is not None
+        TX = RustLCMTransport if use_rust else core.LCMTransport
+
+        self.spatial_memory_module.video.transport = TX("/go2/color_image", Image)
+        self.spatial_memory_module.odom.transport = TX(
             "/go2/camera_pose", PoseStamped
         )
 
@@ -491,13 +509,15 @@ class UnitreeGo2(Robot):
         )
 
         # Set up transports
-        self.object_tracker.detection2darray.transport = core.LCMTransport(
+        use_rust = should_use_rust_transport() and RustLCMTransport is not None
+        TX = RustLCMTransport if use_rust else core.LCMTransport
+        self.object_tracker.detection2darray.transport = TX(
             "/go2/detection2d", Detection2DArray
         )
-        self.object_tracker.detection3darray.transport = core.LCMTransport(
+        self.object_tracker.detection3darray.transport = TX(
             "/go2/detection3d", Detection3DArray
         )
-        self.object_tracker.tracked_overlay.transport = core.LCMTransport(
+        self.object_tracker.tracked_overlay.transport = TX(
             "/go2/tracked_overlay", Image
         )
 
@@ -509,9 +529,11 @@ class UnitreeGo2(Robot):
         self.depth_module = self.dimos.deploy(DepthModule, gt_depth_scale=gt_depth_scale)
 
         # Set up transports
-        self.depth_module.color_image.transport = core.LCMTransport("/go2/color_image", Image)
-        self.depth_module.depth_image.transport = core.LCMTransport("/go2/depth_image", Image)
-        self.depth_module.camera_info.transport = core.LCMTransport("/go2/camera_info", CameraInfo)
+        use_rust = should_use_rust_transport() and RustLCMTransport is not None
+        TX = RustLCMTransport if use_rust else core.LCMTransport
+        self.depth_module.color_image.transport = TX("/go2/color_image", Image)
+        self.depth_module.depth_image.transport = TX("/go2/depth_image", Image)
+        self.depth_module.camera_info.transport = TX("/go2/camera_info", CameraInfo)
 
         logger.info("Camera module deployed and connected")
 
