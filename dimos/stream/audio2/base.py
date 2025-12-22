@@ -161,20 +161,32 @@ class GStreamerSourceBase(GStreamerPipelineBase, ABC):
 
         # Call observer.on_completed() in a separate thread to avoid blocking
         # (downstream operators may block waiting for cleanup)
+        notify_thread = None
         if self._observer:
 
             def notify_completion():
                 logger.info(f"{self._get_source_name()}: Calling observer.on_completed()")
                 self._observer.on_completed()
 
-            threading.Thread(
+            notify_thread = threading.Thread(
                 target=notify_completion, daemon=True, name=f"{self._get_source_name()}-notify"
-            ).start()
+            )
+            notify_thread.start()
 
-        # Schedule cleanup in a separate thread
+        # Schedule cleanup in a separate thread, but wait for notify to complete first
+        def cleanup_after_notify():
+            # Wait for notify thread to complete so downstream operators can finish
+            if notify_thread:
+                notify_thread.join(timeout=10.0)
+                if notify_thread.is_alive():
+                    logger.warning(
+                        f"{self._get_source_name()}: Notify thread still alive after 10s"
+                    )
+            self._cleanup_on_completion()
+
         try:
             self._cleanup_thread = threading.Thread(
-                target=self._cleanup_on_completion,
+                target=cleanup_after_notify,
                 daemon=True,
                 name=f"{self._get_source_name()}-cleanup",
             )

@@ -344,13 +344,12 @@ class GStreamerNormalizer(GStreamerPipelineBase):
                     if self._pull_thread:
                         self._pull_thread.join(timeout=2.0)
 
-                    # Cleanup pipeline BEFORE calling observer.on_completed()
-                    # This releases the mainloop reference so downstream operators
-                    # (like network_output) can finish their EOS processing
-                    self._cleanup_pipeline()
-
-                    # Now notify observer
+                    # Notify observer FIRST - downstream operators need the mainloop
+                    # to still be running so they can process their EOS messages
                     observer.on_completed()
+
+                    # Now cleanup and release mainloop reference
+                    self._cleanup_pipeline()
 
                 source.subscribe(on_next, on_error, on_completed, scheduler=scheduler)
 

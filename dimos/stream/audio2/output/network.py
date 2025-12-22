@@ -237,14 +237,18 @@ def network_output(
                     # The sink will set _is_playing=False when EOS completes
                     import time
 
-                    max_wait = 60.0  # Max 1 minute
+                    max_wait = 5.0  # 5 seconds should be plenty for EOS to process
                     start = time.time()
                     logger.info(
                         f"NetworkOutputOperator: Waiting for network sink to finish (is_playing={self._sink._is_playing})"
                     )
                     while self._sink._is_playing:
                         if time.time() - start > max_wait:
-                            logger.warning("NetworkOutputOperator: Timeout waiting for sink")
+                            logger.warning(
+                                f"NetworkOutputOperator: Timeout waiting for EOS, forcing stop()"
+                            )
+                            # Force stop if EOS didn't trigger it (e.g., mainloop died)
+                            self._sink.stop()
                             break
                         time.sleep(0.05)
 

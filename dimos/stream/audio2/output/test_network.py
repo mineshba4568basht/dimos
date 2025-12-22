@@ -21,7 +21,7 @@ import pytest
 
 from dimos.stream.audio2.input.file import file_input
 from dimos.stream.audio2.input.signal import WaveformType, signal
-from dimos.stream.audio2.operators import normalizer, vumeter
+from dimos.stream.audio2.operators import normalizer, robotize, vumeter
 from dimos.stream.audio2.output.network import network_output
 from dimos.stream.audio2.types import AudioFormat, AudioSpec
 from dimos.utils.data import get_data
@@ -54,19 +54,19 @@ def test_network_output_to_server_signal():
     # Build list of signal observables
     notes = [
         signal(
-            waveform=WaveformType.SAW,
+            waveform=WaveformType.SINE,
             frequency=freq,
-            volume=0.4,
+            volume=0.2,
             duration=dur,
             output=AudioSpec(format=AudioFormat.PCM_F32LE),
         )
         for freq, dur in melody_notes
     ]
 
-    # Concatenate all notes into a melody
-    concat(*notes).pipe(network_output(host=host, port=5002, codec="opus")).run()
+    # Concatenate all notes into a melody and apply robotic effect
+    concat(*notes).pipe(normalizer(), network_output(host=host, port=5002, codec="opus")).run()
 
-    time.sleep(0.1)
+    time.sleep(0.2)
     # .run() blocks until streaming completes (sync=True paces packets at real-time)
     # No manual sleep needed
 
@@ -82,12 +82,12 @@ def test_network_output_to_server_file():
         file_path=str(get_data("audio_bender") / "out_of_date.wav"),
         realtime=False,  # Fast playback for testing
     ).pipe(
-        normalizer(),
+        robotize(),
         vumeter(),
         network_output(host=host, port=5002, codec="opus"),
     ).run()
 
-    time.sleep(0.1)
+    time.sleep(0.2)
 
     # .run() blocks until streaming completes (sync=True paces packets at real-time)
     # No manual sleep needed
