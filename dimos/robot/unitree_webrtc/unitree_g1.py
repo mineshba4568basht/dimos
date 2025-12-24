@@ -42,7 +42,7 @@ from dimos.msgs.geometry_msgs import (
     TwistStamped,
     Vector3,
 )
-from dimos.msgs.nav_msgs.Odometry import Odometry
+from dimos.msgs.nav_msgs import Odometry, Path
 from dimos.msgs.sensor_msgs import CameraInfo, Image, Joy, PointCloud2
 from dimos.msgs.std_msgs.Bool import Bool
 from dimos.msgs.tf2_msgs.TFMessage import TFMessage
@@ -53,9 +53,8 @@ from dimos.protocol import pubsub
 from dimos.protocol.pubsub.lcmpubsub import LCM
 from dimos.robot.foxglove_bridge import FoxgloveBridge
 from dimos.robot.robot import Robot
-from dimos.robot.ros_bridge import BridgeDirection, ROSBridge
 from dimos.robot.unitree_webrtc.connection import UnitreeWebRTCConnection
-from dimos.robot.unitree_webrtc.rosnav import NavigationModule
+from dimos.navigation.rosnav.nav_bot import ROSNavigationModule
 from dimos.robot.unitree_webrtc.unitree_g1_skill_container import UnitreeG1SkillContainer
 from dimos.robot.unitree_webrtc.unitree_skills import MyUnitreeSkills
 from dimos.skills.skills import SkillLibrary
@@ -151,7 +150,6 @@ class UnitreeG1(Robot, Resource):
         replay_path: str = None,
         enable_joystick: bool = False,
         enable_connection: bool = True,
-        enable_ros_bridge: bool = True,
         enable_perception: bool = False,
         enable_camera: bool = False,
     ):
@@ -166,7 +164,6 @@ class UnitreeG1(Robot, Resource):
             replay_path: Path to replay recordings from (if replaying)
             enable_joystick: Enable pygame joystick control
             enable_connection: Enable robot connection module
-            enable_ros_bridge: Enable ROS bridge
             enable_camera: Enable web camera module
         """
         super().__init__()
@@ -176,7 +173,6 @@ class UnitreeG1(Robot, Resource):
         self.replay_path = replay_path
         self.enable_joystick = enable_joystick
         self.enable_connection = enable_connection
-        self.enable_ros_bridge = enable_ros_bridge
         self.enable_perception = enable_perception
         self.enable_camera = enable_camera
         self.websocket_port = websocket_port
@@ -199,7 +195,6 @@ class UnitreeG1(Robot, Resource):
         self.foxglove_bridge = None
         self.spatial_memory_module = None
         self.joystick = None
-        self.ros_bridge = None
         self.camera = None
         self._ros_nav = None
         self._setup_directories()
@@ -264,18 +259,26 @@ class UnitreeG1(Robot, Resource):
         if self.enable_joystick:
             self._deploy_joystick()
 
-        if self.enable_ros_bridge:
-            self._deploy_ros_bridge()
+        self.nav = self._dimos.deploy(ROSNavigationModule)
 
-        self.nav = self._dimos.deploy(NavigationModule)
-        self.nav.goal_reached.transport = core.LCMTransport("/goal_reached", Bool)
-        self.nav.goal_pose.transport = core.LCMTransport("/goal_pose", PoseStamped)
+        # Input ports (module receives commands)
+        self.nav.goal_req.transport = core.LCMTransport("/goal", PoseStamped)
         self.nav.cancel_goal.transport = core.LCMTransport("/cancel_goal", Bool)
-        self.nav.joy.transport = core.LCMTransport("/joy", Joy)
+
+        # Output ports (module publishes data)
+        self.nav.goal_reached.transport = core.LCMTransport("/goal_reached", Bool)
+        self.nav.pointcloud.transport = core.LCMTransport("/pointcloud_map", PointCloud2)
+        self.nav.global_pointcloud.transport = core.LCMTransport("/global_pointcloud", PointCloud2)
+        self.nav.goal_active.transport = core.LCMTransport("/goal_active", PoseStamped)
+        self.nav.path_active.transport = core.LCMTransport("/path_active", Path)
+        self.nav.odom.transport = core.LCMTransport("/odom", Odometry)
+        self.nav.cmd_vel.transport = core.LCMTransport("/cmd_vel", Twist)
+        self.nav.odom_pose.transport = core.LCMTransport("/odom_pose", PoseStamped)
+
         self.nav.start()
 
         self._deploy_camera()
-        self._deploy_detection(self.nav.go_to)
+        self._deploy_detection(self.nav.navigate_to)
 
         if self.enable_perception:
             self._deploy_perception()
@@ -384,7 +387,7 @@ class UnitreeG1(Robot, Resource):
             output_dir=self.spatial_memory_dir,
         )
 
-        self.spatial_memory_module.color_image.connect(self.camera.image)        
+        self.spatial_memory_module.color_image.connect(self.camera.image)
         self.spatial_memory_module.odom.transport = core.LCMTransport("/odom", PoseStamped)
 
         logger.info("Spatial memory module deployed and connected")
@@ -397,57 +400,6 @@ class UnitreeG1(Robot, Resource):
         self.joystick = self._dimos.deploy(G1JoystickModule)
         self.joystick.twist_out.transport = core.LCMTransport("/cmd_vel", Twist)
         logger.info("Joystick module deployed - pygame window will open")
-
-    def _deploy_ros_bridge(self):
-        """Deploy and configure ROS bridge."""
-        self.ros_bridge = ROSBridge("g1_ros_bridge")
-
-        # Add /cmd_vel topic from ROS to DIMOS
-        self.ros_bridge.add_topic(
-            "/cmd_vel", TwistStamped, ROSTwistStamped, direction=BridgeDirection.ROS_TO_DIMOS
-        )
-
-        # Add /state_estimation topic from ROS to DIMOS
-        self.ros_bridge.add_topic(
-            "/state_estimation", Odometry, ROSOdometry, direction=BridgeDirection.ROS_TO_DIMOS
-        )
-
-        # Add /tf topic from ROS to DIMOS
-        self.ros_bridge.add_topic(
-            "/tf", TFMessage, ROSTFMessage, direction=BridgeDirection.ROS_TO_DIMOS
-        )
-
-        from geometry_msgs.msg import PoseStamped as ROSPoseStamped
-        from std_msgs.msg import Bool as ROSBool
-
-        from dimos.msgs.std_msgs import Bool
-
-        # Navigation control topics from autonomy stack
-        self.ros_bridge.add_topic(
-            "/goal_pose", PoseStamped, ROSPoseStamped, direction=BridgeDirection.DIMOS_TO_ROS
-        )
-        self.ros_bridge.add_topic(
-            "/cancel_goal", Bool, ROSBool, direction=BridgeDirection.DIMOS_TO_ROS
-        )
-        self.ros_bridge.add_topic(
-            "/goal_reached", Bool, ROSBool, direction=BridgeDirection.ROS_TO_DIMOS
-        )
-
-        self.ros_bridge.add_topic("/joy", Joy, ROSJoy, direction=BridgeDirection.DIMOS_TO_ROS)
-
-        self.ros_bridge.add_topic(
-            "/registered_scan",
-            PointCloud2,
-            ROSPointCloud2,
-            direction=BridgeDirection.ROS_TO_DIMOS,
-            remap_topic="/map",
-        )
-
-        self.ros_bridge.start()
-
-        logger.info(
-            "ROS bridge deployed: /cmd_vel, /state_estimation, /tf, /registered_scan (ROS → DIMOS)"
-        )
 
     def _start_modules(self):
         """Start all deployed modules."""
@@ -506,7 +458,6 @@ def main():
         enable_joystick=args.joystick,
         enable_camera=args.camera,
         enable_connection=os.getenv("ROBOT_IP") is not None,
-        enable_ros_bridge=True,
         enable_perception=True,
     )
     robot.start()
@@ -514,7 +465,7 @@ def main():
     # time.sleep(7)
     # print("Starting navigation...")
     # print(
-    #     robot.nav.go_to(
+    #     robot.nav.navigate_to(
     #         PoseStamped(
     #             ts=time.time(),
     #             frame_id="map",
