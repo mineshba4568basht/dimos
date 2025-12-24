@@ -74,7 +74,7 @@ class ROSNavigationModule(ROSNav):
         if not rclpy.ok():
             rclpy.init()
         self._node = Node("navigation_module")
-
+        self._running = False
         self.goal_reach = None
         self.sensor_to_base_link_transform = sensor_to_base_link_transform or [
             0.0,
@@ -118,6 +118,9 @@ class ROSNavigationModule(ROSNav):
 
     @rpc
     def start(self):
+        if self._running:
+            raise Exception("Cant run")
+
         self._running = True
         self.spin_thread = threading.Thread(target=self._spin_node, daemon=True)
         self.spin_thread.start()
