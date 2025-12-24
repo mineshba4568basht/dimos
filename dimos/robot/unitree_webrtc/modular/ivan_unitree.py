@@ -39,8 +39,10 @@ logger = setup_logger("dimos.robot.unitree_webrtc.unitree_go2", level=logging.IN
 
 
 def detection_unitree():
-    dimos = start(8)
+    dimos = start(8, memory_limit="8GiB")
     connection = deploy_connection(dimos)
+    mapper = deploy_navigation(dimos, connection)
+    mapper.start()
 
     def goto(pose):
         print("NAVIGATION REQUESTED:", pose)
@@ -76,10 +78,10 @@ def detection_unitree():
 
     # nav = deploy_navigation(dimos, connection)
 
-    # person_tracker = dimos.deploy(PersonTracker, cameraInfo=ConnectionModule._camera_info())
-    # person_tracker.image.connect(connection.video)
-    # person_tracker.detections.connect(detector.detections)
-    # person_tracker.target.transport = LCMTransport("/goal_request", PoseStamped)
+    person_tracker = dimos.deploy(PersonTracker, cameraInfo=ConnectionModule._camera_info())
+    person_tracker.image.connect(connection.video)
+    person_tracker.detections.connect(detector.detections)
+    person_tracker.target.transport = LCMTransport("/goal_request", PoseStamped)
 
     reid = dimos.deploy(ReidModule)
 

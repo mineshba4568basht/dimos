@@ -20,7 +20,7 @@ import logging
 import os
 import time
 import warnings
-from typing import Optional
+from typing import Optional, List
 
 from reactivex import Observable
 from reactivex.disposable import CompositeDisposable
@@ -36,6 +36,7 @@ from dimos.msgs.geometry_msgs import PoseStamped, Transform, Twist, Vector3, Qua
 from dimos.msgs.nav_msgs import OccupancyGrid, Path
 from dimos.msgs.sensor_msgs import Image
 from dimos.msgs.vision_msgs import Detection2DArray
+from dimos.msgs.foxglove_msgs import ImageAnnotations
 from dimos_lcm.std_msgs import String
 from dimos_lcm.sensor_msgs import CameraInfo
 from dimos.perception.spatial_perception import SpatialMemory
@@ -64,6 +65,8 @@ from dimos.utils.data import get_data
 from dimos.utils.logging_config import setup_logger
 from dimos.utils.testing import TimedSensorReplay
 from dimos.perception.object_tracker_2d import ObjectTracker2D
+from dimos.perception.detection.module2D import Detection2DModule
+from dimos.perception.detection.person_tracker import PersonTracker
 from dimos.navigation.bbox_navigation import BBoxNavigationModule
 from dimos_lcm.std_msgs import Bool
 from dimos.robot.robot import UnitreeRobot
@@ -241,53 +244,51 @@ class ConnectionModule(Module):
         # Publish camera info and pose synchronized with video
         timestamp = msg.ts if msg.ts else time.time()
         self._publish_camera_info(timestamp)
-        self._publish_camera_pose(timestamp)
 
     def _publish_gps_location(self, msg: LatLon):
         self.gps_location.publish(msg)
 
-    def _publish_tf(self, msg):
-        self._odom = msg
-        self.odom.publish(msg)
-        self.tf.publish(Transform.from_pose("base_link", msg))
+    @classmethod
+    def _odom_to_tf(self, odom: PoseStamped) -> List[Transform]:
         camera_link = Transform(
             translation=Vector3(0.3, 0.0, 0.0),
             rotation=Quaternion(0.0, 0.0, 0.0, 1.0),
             frame_id="base_link",
             child_frame_id="camera_link",
-            ts=time.time(),
+            ts=odom.ts,
         )
-        self.tf.publish(camera_link)
+
+        camera_optical = Transform(
+            translation=Vector3(0.0, 0.0, 0.0),
+            rotation=Quaternion(-0.5, 0.5, -0.5, 0.5),
+            frame_id="camera_link",
+            child_frame_id="camera_optical",
+            ts=odom.ts,
+        )
+
+        sensor = Transform(
+            translation=Vector3(0.0, 0.0, 0.0),
+            rotation=Quaternion(0.0, 0.0, 0.0, 1.0),
+            frame_id="world",
+            child_frame_id="sensor",
+            ts=odom.ts,
+        )
+
+        return [
+            Transform.from_pose("base_link", odom),
+            camera_link,
+            camera_optical,
+            sensor,
+        ]
+
+    def _publish_tf(self, msg):
+        self.odom.publish(msg)
+        self.tf.publish(*self._odom_to_tf(msg))
 
     def _publish_camera_info(self, timestamp: float):
         header = Header(timestamp, "camera_link")
         self.lcm_camera_info.header = header
         self.camera_info.publish(self.lcm_camera_info)
-
-    def _publish_camera_pose(self, timestamp: float):
-        """Publish camera pose from TF lookup."""
-        try:
-            # Look up transform from world to camera_link
-            transform = self.tf.get(
-                parent_frame="world",
-                child_frame="camera_link",
-                time_point=timestamp,
-                time_tolerance=1.0,
-            )
-
-            if transform:
-                pose_msg = PoseStamped(
-                    ts=timestamp,
-                    frame_id="camera_link",
-                    position=transform.translation,
-                    orientation=transform.rotation,
-                )
-                self.camera_pose.publish(pose_msg)
-            else:
-                logger.debug("Could not find transform from world to camera_link")
-
-        except Exception as e:
-            logger.error(f"Error publishing camera pose: {e}")
 
     @rpc
     def get_odom(self) -> Optional[PoseStamped]:
@@ -323,6 +324,47 @@ class ConnectionModule(Module):
             The result of the publish request
         """
         return self.connection.publish_request(topic, data)
+
+    @classmethod
+    def _camera_info(cls) -> CameraInfo:
+        """Return static camera info for module deployment.
+
+        Uses parameters from front_camera_720.yaml with zero distortion
+        (assuming rectification is enabled, which is the default).
+
+        Returns:
+            CameraInfo object with camera parameters
+        """
+        width, height = 1280, 720
+
+        # Camera matrix from front_camera_720.yaml
+        fx, fy = 864.39938, 863.73849
+        cx, cy = 639.19798, 373.28118
+        K = [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+
+        # Zero distortion (rectification enabled by default)
+        D = [0.0, 0.0, 0.0, 0.0, 0.0]
+
+        # Identity rotation matrix
+        R = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+        # Projection matrix from front_camera_720.yaml
+        P = [651.42609, 0, 633.16224, 0, 0, 804.93951, 373.8537, 0, 0, 0, 1, 0]
+
+        base_msg = {
+            "D_length": len(D),
+            "height": height,
+            "width": width,
+            "distortion_model": "plumb_bob",
+            "D": D,
+            "K": K,
+            "R": R,
+            "P": P,
+            "binning_x": 0,
+            "binning_y": 0,
+        }
+
+        return CameraInfo(**base_msg, header=Header(0.0, "camera_link"))
 
 
 class UnitreeGo2(UnitreeRobot, Resource):
@@ -376,6 +418,8 @@ class UnitreeGo2(UnitreeRobot, Resource):
         self.foxglove_bridge = None
         self.spatial_memory_module = None
         self.object_tracker = None
+        self.detection_module = None
+        self.person_tracker = None
         self.utilization_module = None
 
         self._setup_directories()
@@ -544,10 +588,22 @@ class UnitreeGo2(UnitreeRobot, Resource):
             frame_id="camera_link",
         )
 
-        # Deploy bbox navigation module
-        self.bbox_navigator = self._dimos.deploy(BBoxNavigationModule, goal_distance=1.0)
+        # Deploy Detection2DModule for continuous person detection
+        self.detection_module = self.dimos.deploy(
+            Detection2DModule, camera_info=ConnectionModule._camera_info(), max_freq=5
+        )
 
-        self.utilization_module = self._dimos.deploy(UtilizationModule)
+        # Deploy PersonTracker for person following
+        self.person_tracker = self.dimos.deploy(
+            PersonTracker,
+            cameraInfo=ConnectionModule._camera_info(),
+        )
+
+        self.bbox_navigator = None
+        # Deploy bbox navigation module
+        # self.bbox_navigator = self.dimos.deploy(BBoxNavigationModule, goal_distance=1.0)
+
+        # self.utilization_module = self.dimos.deploy(UtilizationModule)
 
         # Set up transports for object tracker
         self.object_tracker.detection2darray.transport = core.LCMTransport(
@@ -557,10 +613,30 @@ class UnitreeGo2(UnitreeRobot, Resource):
             "/go2/tracked_overlay", default_capacity=DEFAULT_CAPACITY_COLOR_IMAGE
         )
 
-        # Set up transports for bbox navigator
-        self.bbox_navigator.goal_request.transport = core.LCMTransport("/goal_request", PoseStamped)
+        # Set up transports for detection module
+        self.detection_module.annotations.transport = core.LCMTransport(
+            "/annotations", ImageAnnotations
+        )
+        self.detection_module.detections.transport = core.LCMTransport(
+            "/detections", Detection2DArray
+        )
+        self.detection_module.detected_image_0.transport = core.LCMTransport(
+            "/detected/image/0", Image
+        )
+        self.detection_module.detected_image_1.transport = core.LCMTransport(
+            "/detected/image/1", Image
+        )
+        self.detection_module.detected_image_2.transport = core.LCMTransport(
+            "/detected/image/2", Image
+        )
 
-        logger.info("Object tracker and bbox navigator modules deployed")
+        # Set up transports for person tracker
+        self.person_tracker.target.transport = core.LCMTransport("/person_path", Path)
+
+        # Set up transports for bbox navigator
+        # self.bbox_navigator.goal_request.transport = core.LCMTransport("/goal_request", PoseStamped)
+
+        logger.info("Object tracker, detection module, person tracker deployed")
 
     def _deploy_camera(self):
         """Deploy and configure the camera module."""
@@ -568,6 +644,18 @@ class UnitreeGo2(UnitreeRobot, Resource):
         if self.object_tracker:
             self.object_tracker.color_image.connect(self.connection.color_image)
             logger.info("Object tracker connected to camera")
+
+        # Connect detection module inputs
+        if self.detection_module:
+            self.detection_module.image.connect(self.connection.video)
+            logger.info("Detection module connected to camera")
+
+        # Connect person tracker inputs
+        if self.person_tracker:
+            self.person_tracker.image.connect(self.connection.video)
+            self.person_tracker.detections.connect(self.detection_module.detections)
+            self.person_tracker.target.connect(self.local_planner.path)
+            logger.info("Person tracker connected to detection module and local planner")
 
         # Connect bbox navigator inputs
         if self.bbox_navigator:

@@ -225,9 +225,70 @@ class NavigationSkillContainer(SkillContainer, Resource):
         return f"Successfuly arrived at '{query}'"
 
     @skill()
-    def follow_human(self, person: str) -> str:
-        """Follow a specific person"""
-        return "Not implemented yet."
+    def follow_human(self, person_description: str = "person") -> str:
+        """Follow and navigate to a person detected in the camera view.
+
+        The robot will continuously track the person and navigate until reaching them.
+        The person is considered "reached" when their bounding box is near the bottom
+        of the camera frame.
+
+        Args:
+            person_description: Description of person to follow (default: "person")
+
+        Returns:
+            Status message indicating success or failure
+        """
+        if not self._started:
+            raise ValueError(f"{self} has not been started.")
+
+        # Check for required modules
+        if not hasattr(self._robot, "person_tracker"):
+            return "Person tracker not available on this robot"
+
+        if not hasattr(self._robot, "detection_module"):
+            return "Detection module not available on this robot"
+
+        logger.info(f"Starting person following for: {person_description}")
+
+        # Start person tracking (detection_module already running from robot startup)
+        self._robot.person_tracker.start_tracking()
+
+        try:
+            start_time = time.time()
+            timeout = 60.0  # 60 second timeout
+            goal_set = False
+
+            while time.time() - start_time < timeout:
+                # Check if tracking stopped (arrival detected by PersonTracker)
+                if not self._robot.person_tracker.is_tracking():
+                    logger.info("PersonTracker stopped - person reached")
+                    return f"Successfully reached {person_description}"
+
+                # Check navigator state
+                if self._robot.navigator.get_state() == NavigatorState.IDLE and goal_set:
+                    logger.info("Navigator idle, checking goal status")
+                    time.sleep(0.5)
+                    if not self._robot.navigator.is_goal_reached():
+                        logger.warning("Goal was cancelled")
+                        continue
+                    else:
+                        # Navigator thinks goal reached, but wait for PersonTracker arrival
+                        if not self._robot.person_tracker.is_tracking():
+                            logger.info("Goal reached and person arrived")
+                            return f"Successfully reached {person_description}"
+
+                # PersonTracker publishes goals continuously while tracking
+                if self._robot.person_tracker.is_tracking():
+                    goal_set = True
+
+                time.sleep(0.25)
+
+            logger.warning(f"Following {person_description} timed out after {timeout}s")
+            return f"Timeout while following {person_description}"
+
+        finally:
+            # Always stop tracking
+            self._robot.person_tracker.stop_tracking()
 
     @skill()
     def stop_movement(self) -> str:

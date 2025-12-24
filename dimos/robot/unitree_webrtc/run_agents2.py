@@ -23,13 +23,14 @@ from dimos.agents2.cli.human import HumanInput
 from dimos.agents2.constants import AGENT_SYSTEM_PROMPT_PATH
 from dimos.core.resource import Resource
 from dimos.robot.robot import UnitreeRobot
-from dimos.robot.unitree_webrtc.unitree_go2 import UnitreeGo2
+from dimos.robot.unitree_webrtc.unitree_go2 import UnitreeGo2, ConnectionModule
 from dimos.robot.unitree_webrtc.unitree_skill_container import UnitreeSkillContainer
 from dimos.agents2.skills.navigation import NavigationSkillContainer
 from dimos.robot.utils.robot_debugger import RobotDebugger
 from dimos.utils.logging_config import setup_logger
+from dimos.perception.detection.person_tracker import PersonTracker
 
-logger = setup_logger(__file__)
+logger = setup_logger("dimos.robot.unitree_webrtc.run_agents2")
 
 load_dotenv()
 
@@ -91,6 +92,7 @@ class UnitreeAgents2Runner(Resource):
             UnitreeSkillContainer(robot=self._robot),
             self._navigation_skill,
             HumanInput(),
+            PersonTracker(cameraInfo=ConnectionModule._camera_info()),
         ]
 
         for container in skill_containers:
