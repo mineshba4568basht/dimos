@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
+
 from ultralytics import YOLO
 
 from dimos.msgs.sensor_msgs import Image
@@ -25,16 +27,49 @@ logger = setup_logger("dimos.perception.detection.yolo.person")
 
 
 class YoloPersonDetector(Detector):
-    def __init__(self, model_path="models_yolo", model_name="yolo11n-pose.pt", device: str = None):
-        self.model = YOLO(get_data(model_path) / model_name, task="track")
+    """YOLO-based person detector with pose estimation.
 
+    This detector is an RxPY operator that transforms image streams into person detection
+    streams with pose keypoints. It automatically handles model initialization, GPU
+    management, and cleanup.
+
+    Example usage:
+        ```python
+        detector = YoloPersonDetector()
+        person_detections = image_stream.pipe(detector)
+
+        # With backpressure operators
+        from dimos.stream.video_operators import Operators
+        person_detections = image_stream.pipe(
+            Operators.exhaust_lock(detector.process_image)
+        )
+        ```
+    """
+
+    def __init__(
+        self,
+        model_path: str = "models_yolo",
+        model_name: str = "yolo11n-pose.pt",
+        device: Optional[str] = None,
+        conf: float = 0.5,
+    ):
+        """Initialize YOLO person detector.
+
+        Args:
+            model_path: Path to model directory (default: "models_yolo")
+            model_name: Model filename (default: "yolo11n-pose.pt")
+            device: Device to use ("cuda", "cpu", or None for auto-detect)
+            conf: Confidence threshold for detections (default: 0.5)
+        """
+        super().__init__()
+
+        self.model = YOLO(get_data(model_path) / model_name, task="track")
         self.tracker = get_data(model_path) / "botsort.yaml"
+        self.conf = conf
 
         if device:
             self.device = device
-            return
-
-        if is_cuda_available():
+        elif is_cuda_available():
             self.device = "cuda"
             logger.info("Using CUDA for YOLO person detector")
         else:
@@ -53,7 +88,7 @@ class YoloPersonDetector(Detector):
         results = self.model.track(
             source=image.to_opencv(),
             verbose=False,
-            conf=0.5,
+            conf=self.conf,
             tracker=self.tracker,
             persist=True,
             device=self.device,
@@ -61,9 +96,7 @@ class YoloPersonDetector(Detector):
         return ImageDetections2D.from_ultralytics_result(image, results)
 
     def stop(self):
-        """
-        Clean up resources used by the detector, including tracker threads.
-        """
+        """Clean up resources used by the detector, including tracker threads."""
         if hasattr(self.model, "predictor") and self.model.predictor is not None:
             predictor = self.model.predictor
             if hasattr(predictor, "trackers") and predictor.trackers:

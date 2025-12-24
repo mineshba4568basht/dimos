@@ -36,6 +36,7 @@ from dimos.msgs.foxglove_msgs import ImageAnnotations
 from dimos.msgs.geometry_msgs import PoseStamped, Quaternion, Transform, Twist, Vector3
 from dimos.msgs.sensor_msgs.Image import Image, sharpness_window
 from dimos.msgs.std_msgs import Header
+from dimos.robot.foxglove_bridge import FoxgloveBridge
 from dimos.robot.unitree_webrtc.connection import UnitreeWebRTCConnection
 from dimos.robot.unitree_webrtc.type.lidar import LidarMessage
 from dimos.utils.data import get_data
@@ -63,6 +64,7 @@ originalwidth, originalheight = (1280, 720)
 
 class FakeRTC(UnitreeWebRTCConnection):
     dir_name = "unitree_go2_office_walk2"
+    stop_timer = None
 
     # we don't want UnitreeWebRTCConnection to init
     def __init__(

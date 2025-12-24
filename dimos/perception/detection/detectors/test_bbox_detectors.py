@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+import reactivex as rx
 
 from dimos.perception.detection.type import Detection2D, ImageDetections2D
 
@@ -25,8 +26,10 @@ def detector(request):
 
 @pytest.fixture(scope="session")
 def detections(detector, test_image):
-    """Get ImageDetections2D from any detector."""
-    return detector.process_image(test_image)
+    """Get ImageDetections2D from any detector using operator interface."""
+    results = []
+    rx.from_iterable([test_image]).pipe(detector).subscribe(on_next=lambda d: results.append(d))
+    return results[0]
 
 
 def test_detection_basic(detections):

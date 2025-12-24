@@ -13,13 +13,19 @@
 # limitations under the License.
 
 import pytest
+import reactivex as rx
 
 from dimos.perception.detection.type import Detection2DPerson, ImageDetections2D
 
 
 @pytest.fixture(scope="session")
 def people(person_detector, test_image):
-    return person_detector.process_image(test_image)
+    """Get person detections using operator interface."""
+    results = []
+    rx.from_iterable([test_image]).pipe(person_detector).subscribe(
+        on_next=lambda d: results.append(d)
+    )
+    return results[0]
 
 
 @pytest.fixture(scope="session")

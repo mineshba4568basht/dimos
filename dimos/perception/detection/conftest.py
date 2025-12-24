@@ -20,7 +20,7 @@ from dimos_lcm.foxglove_msgs.ImageAnnotations import ImageAnnotations
 from dimos_lcm.foxglove_msgs.SceneUpdate import SceneUpdate
 from dimos_lcm.visualization_msgs.MarkerArray import MarkerArray
 
-from dimos.core import LCMTransport
+from dimos.core import LCMTransport, start
 from dimos.msgs.geometry_msgs import Transform
 from dimos.msgs.sensor_msgs import CameraInfo, Image, PointCloud2
 from dimos.msgs.vision_msgs import Detection2DArray
@@ -61,6 +61,13 @@ class Moment2D(Moment):
 
 class Moment3D(Moment):
     detections3dpc: ImageDetections3DPC
+
+
+@pytest.fixture(scope="module")
+def dimos_cluster():
+    cluster = start(4)
+    yield cluster
+    cluster.stop()
 
 
 @pytest.fixture(scope="session")

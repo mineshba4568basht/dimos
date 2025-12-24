@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
+
 from ultralytics import YOLO
 
 from dimos.msgs.sensor_msgs import Image
@@ -25,7 +27,25 @@ logger = setup_logger("dimos.perception.detection.yolo_2d_det")
 
 
 class Yolo2DDetector(Detector):
-    def __init__(self, model_path="models_yolo", model_name="yolo11n.pt", device: str = None):
+    def __init__(
+        self,
+        model_path: str = "models_yolo",
+        model_name: str = "yolo11n.pt",
+        device: Optional[str] = None,
+        conf: float = 0.5,
+        iou: float = 0.6,
+    ):
+        """Initialize YOLO detector.
+
+        Args:
+            model_path: Path to model directory (default: "models_yolo")
+            model_name: Model filename (default: "yolo11n.pt")
+            device: Device to use ("cuda", "cpu", or None for auto-detect)
+            conf: Confidence threshold for detections (default: 0.5)
+            iou: IoU threshold for NMS (default: 0.6)
+        """
+        super().__init__()
+
         self.model = YOLO(
             get_data(model_path) / model_name,
             task="detect",
@@ -33,40 +53,31 @@ class Yolo2DDetector(Detector):
 
         if device:
             self.device = device
-            return
-
-        if is_cuda_available():
+        elif is_cuda_available():
             self.device = "cuda"
             logger.debug("Using CUDA for YOLO 2d detector")
         else:
             self.device = "cpu"
             logger.debug("Using CPU for YOLO 2d detector")
 
+        self.conf = conf
+        self.iou = iou
+
     def process_image(self, image: Image) -> ImageDetections2D:
-        """
-        Process an image and return detection results.
-
-        Args:
-            image: Input image
-
-        Returns:
-            ImageDetections2D containing all detected objects
-        """
-        results = self.model.track(
-            source=image.to_opencv(),
-            device=self.device,
-            conf=0.5,
-            iou=0.6,
-            persist=True,
-            verbose=False,
+        return ImageDetections2D.from_ultralytics_result(
+            image,
+            self.model.track(
+                source=image.to_opencv(),
+                device=self.device,
+                conf=self.conf,
+                iou=self.iou,
+                persist=True,
+                verbose=False,
+            ),
         )
 
-        return ImageDetections2D.from_ultralytics_result(image, results)
-
     def stop(self):
-        """
-        Clean up resources used by the detector, including tracker threads.
-        """
+        """Clean up resources used by the detector, including tracker threads."""
         if hasattr(self.model, "predictor") and self.model.predictor is not None:
             predictor = self.model.predictor
             if hasattr(predictor, "trackers") and predictor.trackers:
