@@ -43,7 +43,7 @@ except ImportError:
     print("Download from: https://www.stereolabs.com/developers/release/")
     sys.exit(1)
 
-from dimos.hardware.zed_camera import ZEDCamera
+from dimos.hardware.camera.zed.camera import ZEDCamera
 from dimos.perception.pointcloud.utils import visualize_pcd
 
 # Configure logging

@@ -587,9 +587,6 @@ class ZEDModule(Module):
         self._subscription = None
         self._sequence = 0
 
-        # Initialize TF publisher
-        self.tf = TF()
-
         # Initialize storage for recording if path provided
         self.storages = None
         if self.recording_path:
@@ -612,7 +609,8 @@ class ZEDModule(Module):
             logger.warning("ZED module already running")
             return
 
-        super().start()
+        # Initialize TF publisher
+        self.tf.start()
 
         try:
             # Initialize ZED camera
@@ -872,3 +870,7 @@ class ZEDModule(Module):
         if self.zed_camera and self.enable_tracking:
             return self.zed_camera.get_pose()
         return None
+
+zed_module = ZEDModule.blueprint
+
+__all__ = ["ZEDCamera", "ZEDModule", "zed_module"]

@@ -18,14 +18,21 @@ from dataclasses import dataclass
 import functools
 from typing import TYPE_CHECKING, Any
 
-from lcm_msgs.builtin_interfaces import Duration
-from lcm_msgs.foxglove_msgs import CubePrimitive, SceneEntity, TextPrimitive
-from lcm_msgs.geometry_msgs import Point, Pose, Quaternion, Vector3 as LCMVector3
+from dimos_lcm.builtin_interfaces import Duration
+from dimos_lcm.foxglove_msgs import CubePrimitive, SceneEntity, TextPrimitive
+from dimos_lcm.geometry_msgs import Point, Pose, Quaternion, Vector3 as LCMVector3
 import numpy as np
 
 from dimos.msgs.foxglove_msgs.Color import Color
-from dimos.msgs.geometry_msgs import PoseStamped, Transform, Vector3
-from dimos.msgs.sensor_msgs import PointCloud2
+import cv2
+from dimos.msgs.geometry_msgs import PoseStamped, Quaternion as DimosQuaternion, Transform, Vector3
+from dimos.msgs.sensor_msgs import Image, PointCloud2
+from dimos.msgs.vision_msgs import Detection3D
+from dimos_lcm.vision_msgs import ObjectHypothesis, ObjectHypothesisWithPose
+from dimos.msgs.geometry_msgs import Pose, Quaternion
+from dimos.msgs.std_msgs import Header
+from dimos.perception.detection.type.detection2d import ImageDetections2D
+from dimos.perception.detection.type.detection2d.seg import Detection2DSeg
 from dimos.perception.detection.type.detection3d.base import Detection3D
 from dimos.perception.detection.type.detection3d.pointcloud_filters import (
     PointCloudFilter,
@@ -39,6 +46,9 @@ if TYPE_CHECKING:
     from dimos_lcm.sensor_msgs import CameraInfo
 
     from dimos.perception.detection.type.detection2d import Detection2DBBox
+    from dimos.perception.detection.type.detection3d.imageDetections3DPC import (
+        ImageDetections3DPC,
+    )
 
 
 @dataclass
@@ -194,8 +204,148 @@ class Detection3DPC(Detection3D):
 
         return entity
 
+    def to_ros_detection3d(self) -> Detection3D:
+        """Convert to ROS Detection3D message."""
+        msg = Detection3D()
+        msg.header = Header(self.ts, self.frame_id)
+
+        # Results
+        msg.results = [
+            ObjectHypothesisWithPose(
+                hypothesis=ObjectHypothesis(
+                    class_id=str(self.class_id),
+                    score=self.confidence,
+                )
+            )
+        ]
+
+        # Bounding Box
+        dims = self.get_bounding_box_dimensions()
+        msg.bbox.center = Pose(
+            position=self.center,
+            orientation=Quaternion(0.0, 0.0, 0.0, 1.0),
+        )
+        msg.bbox.size = Vector3(dims[0], dims[1], dims[2])
+
+        return msg
+
     def scene_entity_label(self) -> str:
         return f"{self.track_id}/{self.name} ({self.confidence:.0%})"
+
+    @classmethod
+    def from_2d_depth(
+        cls,
+        detections_2d: ImageDetections2D,
+        color_image: Image,
+        depth_image: Image,
+        camera_info: CameraInfo,
+        filters: list[PointCloudFilter] | None = None,
+    ) -> ImageDetections3DPC:
+        """Create 3D pointcloud detections from 2D detections and RGBD images.
+
+        Efficiently extracts points using segmentation masks or bounding boxes directly
+        from the depth image, bypassing full pointcloud generation.
+        """
+        if filters is None:
+            filters = [
+                radius_outlier(min_neighbors=5, radius=0.1),
+                statistical(nb_neighbors=20, std_ratio=0.5),
+            ]
+
+        # Convert images to numpy
+        color_cv = color_image.to_opencv()
+        if color_cv.ndim == 3 and color_cv.shape[2] == 3:
+            color_cv = cv2.cvtColor(color_cv, cv2.COLOR_BGR2RGB)
+
+        depth_cv = depth_image.to_opencv()
+
+        fx = camera_info.K[0]
+        fy = camera_info.K[4]
+        cx = camera_info.K[2]
+        cy = camera_info.K[5]
+
+        # Identity transform (data is in optical frame)
+        identity_transform = Transform(
+            translation=Vector3(0.0, 0.0, 0.0),
+            rotation=DimosQuaternion(0.0, 0.0, 0.0, 1.0),
+            frame_id=depth_image.frame_id,
+            child_frame_id=depth_image.frame_id,
+            ts=depth_image.ts,
+        )
+
+        detections_3d = []
+
+        for det in detections_2d.detections:
+            if isinstance(det, Detection2DSeg):
+                mask = det.mask
+            else:
+                mask = np.zeros(depth_cv.shape[:2], dtype=np.uint8)
+                x1, y1, x2, y2 = map(int, det.bbox)
+                h, w = mask.shape
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(w, x2), min(h, y2)
+                mask[y1:y2, x1:x2] = 255
+
+            ys, xs = np.where(mask > 0)
+            if len(xs) == 0:
+                continue
+
+            z_vals = depth_cv[ys, xs]
+
+            valid = (z_vals > 0) & np.isfinite(z_vals)
+            if not np.any(valid):
+                continue
+
+            ys = ys[valid]
+            xs = xs[valid]
+            z_vals = z_vals[valid]
+
+            x_vals = (xs - cx) * z_vals / fx
+            y_vals = (ys - cy) * z_vals / fy
+
+            points_3d = np.stack([x_vals, y_vals, z_vals], axis=1)
+            colors = color_cv[ys, xs]
+
+            pc = PointCloud2.from_numpy(
+                points_3d,
+                colors=colors,
+                frame_id=depth_image.frame_id,
+                timestamp=depth_image.ts,
+            )
+
+            filtered_pc = pc
+            is_valid = True
+            for filter_func in filters:
+                filtered_pc = filter_func(
+                    det, filtered_pc, camera_info, identity_transform
+                )
+                if filtered_pc is None:
+                    is_valid = False
+                    break
+
+            if not is_valid or len(filtered_pc.pointcloud.points) == 0:
+                continue
+
+            detections_3d.append(
+                cls(
+                    image=det.image,
+                    bbox=det.bbox,
+                    track_id=det.track_id,
+                    class_id=det.class_id,
+                    confidence=det.confidence,
+                    name=det.name,
+                    ts=det.ts,
+                    pointcloud=filtered_pc,
+                    transform=identity_transform,
+                    frame_id=depth_image.frame_id,
+                )
+            )
+
+        return ImageDetections3DPC(
+            detections=detections_3d,
+            image=color_image,
+            header=color_image.header,
+        )
 
     @classmethod
     def from_2d(  # type: ignore[override]

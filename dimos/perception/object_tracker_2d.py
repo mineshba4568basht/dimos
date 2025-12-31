@@ -12,100 +12,69 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import threading
+from __future__ import annotations
+
 import time
 
 import cv2
-
-# Import LCM messages
-from dimos_lcm.vision_msgs import (
-    BoundingBox2D,
-    Detection2D,
-    ObjectHypothesis,
-    ObjectHypothesisWithPose,
-    Point2D,
-    Pose2D,
-)
 import numpy as np
 from reactivex.disposable import Disposable
 
 from dimos.core import In, Module, Out, rpc
+from dimos.models.segmentation.edge_tam import EdgeTAMProcessor
 from dimos.msgs.sensor_msgs import Image, ImageFormat
 from dimos.msgs.std_msgs import Header
 from dimos.msgs.vision_msgs import Detection2DArray
+from dimos.perception.detection.type.detection2d.seg import Detection2DSeg
+from dimos.utils.gpu_utils import is_cuda_available
 from dimos.utils.logging_config import setup_logger
+from dimos.utils.reactive import backpressure
 
-logger = setup_logger("dimos.perception.object_tracker_2d", level=logging.INFO)
+logger = setup_logger(__name__)
 
 
 class ObjectTracker2D(Module):
-    """Pure 2D object tracking module using OpenCV's CSRT tracker."""
+    """
+    2D Object Tracker using EdgeTAM for segmentation/tracking.
+    Replaces deprecated OpenCV tracker with robust neural tracking.
+    """
 
-    color_image: In[Image] = None
+    color_image: In[Image] = None  # type: ignore
+    detection2darray: Out[Detection2DArray] = None  # type: ignore
+    tracked_overlay: Out[Image] = None  # Visualization output # type: ignore
 
-    detection2darray: Out[Detection2DArray] = None
-    tracked_overlay: Out[Image] = None  # Visualization output
-
-    def __init__(
-        self,
-        frame_id: str = "camera_link",
-    ) -> None:
-        """
-        Initialize 2D object tracking module using OpenCV's CSRT tracker.
-
-        Args:
-            frame_id: TF frame ID for the camera (default: "camera_link")
-        """
+    def __init__(self, frame_id: str = "camera_link") -> None:
         super().__init__()
-
         self.frame_id = frame_id
-
-        # Tracker state
-        self.tracker = None
-        self.tracking_bbox = None  # Stores (x, y, w, h)
-        self.tracking_initialized = False
-
-        # Stuck detection
-        self._last_bbox = None
-        self._stuck_count = 0
-        self._max_stuck_frames = 10  # Higher threshold for stationary objects
-
-        # Frame management
-        self._frame_lock = threading.Lock()
-        self._latest_rgb_frame: np.ndarray | None = None
-        self._frame_arrival_time: float | None = None
-
-        # Tracking thread control
-        self.tracking_thread: threading.Thread | None = None
-        self.stop_tracking_event = threading.Event()
-        self.tracking_rate = 5.0  # Hz
-        self.tracking_period = 1.0 / self.tracking_rate
-
-        # Store latest detection for RPC access
-        self._latest_detection2d: Detection2DArray | None = None
+        self.processor: EdgeTAMProcessor | None = None
+        self.is_tracking = False
+        self.pending_bbox: list[float] | None = None
 
     @rpc
     def start(self) -> None:
         super().start()
 
-        def on_frame(frame_msg: Image) -> None:
-            arrival_time = time.perf_counter()
-            with self._frame_lock:
-                self._latest_rgb_frame = frame_msg.data
-                self._frame_arrival_time = arrival_time
+        try:
+            self.processor = EdgeTAMProcessor(
+                device="cuda" if is_cuda_available() else "cpu"
+            )
+            logger.info(f"EdgeTAM initialized on {self.processor.device}")
+        except Exception as e:
+            logger.error(f"Failed to initialize EdgeTAM: {e}")
+            return
 
-        unsub = self.color_image.subscribe(on_frame)
-        self._disposables.add(Disposable(unsub))
+        # Process stream with backpressure to avoid lagging behind
+        stream = backpressure(self.color_image.observable())
+        self.disposables.add(stream.subscribe(self._process_frame))
+
         logger.info("ObjectTracker2D module started")
 
     @rpc
     def stop(self) -> None:
-        self.stop_track()
-        if self.tracking_thread and self.tracking_thread.is_alive():
-            self.stop_tracking_event.set()
-            self.tracking_thread.join(timeout=2.0)
-
+        self.is_tracking = False
+        self.pending_bbox = None
+        if self.processor:
+            self.processor.stop()
         super().stop()
 
     @rpc
@@ -119,181 +88,115 @@ class ObjectTracker2D(Module):
         Returns:
             Dict containing tracking status
         """
-        if self._latest_rgb_frame is None:
-            logger.warning("No RGB frame available for tracking")
-            return {"status": "no_frame"}
+        if not self.processor:
+            return {"status": "not_initialized"}
 
-        # Initialize tracking
-        x1, y1, x2, y2 = map(int, bbox)
-        w, h = x2 - x1, y2 - y1
-        if w <= 0 or h <= 0:
-            logger.warning(f"Invalid initial bbox provided: {bbox}. Tracking not started.")
-            return {"status": "invalid_bbox"}
-
-        self.tracking_bbox = (x1, y1, w, h)
-        self.tracker = cv2.legacy.TrackerCSRT_create()
-        self.tracking_initialized = False
-        logger.info(f"Tracking target set with bbox: {self.tracking_bbox}")
-
-        # Convert RGB to BGR for CSRT (OpenCV expects BGR)
-        frame_bgr = cv2.cvtColor(self._latest_rgb_frame, cv2.COLOR_RGB2BGR)
-        init_success = self.tracker.init(frame_bgr, self.tracking_bbox)
-        if init_success:
-            self.tracking_initialized = True
-            logger.info("Tracker initialized successfully.")
-        else:
-            logger.error("Tracker initialization failed.")
-            self.stop_track()
-            return {"status": "init_failed"}
-
-        # Start tracking thread
-        self._start_tracking_thread()
-
-        return {"status": "tracking_started", "bbox": self.tracking_bbox}
-
-    def _start_tracking_thread(self) -> None:
-        """Start the tracking thread."""
-        self.stop_tracking_event.clear()
-        self.tracking_thread = threading.Thread(target=self._tracking_loop, daemon=True)
-        self.tracking_thread.start()
-        logger.info("Started tracking thread")
-
-    def _tracking_loop(self) -> None:
-        """Main tracking loop that runs in a separate thread."""
-        while not self.stop_tracking_event.is_set() and self.tracking_initialized:
-            self._process_tracking()
-            time.sleep(self.tracking_period)
-        logger.info("Tracking loop ended")
-
-    def _reset_tracking_state(self) -> None:
-        """Reset tracking state without stopping the thread."""
-        self.tracker = None
-        self.tracking_bbox = None
-        self.tracking_initialized = False
-        self._last_bbox = None
-        self._stuck_count = 0
-
-        # Publish empty detection
-        empty_2d = Detection2DArray(
-            detections_length=0, header=Header(time.time(), self.frame_id), detections=[]
-        )
-        self._latest_detection2d = empty_2d
-        self.detection2darray.publish(empty_2d)
+        # Store bbox to be used on next frame
+        self.pending_bbox = bbox
+        self.is_tracking = False  # Pause tracking until re-initialization
+        
+        return {"status": "tracking_scheduled", "bbox": bbox}
 
     @rpc
     def stop_track(self) -> bool:
-        """
-        Stop tracking the current object.
-
-        Returns:
-            bool: True if tracking was successfully stopped
-        """
-        self._reset_tracking_state()
-
-        # Stop tracking thread if running
-        if self.tracking_thread and self.tracking_thread.is_alive():
-            if threading.current_thread() != self.tracking_thread:
-                self.stop_tracking_event.set()
-                self.tracking_thread.join(timeout=1.0)
-                self.tracking_thread = None
-            else:
-                self.stop_tracking_event.set()
-
-        logger.info("Tracking stopped")
+        """Stop tracking."""
+        self.is_tracking = False
+        self.pending_bbox = None
         return True
 
     @rpc
     def is_tracking(self) -> bool:
-        """
-        Check if the tracker is currently tracking an object.
+        return self.is_tracking
 
-        Returns:
-            bool: True if tracking is active
-        """
-        return self.tracking_initialized
-
-    def _process_tracking(self) -> None:
-        """Process current frame for tracking and publish 2D detections."""
-        if self.tracker is None or not self.tracking_initialized:
+    def _process_frame(self, image: Image) -> None:
+        if not self.processor:
             return
 
-        # Get frame copy
-        with self._frame_lock:
-            if self._latest_rgb_frame is None:
+        # Handle initialization if pending
+        if self.pending_bbox is not None:
+            try:
+                box = np.array(self.pending_bbox, dtype=np.float32)
+                self.processor.init_track(image, box=box, obj_id=1)
+                self.is_tracking = True
+                self.pending_bbox = None
+                logger.info(f"Initialized EdgeTAM tracking with bbox {box}")
+            except Exception as e:
+                logger.error(f"Failed to init tracking: {e}")
+                self.pending_bbox = None
                 return
-            frame = self._latest_rgb_frame.copy()
 
-        # Convert RGB to BGR for CSRT (OpenCV expects BGR)
-        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-        tracker_succeeded, bbox_cv = self.tracker.update(frame_bgr)
-
-        if not tracker_succeeded:
-            logger.info("Tracker update failed. Stopping track.")
-            self._reset_tracking_state()
+        if not self.is_tracking:
             return
 
-        # Extract bbox
-        x, y, w, h = map(int, bbox_cv)
-        current_bbox_x1y1x2y2 = [x, y, x + w, y + h]
-        x1, y1, x2, y2 = current_bbox_x1y1x2y2
+        try:
+            # 1. Track
+            detections_2d = self.processor.process_image(image)
 
-        # Check if tracker is stuck
-        if self._last_bbox is not None:
-            if (x1, y1, x2, y2) == self._last_bbox:
-                self._stuck_count += 1
-                if self._stuck_count >= self._max_stuck_frames:
-                    logger.warning(f"Tracker stuck for {self._stuck_count} frames. Stopping track.")
-                    self._reset_tracking_state()
-                    return
-            else:
-                self._stuck_count = 0
+            # 2. Publish Detection2DArray
+            header = Header(image.ts, self.frame_id)
+            
+            ros_detections = []
+            if detections_2d and detections_2d.detections:
+                for det in detections_2d.detections:
+                    if isinstance(det, Detection2DSeg):
+                        ros_detections.append(det.to_ros_detection2d())
+            
+            det_array = Detection2DArray(
+                detections_length=len(ros_detections),
+                header=header,
+                detections=ros_detections
+            )
+            self.detection2darray.publish(det_array)
 
-        self._last_bbox = (x1, y1, x2, y2)
+            # 3. Publish Visualization
+            self._publish_visualization(image, detections_2d)
 
-        center_x = (x1 + x2) / 2.0
-        center_y = (y1 + y2) / 2.0
-        width = float(x2 - x1)
-        height = float(y2 - y1)
+        except Exception as e:
+            logger.error(f"Tracking error: {e}")
+            self.is_tracking = False
 
-        # Create 2D detection header
-        header = Header(time.time(), self.frame_id)
-
-        # Create Detection2D with all fields in constructors
-        detection_2d = Detection2D(
-            id="0",
-            results_length=1,
-            header=header,
-            bbox=BoundingBox2D(
-                center=Pose2D(position=Point2D(x=center_x, y=center_y), theta=0.0),
-                size_x=width,
-                size_y=height,
-            ),
-            results=[
-                ObjectHypothesisWithPose(
-                    hypothesis=ObjectHypothesis(class_id="tracked_object", score=1.0)
-                )
-            ],
-        )
-
-        detection2darray = Detection2DArray(
-            detections_length=1, header=header, detections=[detection_2d]
-        )
-
-        # Store and publish
-        self._latest_detection2d = detection2darray
-        self.detection2darray.publish(detection2darray)
+    def _publish_visualization(self, image: Image, detections) -> None:
+        if not self.tracked_overlay.has_subscribers():
+            return
 
         # Create visualization
-        viz_image = self._draw_visualization(frame, current_bbox_x1y1x2y2)
-        viz_copy = viz_image.copy()  # Force copy needed to prevent frame reuse
-        viz_msg = Image.from_numpy(viz_copy, format=ImageFormat.RGB)
-        self.tracked_overlay.publish(viz_msg)
+        viz = image.to_opencv().copy()
 
-    def _draw_visualization(self, image: np.ndarray, bbox: list[int]) -> np.ndarray:
-        """Draw tracking visualization."""
-        viz_image = image.copy()
-        x1, y1, x2, y2 = bbox
-        cv2.rectangle(viz_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(viz_image, "TRACKING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        return viz_image
+        if detections and detections.detections:
+            for det in detections.detections:
+                if isinstance(det, Detection2DSeg):
+                    # Draw mask
+                    mask = det.mask.astype(bool)
+                    if mask.any():
+                        # Create colored mask (green)
+                        color = np.array([0, 255, 0], dtype=np.uint8)
+                        
+                        # Blend mask
+                        roi = viz[mask]
+                        blended = (roi * 0.6 + color * 0.4).astype(np.uint8)
+                        viz[mask] = blended
+
+                        # Draw contour
+                        contours, _ = cv2.findContours(
+                            det.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                        )
+                        cv2.drawContours(viz, contours, -1, (0, 255, 0), 2)
+
+                    # Draw bbox
+                    x1, y1, x2, y2 = map(int, det.bbox)
+                    cv2.rectangle(viz, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    
+                    # Label
+                    label = f"Track ID {det.track_id} ({det.confidence:.2f})"
+                    cv2.putText(
+                        viz, 
+                        label, 
+                        (x1, max(y1 - 10, 20)), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 
+                        0.6, 
+                        (0, 255, 0), 
+                        2
+                    )
+
+        viz_msg = Image.from_numpy(viz, format=ImageFormat.RGB)
+        self.tracked_overlay.publish(viz_msg)

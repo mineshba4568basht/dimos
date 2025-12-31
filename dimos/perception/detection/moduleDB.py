@@ -18,7 +18,7 @@ import time
 from typing import Any
 
 from dimos_lcm.foxglove_msgs.ImageAnnotations import ImageAnnotations
-from lcm_msgs.foxglove_msgs import SceneUpdate
+from dimos_lcm.foxglove_msgs import SceneUpdate
 from reactivex.observable import Observable
 
 from dimos import spec

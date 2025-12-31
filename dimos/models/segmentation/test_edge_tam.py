@@ -254,7 +254,7 @@ def test_edgetam_webcam_interactive():
             
     finally:
         if dispose:
-            dispose()  # Stop webcam
+            dispose.dispose()  # Stop webcam
         if processor:
             processor.stop()
         cv2.destroyAllWindows()

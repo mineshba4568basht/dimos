@@ -13,7 +13,7 @@
 # limitations under the License.
 import time
 
-from lcm_msgs.foxglove_msgs import SceneUpdate
+from dimos_lcm.foxglove_msgs import SceneUpdate
 import pytest
 
 from dimos.core import LCMTransport

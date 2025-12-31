@@ -48,7 +48,7 @@ class Detection2DSeg(Detection2DBBox):
         name: str = "object",
         confidence: float = 1.0,
     ) -> Detection2DSeg:
-        """Create Detection2DSeg from EdgeTAM output (single object).
+        """Create Detection2DSeg from SAM output (single object).
 
         Args:
             mask: Segmentation mask (logits or binary). Shape [H, W] or [1, H, W].
