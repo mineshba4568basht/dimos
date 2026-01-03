@@ -149,6 +149,11 @@ class OccupancyGridImage:
         rgx = round(robot_grid_pos.x)
         rgy = round(robot_grid_pos.y)
 
+        # check bounds
+        if not (0 <= rgx < image_arr.shape[1] and 0 <= rgy < image_arr.shape[0]):
+            logger.warning(f"Robot position ({rgx}, {rgy}) is outside image bounds")
+            return image_arr
+
         # draw on image
         height, width = image_arr.shape[:2]
         min_dimension = min(height, width)
@@ -198,6 +203,12 @@ class OccupancyGridImage:
         grid_x, grid_y = self.pixel_to_grid(
             pixel_x, pixel_y, size=size, flip_vertical=flip_vertical
         )
+
+        # check bounds
+        if not (
+            0 <= grid_x < self.occupancy_grid.width and 0 <= grid_y < self.occupancy_grid.height
+        ):
+            return False
 
         if self.occupancy_grid.grid[grid_y, grid_x] == CostValues.FREE:
             return True
