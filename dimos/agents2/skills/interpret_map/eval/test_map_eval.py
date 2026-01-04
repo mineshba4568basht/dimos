@@ -218,9 +218,13 @@ def publish_state():
             pose.publish(target)
             pose.lcm.stop()
 
+        agent_image: LCMTransport[OccupancyGrid] = LCMTransport("/agent_image", Image)
+
+        agent_image.publish(state.get_image())
         costmap.publish(state.occupancy_grid)
         tf.publish(*state.transforms)
 
+        agent_image.lcm.stop()
         costmap.lcm.stop()
         tf.stop()
 
@@ -265,7 +269,7 @@ def test_ivan(publish_state, vl_model):
     target = target_from_llm(
         vl_model,
         grid_generator,
-        "conference room with a bunch of chairs",
+        "a few meters in front of the robot down the hallway",
     )
 
     print("publish target", target)

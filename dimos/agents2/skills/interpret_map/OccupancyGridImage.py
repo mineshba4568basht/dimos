@@ -182,7 +182,7 @@ class OccupancyGridImage:
         # orientation arrow
         yaw = robot_pose.orientation.euler[2]
         arrow_dx = int(arrow_length * np.cos(yaw))
-        arrow_dy = -int(arrow_length * np.sin(yaw))  # account for y + down in image space
+        arrow_dy = int(arrow_length * np.sin(yaw))  # account for y + down in image space
 
         cv2.arrowedLine(
             image_arr,
