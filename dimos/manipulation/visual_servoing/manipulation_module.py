@@ -27,6 +27,7 @@ import cv2
 from dimos_lcm.sensor_msgs import CameraInfo  # type: ignore[import-untyped]
 import numpy as np
 from reactivex.disposable import Disposable
+from scipy.spatial.transform import Rotation
 
 from dimos.core import In, Module, Out, rpc
 from dimos.hardware.piper_arm import PiperArm
@@ -161,8 +162,8 @@ class ManipulationModule(Module):
 
         # Grasp parameters
         self.grasp_width_offset = 0.03
-        self.pregrasp_distance = 0.08
-        self.grasp_distance_range = 0.032
+        self.pregrasp_distance = 0.085
+        self.grasp_distance_range = 0.02
         self.grasp_close_delay = 21.0
         self.grasp_reached_time = None
         self.gripper_max_opening = 0.1
@@ -278,7 +279,7 @@ class ManipulationModule(Module):
 
             if self.detector is None:
                 self.detector = Detection3DProcessor(self.camera_intrinsics)  # type: ignore[arg-type, assignment]
-                self.pbvs = PBVS()  # type: ignore[assignment]
+                self.pbvs = PBVS(arm_type=self.arm_type)  # type: ignore[assignment]
                 logger.info("Initialized detection and PBVS processors")
 
             self.latest_camera_info = msg
@@ -601,8 +602,8 @@ class ManipulationModule(Module):
     def _apply_gripper_offset(self, pose: Pose) -> Pose:
         """
         Apply gripper offset for specific arm types.
-        For SO101, applies a +1cm Y offset to account for fixed left finger.
-
+        For SO101, applies a +1cm X offset in local gripper frame to account for fixed left finger.
+        
         Args:
             pose: Original target pose
 
@@ -617,8 +618,25 @@ class ManipulationModule(Module):
                     pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w
                 ),
             )
-            # Apply +1cm Y offset
-            # new_pose.position.y += 0.01
+            
+            # Calculate offset in world frame
+            # Transform local +X offset (1cm) to world frame using current orientation
+            rot = Rotation.from_quat([
+                pose.orientation.x, 
+                pose.orientation.y, 
+                pose.orientation.z, 
+                pose.orientation.w
+            ])
+            
+            # Offset 1cm in +X direction of gripper frame
+            local_offset = np.array([0.02, 0.0, 0.0])
+            world_offset = rot.apply(local_offset)
+            
+            # Apply offset to position
+            new_pose.position.x += world_offset[0]
+            new_pose.position.y += world_offset[1]
+            new_pose.position.z += world_offset[2]
+            print("New pose: ", new_pose)
             return new_pose
 
         return pose
@@ -764,7 +782,7 @@ class ManipulationModule(Module):
                 final_target_pose = self._apply_gripper_offset(target_pose)
 
                 self.arm.cmd_gripper_ctrl(gripper_opening)
-                self.arm.cmd_ee_pose(final_target_pose, line_mode=True)
+                self.arm.cmd_ee_pose(final_target_pose)
                 self.current_executed_pose = final_target_pose
                 self.waiting_for_reach = True
                 self.waiting_start_time = time.time()

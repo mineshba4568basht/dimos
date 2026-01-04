@@ -144,7 +144,7 @@ class SO101Arm:
 
     def release_gripper(self) -> None:
         """Open gripper to ~max opening."""
-        self.cmd_gripper_ctrl(0.1)
+        self.cmd_gripper_ctrl(0.07)
 
     def get_gripper_feedback(self) -> tuple[float, float]:
         """

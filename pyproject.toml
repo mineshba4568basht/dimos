@@ -141,6 +141,7 @@ manipulation = [
 
     # piper arm
     "piper-sdk",
+    "lerobot[feetech]",
 
     # Visualization (Optional)
     "kaleido>=0.2.1",

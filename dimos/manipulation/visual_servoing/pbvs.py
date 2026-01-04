@@ -60,6 +60,7 @@ class PBVS:
         max_tracking_distance_threshold: float = 0.12,  # Max distance for target tracking (m)
         min_size_similarity: float = 0.6,  # Min size similarity threshold (0.0-1.0)
         direct_ee_control: bool = True,  # If True, output target poses instead of velocities
+        arm_type: str = "piper",  # Arm type for hardware-specific constraints
     ) -> None:
         """
         Initialize PBVS system.
@@ -73,6 +74,7 @@ class PBVS:
             max_tracking_distance: Maximum distance for valid target tracking (m)
             min_size_similarity: Minimum size similarity for valid target tracking (0.0-1.0)
             direct_ee_control: If True, output target poses instead of velocity commands
+            arm_type: Type of arm (e.g., 'piper', 'so101') for hardware-specific constraints
         """
         # Initialize low-level controller only if not in direct control mode
         if not direct_ee_control:
@@ -82,6 +84,7 @@ class PBVS:
                 max_velocity=max_velocity,
                 max_angular_velocity=max_angular_velocity,
                 target_tolerance=target_tolerance,
+                arm_type=arm_type,
             )
         else:
             self.controller = None  # type: ignore[assignment]
@@ -315,6 +318,7 @@ class PBVSController:
         max_velocity: float = 0.1,  # m/s
         max_angular_velocity: float = 0.5,  # rad/s
         target_tolerance: float = 0.01,  # 1cm
+        arm_type: str = "piper",
     ) -> None:
         """
         Initialize PBVS controller.
@@ -325,12 +329,14 @@ class PBVSController:
             max_velocity: Maximum linear velocity command magnitude (m/s)
             max_angular_velocity: Maximum angular velocity command magnitude (rad/s)
             target_tolerance: Distance threshold for considering target reached (m)
+            arm_type: Type of arm (e.g., 'piper', 'so101') for hardware-specific constraints
         """
         self.position_gain = position_gain
         self.rotation_gain = rotation_gain
         self.max_velocity = max_velocity
         self.max_angular_velocity = max_angular_velocity
         self.target_tolerance = target_tolerance
+        self.arm_type = arm_type
 
         self.last_position_error = None
         self.last_rotation_error = None
@@ -408,17 +414,23 @@ class PBVSController:
     def _compute_angular_velocity(self, target_rot: Quaternion, current_pose: Pose) -> Vector3:
         """
         Compute angular velocity commands for orientation control.
-        Uses quaternion error computation for better numerical stability.
+
+        For SO-101 (5-DoF arm):
+        - Wrist roll is about z_tool.
+        - Wrist flex is about a tool-axis orthogonal to z_tool.
+        - The wrist cannot realize the third independent rotation axis.
+        We therefore project the rotation error onto the instantaneous
+        controllable subspace in the CURRENT tool frame.
+
+        For other arms (6-DoF): Uses standard axis-angle error directly.
 
         Args:
             target_rot: Target orientation (quaternion)
             current_pose: Current EE pose
 
         Returns:
-            Angular velocity command as Vector3
+            Angular velocity command as Vector3 (world frame)
         """
-        # Use quaternion error for better numerical stability
-
         # Convert to scipy Rotation objects
         target_rot_scipy = R.from_quat([target_rot.x, target_rot.y, target_rot.z, target_rot.w])
         current_rot_scipy = R.from_quat(
@@ -430,24 +442,36 @@ class PBVSController:
             ]
         )
 
-        # Compute rotation error: error = target * current^(-1)
+        # Rotation error: R_err maps current -> target
         error_rot = target_rot_scipy * current_rot_scipy.inv()
 
-        # Convert to axis-angle representation for control
-        error_axis_angle = error_rot.as_rotvec()
+        # World-frame axis-angle (rotvec)
+        w_world = error_rot.as_rotvec()
 
-        # Use axis-angle directly as angular velocity error (small angle approximation)
-        roll_error = error_axis_angle[0]
-        pitch_error = error_axis_angle[1]
-        yaw_error = error_axis_angle[2]
+        if self.arm_type == "so101":
+            # --- SO-101 5DoF constraint ---
+            # Express angular error in CURRENT tool frame: w_tool = R_cur^T * w_world
+            w_tool = current_rot_scipy.inv().apply(w_world)
 
-        self.last_rotation_error = Vector3(roll_error, pitch_error, yaw_error)  # type: ignore[assignment]
+            # Allow: tool z (roll) and tool y (flex, per your EE axes convention)
+            # Block: tool x (the missing rotational DoF)
+            w_tool[0] = 0.0
+
+            # Back to world frame
+            w_world_proj = current_rot_scipy.apply(w_tool)
+        else:
+            # Standard 6-DoF: use axis-angle error directly
+            w_world_proj = w_world
+
+        self.last_rotation_error = Vector3(
+            float(w_world_proj[0]), float(w_world_proj[1]), float(w_world_proj[2])
+        )  # type: ignore[assignment]
 
         # Apply proportional control
         angular_velocity = Vector3(
-            roll_error * self.rotation_gain,
-            pitch_error * self.rotation_gain,
-            yaw_error * self.rotation_gain,
+            float(w_world_proj[0] * self.rotation_gain),
+            float(w_world_proj[1] * self.rotation_gain),
+            float(w_world_proj[2] * self.rotation_gain),
         )
 
         # Limit angular velocity magnitude
@@ -461,7 +485,6 @@ class PBVSController:
             )
 
         self.last_angular_velocity_cmd = angular_velocity  # type: ignore[assignment]
-
         return angular_velocity
 
     def create_status_overlay(
