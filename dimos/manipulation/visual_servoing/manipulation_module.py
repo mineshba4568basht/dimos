@@ -602,7 +602,7 @@ class ManipulationModule(Module):
     def _apply_gripper_offset(self, pose: Pose) -> Pose:
         """
         Apply gripper offset for specific arm types.
-        For SO101, applies a +1cm X offset in local gripper frame to account for fixed left finger.
+        For SO101, applies a +2cm X offset in local gripper frame to account for fixed left finger.
 
         Args:
             pose: Original target pose
@@ -625,7 +625,7 @@ class ManipulationModule(Module):
                 [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
             )
 
-            # Offset 1cm in +X direction of gripper frame
+            # Offset 2cm in +X direction of gripper frame
             local_offset = np.array([0.02, 0.0, 0.0])
             world_offset = rot.apply(local_offset)
 
@@ -633,7 +633,6 @@ class ManipulationModule(Module):
             new_pose.position.x += world_offset[0]
             new_pose.position.y += world_offset[1]
             new_pose.position.z += world_offset[2]
-            print("New pose: ", new_pose)
             return new_pose
 
         return pose
@@ -697,7 +696,6 @@ class ManipulationModule(Module):
 
         ee_pose = self.arm.get_ee_pose()  # type: ignore[no-untyped-call]
         dynamic_pitch = self.calculate_dynamic_grasp_pitch(self.pbvs.current_target.bbox.center)  # type: ignore[attr-defined]
-        print("dynamic_pitch", dynamic_pitch)
         _, _, _, has_target, target_pose = self.pbvs.compute_control(  # type: ignore[attr-defined]
             ee_pose, self.pregrasp_distance, dynamic_pitch
         )
@@ -715,10 +713,6 @@ class ManipulationModule(Module):
                 self.adjustment_count = 0
                 self.waiting_for_reach = False
             elif not self.waiting_for_reach and self.target_updated:
-                print("inside execute pre grasp")
-                print("ee pose: ", ee_pose)
-                print("target pose: ", target_pose)
-
                 self.arm.cmd_ee_pose(target_pose)
                 self.current_executed_pose = target_pose
                 self.waiting_for_reach = True
@@ -726,14 +720,6 @@ class ManipulationModule(Module):
                 self.target_updated = False
                 self.adjustment_count += 1
                 time.sleep(0.2)
-            # elif not self.waiting_for_reach and not self.target_updated:
-            #      # If target hasn't updated but we have a valid target pose that we are close to,
-            #      # consider it a "reached" pose to allow stabilization check to proceed.
-            #      if target_pose and self.current_executed_pose:
-            #          # Check if the new target_pose is effectively the same as current_executed_pose
-            #          # If so, append to reached_poses
-            #          self.reached_poses.append(self.current_executed_pose)
-            #          time.sleep(0.1) # Prevent busy loop
 
     def execute_grasp(self) -> None:
         """Execute grasp stage: move to final grasp position."""

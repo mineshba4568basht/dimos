@@ -169,26 +169,6 @@ class SO101Arm:
         self._last_gripper_effort_cmd = commanded_effort
         self.cmd_gripper_ctrl(0.0, effort=commanded_effort)
 
-        # pos, _ = self.get_gripper_feedback()
-        # target_closed = 0.0
-
-        # # Don’t overshoot completely if we’re already almost closed
-        # start = max(target_closed, min(0.04, pos))
-        # steps = 10
-        # backoff = 0.002
-        # threshold = 0.6
-        # for i in range(steps):
-        #     alpha = (i + 1) / steps
-        #     cmd_pos = start + (target_closed - start) * alpha
-        #     self.cmd_gripper_ctrl(cmd_pos, effort=commanded_effort)
-        #     time.sleep(0.05)
-
-        #     _p, actual_effort = self.get_gripper_feedback()
-        #     if actual_effort >= threshold:
-        #         # Contact detected – relieve a tiny bit of pressure
-        #         self.cmd_gripper_ctrl(cmd_pos + backoff, effort=commanded_effort)
-        #         break
-
     def gripper_object_detected(self, commanded_effort: float | None = None) -> bool:
         """
         Heuristic object detection based on Present_Load.

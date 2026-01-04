@@ -173,7 +173,7 @@ class SO101Interface:
 
         logger.info("Motor configuration complete")
 
-    def enable(self) -> None:
+    def enable(self) -> bool:
         """Enable motor torque."""
         if self.bus:
             self.bus.enable_torque()

@@ -89,7 +89,7 @@ class SO101ArmRobot(Robot):
 
         # Print module info
         logger.info("Modules configured:")
-        print(r"\Camera Module:")
+        print("\nCamera Module:")
         print(self.camera.io())
         print("\nManipulation Module:")
         print(self.manipulation_interface.io())
@@ -180,7 +180,7 @@ async def run_so101_arm() -> None:
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received")
     finally:
-        await robot.stop()
+        robot.stop()
 
 
 if __name__ == "__main__":
