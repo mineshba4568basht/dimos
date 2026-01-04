@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from queue import Queue
 import threading
 import time
-from queue import Queue
 
 from cv_bridge import CvBridge
 import message_filters
@@ -273,9 +273,7 @@ class ObjectSceneRegistrationModule(Module):
 
         self._processing_queue.put((color_msg, depth_msg))
 
-    def _process_images(
-        self, color_msg: ROSCompressedImage, depth_msg: ROSCompressedImage
-    ) -> None:
+    def _process_images(self, color_msg: ROSCompressedImage, depth_msg: ROSCompressedImage) -> None:
         """Process synchronized color and depth images (runs in background thread)."""
         if not self._detector or not self._bridge or not self._camera_info:
             return
