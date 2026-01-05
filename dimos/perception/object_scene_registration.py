@@ -39,6 +39,8 @@ from dimos.core import Module, rpc
 from dimos.msgs.geometry_msgs import Transform
 from dimos.msgs.sensor_msgs import CameraInfo, Image
 from dimos.perception.detection.detectors.yoloe import Yoloe2DDetector, YoloePromptMode
+from dimos.perception.detection.mesh_pose_client import MeshPoseClient
+from dimos.perception.detection.type import ImageDetections2D
 from dimos.perception.detection.objectDB import ObjectDB
 from dimos.perception.detection.type import ImageDetections2D
 from dimos.perception.detection.type.detection3d.object import (
@@ -52,7 +54,10 @@ logger = setup_logger()
 
 
 class ObjectSceneRegistrationModule(Module):
-    """Module for detecting objects in camera images using YOLO-E with 2D and 3D detection."""
+    """Module for detecting objects in camera images using YOLO-E with 2D and 3D detection.
+
+    Optionally supports mesh/pose enhancement via hosted service (SAM3 + SAM3D + FoundationPose).
+    """
 
     _detector: Yoloe2DDetector | None = None
     _node: Node | None = None
@@ -65,6 +70,7 @@ class ObjectSceneRegistrationModule(Module):
     _tf_buffer: tf2_ros.Buffer | None = None
     _tf_listener: tf2_ros.TransformListener | None = None
     _object_db: ObjectDB | None = None
+    _mesh_pose_client: MeshPoseClient | None = None
 
     def __init__(
         self,
@@ -76,7 +82,24 @@ class ObjectSceneRegistrationModule(Module):
         overlay_topic: str = "/object_detections/overlay",
         pointcloud_topic: str = "/object_detections/pointcloud",
         target_frame: str = "map",
+        mesh_pose_service_url: str | None = None,
     ) -> None:
+        """
+        Initialize ObjectSceneRegistrationModule.
+
+        Args:
+            image_topic: ROS topic for compressed color images.
+            depth_topic: ROS topic for compressed depth images.
+            camera_info_topic: ROS topic for camera intrinsics.
+            detections_2d_topic: ROS topic to publish 2D detections.
+            detections_3d_topic: ROS topic to publish 3D detections.
+            overlay_topic: ROS topic to publish detection overlay image.
+            pointcloud_topic: ROS topic to publish aggregated pointclouds.
+            target_frame: Target TF frame for 3D detections (e.g., "map").
+            mesh_pose_service_url: Optional URL of hosted mesh/pose service
+                (e.g., "http://localhost:8080"). If provided, detections
+                will be enhanced with mesh data and accurate 6D pose.
+        """
         super().__init__()
         self._image_topic = image_topic
         self._depth_topic = depth_topic
@@ -86,6 +109,7 @@ class ObjectSceneRegistrationModule(Module):
         self._overlay_topic = overlay_topic
         self._pointcloud_topic = pointcloud_topic
         self._target_frame = target_frame
+        self._mesh_pose_service_url = mesh_pose_service_url
         self._bridge = CvBridge()
 
     @rpc
@@ -96,6 +120,25 @@ class ObjectSceneRegistrationModule(Module):
         # Initialize ObjectDB for spatial memory
         self._object_db = ObjectDB()
         logger.info("Initialized ObjectDB for spatial memory")
+
+        # Initialize mesh/pose client if URL provided
+        if self._mesh_pose_service_url:
+            self._mesh_pose_client = MeshPoseClient(
+                service_url=self._mesh_pose_service_url,
+            )
+            if self._mesh_pose_client.health_check():
+                logger.info(
+                    f"Mesh/pose enhancement enabled via {self._mesh_pose_service_url}"
+                )
+            else:
+                logger.warning(
+                    f"Mesh/pose service at {self._mesh_pose_service_url} is not healthy, "
+                    "detections will not be enhanced"
+                )
+                self._mesh_pose_client.close()
+                self._mesh_pose_client = None
+        else:
+            logger.info("Mesh/pose enhancement disabled (no service URL provided)")
 
         # Initialize detector (uses yoloe-11l-seg-pf.pt for LRPC mode by default)
         self._detector = Yoloe2DDetector(
@@ -225,6 +268,10 @@ class ObjectSceneRegistrationModule(Module):
             self._detector.stop()
             self._detector = None
 
+        if self._mesh_pose_client:
+            self._mesh_pose_client.close()
+            self._mesh_pose_client = None
+
         if self._node:
             self._node.destroy_node()
             self._node = None
@@ -347,7 +394,7 @@ class ObjectSceneRegistrationModule(Module):
                     self._target_frame,
                     color_image.frame_id,
                     rclpy.time.Time(),
-                    timeout=rclpy.duration.Duration(seconds=0.1),
+                    timeout=rclpy.duration.Duration(seconds=0.4),
                 )
                 camera_transform = Transform.from_ros_transform_stamped(ros_transform)
             except (
@@ -369,9 +416,31 @@ class ObjectSceneRegistrationModule(Module):
         if not objects:
             return
 
-        # Add objects to spatial memory database
+        # Add objects to spatial memory database FIRST (deduplication happens here)
+        # This returns matched/updated objects so we can skip mesh/pose for known objects
         if self._object_db is not None:
-            self._object_db.add_objects(objects)
+            objects = self._object_db.add_objects(objects)
+
+        # Optionally enhance objects with mesh and accurate 6D pose from hosted service
+        # Only process objects that don't already have mesh data (avoids redundant requests)
+        if self._mesh_pose_client is not None:
+            for obj in objects:
+                if obj.has_mesh:
+                    continue  # Skip - already has mesh from previous detection
+                try:
+                    result = self._mesh_pose_client.get_mesh_and_pose(
+                        label=obj.name,
+                        bbox=obj.bbox,
+                        color_image=color_image,
+                        depth_image=depth_image,
+                        camera_info=self._camera_info,
+                    )
+                    obj.mesh_obj = result.get("mesh_obj")
+                    obj.mesh_dimensions = result.get("mesh_dimensions")
+                    obj.fp_position = result.get("fp_position")
+                    obj.fp_orientation = result.get("fp_orientation")
+                except Exception as e:
+                    logger.warning(f"Mesh/pose enhancement failed for {obj.name}: {e}")
 
         detections_3d = to_detection3d_array(objects)
         ros_detections_3d = detections_3d.to_ros_msg()

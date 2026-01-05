@@ -43,7 +43,8 @@ class Object(Detection3D):
     """3D object detection combining bounding box and pointcloud representations.
 
     Represents a detected object in 3D space with support for accumulating
-    multiple detections over time.
+    multiple detections over time. Optionally includes mesh data and accurate
+    6D pose from hosted mesh/pose service.
     """
 
     object_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
@@ -51,8 +52,61 @@ class Object(Detection3D):
     camera_transform: Transform | None = None
     center: Vector3 | None = None
     size: Vector3 | None = None
-    pose: PoseStamped | None = None
     detections_count: int = 1
+
+    # Mesh/pose enhancement (optional, from hosted service)
+    mesh_obj: bytes | None = None
+    mesh_dimensions: tuple[float, float, float] | None = None
+    fp_position: tuple[float, float, float] | None = None
+    fp_orientation: tuple[float, float, float, float] | None = None
+
+    @property
+    def has_mesh(self) -> bool:
+        """Check if mesh data is available from hosted service."""
+        return self.mesh_obj is not None and len(self.mesh_obj) > 0
+
+    @property
+    def has_accurate_pose(self) -> bool:
+        """Check if FoundationPose data is available from hosted service."""
+        return self.fp_position is not None and self.fp_orientation is not None
+
+    @property
+    def pose(self) -> PoseStamped | None:
+        """Get 6D pose, preferring FoundationPose if available."""
+        if self.has_accurate_pose:
+            return PoseStamped(
+                ts=self.ts,
+                frame_id=self.frame_id,
+                position=Vector3(*self.fp_position),
+                orientation=self.fp_orientation,
+            )
+        # Fallback to pointcloud center with identity rotation
+        if self.center is not None:
+            return PoseStamped(
+                ts=self.ts,
+                frame_id=self.frame_id,
+                position=self.center,
+                orientation=(0.0, 0.0, 0.0, 1.0),
+            )
+        return None
+
+    def save_mesh(self, path: str) -> bool:
+        """Save mesh to an .obj file if available.
+
+        Args:
+            path: File path to save the mesh to.
+
+        Returns:
+            True if saved successfully, False if no mesh data available.
+        """
+        if not self.has_mesh:
+            return False
+        try:
+            with open(path, "wb") as f:
+                f.write(self.mesh_obj)
+            return True
+        except Exception:
+            return False
 
     def update_object(self, other: Object) -> None:
         """Update this object with data from another detection.
@@ -71,8 +125,8 @@ class Object(Detection3D):
             and other.camera_transform is not None
         ):
             # Transform new pointcloud to world frame and add to existing
-            # transformed_pc = other.pointcloud.transform(other.camera_transform)
-            # self.pointcloud = self.pointcloud + transformed_pc
+            self.pointcloud = self.pointcloud + other.pointcloud
+            self.pointcloud = self.pointcloud.voxel_downsample(voxel_size=0.025)
 
             # Recompute center from accumulated pointcloud
             pc_center = self.pointcloud.center

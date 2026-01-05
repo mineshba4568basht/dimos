@@ -90,6 +90,29 @@ class PointCloud2(Timestamped):
     def points(self):  # type: ignore[no-untyped-def]
         return self.pointcloud.points
 
+    def voxel_downsample(self, voxel_size: float = 0.025) -> PointCloud2:
+        """Downsample the point cloud using a voxel grid filter.
+
+        Args:
+            voxel_size: Size of the voxel grid in meters. Default is 0.025m.
+
+        Returns:
+            New PointCloud2 instance with downsampled points.
+        """
+        if len(self.pointcloud.points) == 0:
+            return PointCloud2(
+                pointcloud=o3d.geometry.PointCloud(),
+                frame_id=self.frame_id,
+                ts=self.ts,
+            )
+
+        downsampled_pcd = self.pointcloud.voxel_down_sample(voxel_size)
+        return PointCloud2(
+            pointcloud=downsampled_pcd,
+            frame_id=self.frame_id,
+            ts=self.ts,
+        )
+
     def __add__(self, other: PointCloud2) -> PointCloud2:
         """Combine two PointCloud2 instances into one.
 
