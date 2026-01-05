@@ -62,39 +62,29 @@ class Dashboard_DaskActor:
         #
         # Manual control of Rerun viewer (simple html server)
         #
-        host = "127.0.0.1"
-        port = 4000
-        html = f"""<body>
-            <style>body {{ margin: 0; border: 0; }}\ncanvas {{ width: 100vw !important; height: 100vh !important; }}</style>
-            <script type="module">
-                import {{ WebViewer }} from "https://esm.sh/@rerun-io/web-viewer@0.27.2";
-                const viewer = new WebViewer();
-                viewer.start("{rerun_info["url"]}", document.body);
-            </script>
-        </body>"""
-
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self):
-                if self.path in ("/", "/index.html"):
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(html.encode("utf-8"))
-                elif self.path == "/health":
-                    body = json.dumps({"status": "ok", "rerun_url": rerun_info["url"]}).encode(
-                        "utf-8"
-                    )
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(body)
-                else:
-                    self.send_response(404)
-                    self.end_headers()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(
+                    f"""
+                    <body>
+                        <style>body {{ margin: 0; border: 0; }}\ncanvas {{ width: 100vw !important; height: 100vh !important; }}</style>
+                        <script type="module">
+                            import {{ WebViewer }} from "https://esm.sh/@rerun-io/web-viewer@0.27.2";
+                            const viewer = new WebViewer();
+                            viewer.start("{rerun_info["url"]}", document.body);
+                        </script>
+                    </body>
+                """.encode()
+                )
 
-            def log_message(self, format: str, *args: Any) -> None:
+            def log_message(self, *args):
                 return
 
+        host = "127.0.0.1"
+        port = 4000
         server = HTTPServer((host, port), Handler)
         threading.Thread(target=server.serve_forever, name="dashboard-server", daemon=True).start()
 
@@ -144,21 +134,25 @@ class ReplayYamlData_DaskActor:
 
 
 # ------------------------------ Entrypoint --------------------------------- #
-client = Client(
-    n_workers=1,
-    threads_per_worker=4,
-)
-dashboard = client.submit(Dashboard_DaskActor, actor=True).result()
-replayer = client.submit(ReplayYamlData_DaskActor, actor=True).result()
-dashboard.start().result()
-replayer.start().result()
+if __name__ == "__main__":
+    print("Starting example")
+    client = Client(
+        n_workers=1,
+        threads_per_worker=4,
+    )
+    dashboard = client.submit(Dashboard_DaskActor, actor=True).result()
+    replayer = client.submit(ReplayYamlData_DaskActor, actor=True).result()
+    dashboard.start().result()
+    replayer.start().result()
 
-print(f"Dashboard running at http://localhost:4000 (Rerun gRPC on port {rerun_info['grpc_port']})")
-print("Press Ctrl+C to stop...")
-try:
-    while True:
-        time.sleep(1.0)
-except KeyboardInterrupt:
-    pass
-finally:
-    client.close()
+    print(
+        f"Dashboard running at http://localhost:4000 (Rerun gRPC on port {rerun_info['grpc_port']})"
+    )
+    print("Press Ctrl+C to stop...")
+    try:
+        while True:
+            time.sleep(1.0)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        client.close()
