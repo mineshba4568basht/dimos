@@ -38,9 +38,16 @@ rerun_info = {
     "url": f"rerun+http://127.0.0.1:{grpc_port}/proxy",
 }
 
+from dimos.core import Module, Out, pLCMTransport, pSHMTransport
+from dimos.core.blueprints import autoconnect
+from dimos.core.core import rpc
+from dimos.msgs.sensor_msgs import Image
+from dimos.robot.unitree_webrtc.type.lidar import LidarMessage
 
-class Dashboard_DaskActor:
+class Dashboard(Module):
+    @rpc
     def start(self):
+        super().start()
         rr.init(rerun_info["logging_id"], spawn=False, recording_id=rerun_info["logging_id"])
         default_blueprint = rrb.Blueprint(
             rrb.Tabs(
@@ -109,8 +116,14 @@ def iter_yaml_data_line_by_line(path):
                 continue
 
 
-class ReplayYamlData_DaskActor:
+class DataReplay(Module):
+    color_image: Out[Image] = None  # type: ignore[assignment]
+    lidar: Out[LidarMessage] = None  # type: ignore[assignment]
+    odom: Out[Odometry] = None  # type: ignore[assignment]
+
+    @rpc
     def start(self) -> bool:
+        super().start()
         for output_name, yaml_filepath in DEFAULT_REPLAY_PATHS.items():
             threading.Thread(
                 target=self._publish_stream,
@@ -132,24 +145,19 @@ class ReplayYamlData_DaskActor:
 
 # ------------------------------ Entrypoint --------------------------------- #
 if __name__ == "__main__":
-    print("Starting example")
-    client = Client(
-        n_workers=1,
-        threads_per_worker=4,
+    blueprint = (
+        autoconnect(
+            DataReplay.blueprint(),
+            Dashboard.blueprint(),
+        )
+        .transports(
+            {
+                ("color_image", Image): pSHMTransport("/replay/color_image"),
+                ("lidar", LidarMessage): pLCMTransport("/replay/lidar"),
+            }
+        )
+        .global_config(n_dask_workers=1, threads_per_worker=4)
     )
-    dashboard = client.submit(Dashboard_DaskActor, actor=True).result()
-    replayer = client.submit(ReplayYamlData_DaskActor, actor=True).result()
-    dashboard.start().result()
-    replayer.start().result()
-
-    print(
-        f"Dashboard running at http://localhost:4000 (Rerun gRPC on port {rerun_info['grpc_port']})"
-    )
-    print("Press Ctrl+C to stop...")
-    try:
-        while True:
-            time.sleep(1.0)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        client.close()
+    coordinator = blueprint.build()
+    print("Data replay running. Press Ctrl+C to stop.")
+    coordinator.loop()
