@@ -225,6 +225,11 @@ def start_dashboard_server_thread(
 
 
 # ------------------------- Data replay as an actor ------------------------- #
+DEFAULT_REPLAY_PATHS: dict[str, str] = {
+    "lidar": "./dimos/dashboard/support/lidar.yaml",
+    "color_image": "./dimos/dashboard/support/color_image.yaml",
+}
+# Fallback demo data if the real YAML files are missing.
 DEFAULT_REPLAY_PATH = Path(__file__).with_name("sample_replay.yaml")
 DEFAULT_YAML = """\
 - kind: text
@@ -257,7 +262,7 @@ class DataReplayActor:
         loop: bool = True,
     ) -> None:
         self.rerun_info = rerun_info
-        self.replay_paths = replay_paths or {"demo": str(DEFAULT_REPLAY_PATH)}
+        self.replay_paths = replay_paths or DEFAULT_REPLAY_PATHS
         self.interval_sec = interval_sec
         self.loop = loop
         self._stop_event = threading.Event()
@@ -266,7 +271,7 @@ class DataReplayActor:
     def _iter_messages(self, path: str):
         file_path = Path(path)
         if not file_path.exists():
-            print(f"[DataReplayActor] file {path} does not exist, using defaults")
+            print(f"[DataReplayActor] file {path} does not exist, using fallback demo data")
             yield from yaml.safe_load(DEFAULT_YAML)
             return
 
@@ -275,7 +280,7 @@ class DataReplayActor:
                 if not line.strip():
                     continue
                 try:
-                    parsed = yaml.safe_load(line) or []
+                    parsed = yaml.unsafe_load(line) or []
                 except Exception as error:
                     print(f"[DataReplayActor] line {line_number} could not be parsed: {error}")
                     continue
@@ -286,7 +291,9 @@ class DataReplayActor:
 
     def _to_rerun_payload(self, msg: Any, output_name: str) -> tuple[str, Any]:
         path = f"/{output_name}"
-        if isinstance(msg, dict):
+        if hasattr(msg, "to_rerun"):
+            payload = msg.to_rerun()  # type: ignore[call-arg]
+        elif isinstance(msg, dict):
             path = msg.get("path", path)
             kind = msg.get("kind", "text")
             if kind == "points3d":
@@ -362,7 +369,7 @@ def main() -> None:
     replayer = client.submit(
         DataReplayActor,
         rerun_info,
-        replay_paths={"demo": str(DEFAULT_REPLAY_PATH)},
+        replay_paths=DEFAULT_REPLAY_PATHS,
         interval_sec=0.25,
         loop=True,
         actor=True,
