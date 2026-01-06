@@ -1,0 +1,3 @@
+Python 3.12.9
+Error: Command '['/home/jalaj/dimensional/dimos/.venv/bin/python3.12', '-m', 'ensurepip', '--upgrade', '--default-pip']' returned non-zero exit status 1.
+FAILED:1

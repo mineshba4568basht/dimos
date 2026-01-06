@@ -1,0 +1,31 @@
+SHELL: /bin/bash
+PATH: /home/jalaj/.local/bin:/opt/ros/noetic/bin:/home/jalaj/.local/bin:/home/jalaj/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+
+python (if any):
+/home/jalaj/dimensional/dimos/.python_check.sh: line 6: python: command not found
+
+python3:
+/usr/bin/python3
+Python 3.8.10
+
+python3.13: NOT FOUND
+python3.12: /usr/bin/python3.12 -> Python 3.12.9
+python3.11: NOT FOUND
+python3.10: NOT FOUND
+python3.9: NOT FOUND
+
+pyenv:
+pyenv: NOT FOUND
+conda:
+conda: NOT FOUND
+
+ls /usr/bin/python3* (head):
+lrwxrwxrwx 1 root root       9 Feb  5  2025 /usr/bin/python3 -> python3.8
+-rwxr-xr-x 1 root root 8444848 Feb  5  2025 /usr/bin/python3.12
+-rwxr-xr-x 1 root root 5490456 Mar 18  2025 /usr/bin/python3.8
+lrwxrwxrwx 1 root root      33 Mar 18  2025 /usr/bin/python3.8-config -> x86_64-linux-gnu-python3.8-config
+lrwxrwxrwx 1 root root      16 Mar 13  2020 /usr/bin/python3-config -> python3.8-config
+-rwxr-xr-x 1 root root     384 Jan 25  2023 /usr/bin/python3-futurize
+-rwxr-xr-x 1 root root     388 Jan 25  2023 /usr/bin/python3-pasteurize
+
+ls /usr/local/bin/python3* (head):
