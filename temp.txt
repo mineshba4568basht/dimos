@@ -1,0 +1,250 @@
+025-12-25 12:12:37,511 [INFO] Downloaded mesh b7aa25a1-5422-4d49-9e7e-bcc9439075ec: 2436841 bytes
+2025-12-25 12:12:37,512 [INFO] Received response for '<box_prompt>': mesh=yes, pose=yes
+2025-12-25T20:12:37.515500Z [info     ] [Rerun] Attempting to log mesh for 25ffb8ca                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.515960Z [info     ] [Rerun] _log_mesh_to_rerun called for 25ffb8ca, mesh_path=/home/dimensional/dimos/meshes/person_25ffb8ca.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.516282Z [info     ] [Rerun] Loading mesh from /home/dimensional/dimos/meshes/person_25ffb8ca.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.670980Z [info     ] [Rerun] Mesh loaded: 25000 vertices, 50000 faces             [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.671950Z [info     ] [Rerun] Direct vertex_colors: shape=(25000, 4), dtype=uint8  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.672429Z [info     ] [Rerun] Using fp_world pose: trans=[1.7444735871856596, -0.10077170001654147, -0.10628695500617677], quat=[-0.8046981513301726, 0.30051626939121234, -0.14533028555587818, 0.4909479809589095] [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.672652Z [info     ] [Rerun] Logging to entity path: /world/perception/objects/25ffb8ca [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.758537Z [info     ] [Rerun] Logged Mesh3D for 25ffb8ca                           [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.760323Z [info     ] [Rerun] Logged InstancePoses3D for 25ffb8ca                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.760960Z [info     ] [Rerun] ✓ Successfully logged complete mesh for 25ffb8ca with vertex colors [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.761266Z [info     ] [Rerun] Successfully logged mesh for 25ffb8ca                [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:37.761484Z [info     ] Mesh complete for object_id=25ffb8ca                         [dimos/perception/object_scene_registration.py]
+2025-12-25 12:12:38,017 [INFO] Sending request to mesh/pose service (endpoint=/process, use_box_prompt=True) for label='<box_prompt>'
+2025-12-25T20:12:38.886463Z [info     ] Created new pending object c83243e1 (waste)                  [dimos/perception/detection/objectDB.py]
+2025-12-25T20:12:40.078417Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=10 pend=3 | Queues: mesh=1 proc=1 | MeshStates: {'DONE': 8, 'PENDING': 2} | PCPoints: 62377 (~2.9MB) | ProcessCount: 355 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:45.083017Z [info     ] Promoted object c83243e1 (recycling bin) to permanent, total detections: 11 [dimos/perception/detection/objectDB.py]
+2025-12-25T20:12:45.687299Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=709284pts/8.1MB | terrain_map=264198pts/3.0MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=2982 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:12:50.697106Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=2 | Queues: mesh=2 proc=1 | MeshStates: {'DONE': 8, 'PENDING': 3} | PCPoints: 64937 (~3.0MB) | ProcessCount: 365 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:55.712897Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=695425pts/8.0MB | terrain_map=270781pts/3.1MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=3063 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25 12:12:55,904 [INFO] Downloaded mesh 8c21664d-23ea-426a-a00f-ece9d81c956f: 1142101 bytes
+2025-12-25 12:12:55,904 [INFO] Received response for '<box_prompt>': mesh=yes, pose=yes
+2025-12-25T20:12:55.912244Z [info     ] [Rerun] Attempting to log mesh for 9d090238                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:55.912546Z [info     ] [Rerun] _log_mesh_to_rerun called for 9d090238, mesh_path=/home/dimensional/dimos/meshes/poetry_9d090238.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:55.912835Z [info     ] [Rerun] Loading mesh from /home/dimensional/dimos/meshes/poetry_9d090238.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.058496Z [info     ] [Rerun] Mesh loaded: 11893 vertices, 23723 faces             [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.075360Z [info     ] [Rerun] Direct vertex_colors: shape=(11893, 4), dtype=uint8  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.076325Z [info     ] [Rerun] Using fp_world pose: trans=[1.0582057662220072, -0.17713024419190884, -0.23701668240149343], quat=[0.11669727189858989, 0.6970688037827171, 0.7003923996462136, 0.09963583318858266] [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.081311Z [info     ] [Rerun] Logging to entity path: /world/perception/objects/9d090238 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.175050Z [info     ] [Rerun] Logged Mesh3D for 9d090238                           [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.177017Z [info     ] [Rerun] Logged InstancePoses3D for 9d090238                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.177924Z [info     ] [Rerun] ✓ Successfully logged complete mesh for 9d090238 with vertex colors [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.179441Z [info     ] [Rerun] Successfully logged mesh for 9d090238                [dimos/perception/object_scene_registration.py]
+2025-12-25T20:12:56.179928Z [info     ] Mesh complete for object_id=9d090238                         [dimos/perception/object_scene_registration.py]
+2025-12-25 12:12:56,390 [INFO] Sending request to mesh/pose service (endpoint=/process, use_box_prompt=True) for label='<box_prompt>'
+2025-12-25T20:13:01.516356Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=2 | Queues: mesh=1 proc=1 | MeshStates: {'DONE': 9, 'PENDING': 2} | PCPoints: 67672 (~3.1MB) | ProcessCount: 377 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:05.841892Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=677618pts/7.8MB | terrain_map=239654pts/2.7MB | overall_map=0pts/0.0MB | Total=10.5MB | Frames=3142 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:13:11.850349Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=1 | Queues: mesh=1 proc=1 | MeshStates: {'DONE': 9, 'PENDING': 2} | PCPoints: 70731 (~3.2MB) | ProcessCount: 388 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:15.932712Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=765817pts/8.8MB | terrain_map=289911pts/3.3MB | overall_map=0pts/0.0MB | Total=12.1MB | Frames=3229 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25 12:13:21,164 [INFO] Downloaded mesh 30571706-b742-4d07-8adf-497c9a4ad284: 2413609 bytes
+2025-12-25 12:13:21,164 [INFO] Received response for '<box_prompt>': mesh=yes, pose=yes
+2025-12-25T20:13:21.169092Z [info     ] [Rerun] Attempting to log mesh for b5fe5ffe                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.169575Z [info     ] [Rerun] _log_mesh_to_rerun called for b5fe5ffe, mesh_path=/home/dimensional/dimos/meshes/person_b5fe5ffe.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.169782Z [info     ] [Rerun] Loading mesh from /home/dimensional/dimos/meshes/person_b5fe5ffe.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.317519Z [info     ] [Rerun] Mesh loaded: 24986 vertices, 50000 faces             [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.318306Z [info     ] [Rerun] Direct vertex_colors: shape=(24986, 4), dtype=uint8  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.319012Z [info     ] [Rerun] Using fp_world pose: trans=[1.1291428528406593, -0.3252806021395275, 0.07876535978550114], quat=[0.31220102976822184, -0.47554581539845775, -0.6876426160626734, 0.45114786382457117] [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.319448Z [info     ] [Rerun] Logging to entity path: /world/perception/objects/b5fe5ffe [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.385919Z [info     ] [Rerun] Logged Mesh3D for b5fe5ffe                           [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.386619Z [info     ] [Rerun] Logged InstancePoses3D for b5fe5ffe                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.386934Z [info     ] [Rerun] ✓ Successfully logged complete mesh for b5fe5ffe with vertex colors [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.387210Z [info     ] [Rerun] Successfully logged mesh for b5fe5ffe                [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:21.387367Z [info     ] Mesh complete for object_id=b5fe5ffe                         [dimos/perception/object_scene_registration.py]
+2025-12-25 12:13:21,578 [INFO] Sending request to mesh/pose service (endpoint=/process, use_box_prompt=True) for label='<box_prompt>'
+2025-12-25T20:13:22.052144Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 10, 'PENDING': 1} | PCPoints: 70257 (~3.2MB) | ProcessCount: 400 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:26.049248Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=677548pts/7.8MB | terrain_map=238068pts/2.7MB | overall_map=0pts/0.0MB | Total=10.5MB | Frames=3309 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:13:32.816075Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 10, 'PENDING': 1} | PCPoints: 71225 (~3.3MB) | ProcessCount: 413 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:36.142116Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=677746pts/7.8MB | terrain_map=245327pts/2.8MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=3389 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:13:42.857789Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 10, 'PENDING': 1} | PCPoints: 73052 (~3.3MB) | ProcessCount: 425 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:46.244323Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=677497pts/7.8MB | terrain_map=268704pts/3.1MB | overall_map=0pts/0.0MB | Total=10.8MB | Frames=3467 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25 12:13:46,932 [INFO] Downloaded mesh fab48bbf-ca45-46a6-bec5-dafc216b6263: 2433427 bytes
+2025-12-25 12:13:46,932 [INFO] Received response for '<box_prompt>': mesh=yes, pose=yes
+2025-12-25T20:13:46.936899Z [info     ] [Rerun] Attempting to log mesh for c83243e1                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:46.938476Z [info     ] [Rerun] _log_mesh_to_rerun called for c83243e1, mesh_path=/home/dimensional/dimos/meshes/waste_container_c83243e1.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:46.940890Z [info     ] [Rerun] Loading mesh from /home/dimensional/dimos/meshes/waste_container_c83243e1.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.152111Z [info     ] [Rerun] Mesh loaded: 25012 vertices, 50000 faces             [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.155294Z [info     ] [Rerun] Direct vertex_colors: shape=(25012, 4), dtype=uint8  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.158993Z [info     ] [Rerun] Using fp_world pose: trans=[1.5650745627541909, 0.5698061870682782, -0.025842331778519367], quat=[0.6192571076346919, -0.24145448385158774, -0.33192536887673957, 0.6693623370266895] [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.161074Z [info     ] [Rerun] Logging to entity path: /world/perception/objects/c83243e1 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.351273Z [info     ] [Rerun] Logged Mesh3D for c83243e1                           [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.352612Z [info     ] [Rerun] Logged InstancePoses3D for c83243e1                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.353024Z [info     ] [Rerun] ✓ Successfully logged complete mesh for c83243e1 with vertex colors [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.353476Z [info     ] [Rerun] Successfully logged mesh for c83243e1                [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:47.353834Z [info     ] Mesh complete for object_id=c83243e1                         [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:53.431776Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 11} | PCPoints: 74652 (~3.4MB) | ProcessCount: 437 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:13:56.303878Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=706586pts/8.1MB | terrain_map=262222pts/3.0MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=3547 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:14:03.820454Z [info     ] Created new pending object 5788208f (auto part)              [dimos/perception/detection/objectDB.py]
+2025-12-25T20:14:03.882767Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=1 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 11} | PCPoints: 76472 (~3.5MB) | ProcessCount: 449 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:06.320834Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=714187pts/8.2MB | terrain_map=259878pts/3.0MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=3629 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:14:14.679846Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=1 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 11} | PCPoints: 77720 (~3.6MB) | ProcessCount: 462 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:16.340936Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=732064pts/8.4MB | terrain_map=261098pts/3.0MB | overall_map=0pts/0.0MB | Total=11.4MB | Frames=3708 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:14:24.985944Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=11 pend=1 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 11} | PCPoints: 79912 (~3.7MB) | ProcessCount: 474 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:26.420269Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=713533pts/8.2MB | terrain_map=261303pts/3.0MB | overall_map=0pts/0.0MB | Total=11.2MB | Frames=3789 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:14:33.187857Z [info     ] Created new pending object f99de479 (extinguisher)           [dimos/perception/detection/objectDB.py]
+2025-12-25T20:14:34.187709Z [info     ] Promoted object 5788208f (camera) to permanent, total detections: 12 [dimos/perception/detection/objectDB.py]
+2025-12-25 12:14:34,382 [INFO] Sending request to mesh/pose service (endpoint=/process, use_box_prompt=True) for label='<box_prompt>'
+2025-12-25T20:14:35.155081Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=12 pend=1 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 11, 'PENDING': 1} | PCPoints: 80499 (~3.7MB) | ProcessCount: 486 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:36.520796Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730782pts/8.4MB | terrain_map=269736pts/3.1MB | overall_map=0pts/0.0MB | Total=11.5MB | Frames=3871 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:14:41.202608Z [info     ] Promoted object f99de479 (extinguisher) to permanent, total detections: 13 [dimos/perception/detection/objectDB.py]
+2025-12-25T20:14:45.432568Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=13 pend=0 | Queues: mesh=1 proc=1 | MeshStates: {'DONE': 11, 'PENDING': 2} | PCPoints: 81863 (~3.7MB) | ProcessCount: 498 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:46.562333Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730735pts/8.4MB | terrain_map=268842pts/3.1MB | overall_map=0pts/0.0MB | Total=11.4MB | Frames=3957 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:14:56.173112Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=13 pend=0 | Queues: mesh=1 proc=1 | MeshStates: {'DONE': 11, 'PENDING': 2} | PCPoints: 83081 (~3.8MB) | ProcessCount: 511 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:56.578942Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=712267pts/8.2MB | terrain_map=255968pts/2.9MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=4035 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25 12:14:56,692 [INFO] Downloaded mesh 46a7563e-98b9-4388-af1a-ddcfe10e9b02: 2463804 bytes
+2025-12-25 12:14:56,692 [INFO] Received response for '<box_prompt>': mesh=yes, pose=yes
+2025-12-25T20:14:56.703580Z [info     ] [Rerun] Attempting to log mesh for 5788208f                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:56.704433Z [info     ] [Rerun] _log_mesh_to_rerun called for 5788208f, mesh_path=/home/dimensional/dimos/meshes/camera_5788208f.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:56.704808Z [info     ] [Rerun] Loading mesh from /home/dimensional/dimos/meshes/camera_5788208f.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:56.923833Z [info     ] [Rerun] Mesh loaded: 24984 vertices, 50000 faces             [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:56.932361Z [info     ] [Rerun] Direct vertex_colors: shape=(24984, 4), dtype=uint8  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:56.940823Z [info     ] [Rerun] Using fp_world pose: trans=[1.222325696330463, 0.17165903170228808, -0.19740394171516368], quat=[0.5271171932220949, -0.4570494606265945, -0.46809654172613735, 0.5423457701816665] [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:56.948585Z [info     ] [Rerun] Logging to entity path: /world/perception/objects/5788208f [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:57.386780Z [info     ] [Rerun] Logged Mesh3D for 5788208f                           [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:57.387466Z [info     ] [Rerun] Logged InstancePoses3D for 5788208f                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:57.387734Z [info     ] [Rerun] ✓ Successfully logged complete mesh for 5788208f with vertex colors [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:57.388183Z [info     ] [Rerun] Successfully logged mesh for 5788208f                [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:57.388702Z [info     ] Mesh complete for object_id=5788208f                         [dimos/perception/object_scene_registration.py]
+2025-12-25T20:14:57.400267Z [info     ] Created new pending object 9d014d79 (office desk)            [dimos/perception/detection/objectDB.py]
+2025-12-25T20:14:57.408759Z [info     ] Created new pending object 298d40e2 (home interior)          [dimos/perception/detection/objectDB.py]
+2025-12-25 12:14:57,569 [INFO] Sending request to mesh/pose service (endpoint=/process, use_box_prompt=True) for label='<box_prompt>'
+2025-12-25T20:15:00.778697Z [info     ] Created new pending object d0aa8062 (elevator door)          [dimos/perception/detection/objectDB.py]
+2025-12-25T20:15:03.552475Z [info     ] Promoted object d0aa8062 (elevator door) to permanent, total detections: 14 [dimos/perception/detection/objectDB.py]
+2025-12-25T20:15:06.580542Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=693255pts/7.9MB | terrain_map=250448pts/2.9MB | overall_map=0pts/0.0MB | Total=10.8MB | Frames=4116 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:15:06.642845Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=2 | Queues: mesh=1 proc=1 | MeshStates: {'DONE': 12, 'PENDING': 2} | PCPoints: 98168 (~4.5MB) | ProcessCount: 524 [dimos/perception/object_scene_registration.py]
+2025-12-25 12:15:15,794 [INFO] Downloaded mesh c6109aa1-bf63-42ab-b0f2-7c0ab1834ae0: 1372796 bytes
+2025-12-25 12:15:15,794 [INFO] Received response for '<box_prompt>': mesh=yes, pose=yes
+2025-12-25T20:15:15.796349Z [info     ] [Rerun] Attempting to log mesh for f99de479                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:15.797202Z [info     ] [Rerun] _log_mesh_to_rerun called for f99de479, mesh_path=/home/dimensional/dimos/meshes/extinguisher_f99de479.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:15.797547Z [info     ] [Rerun] Loading mesh from /home/dimensional/dimos/meshes/extinguisher_f99de479.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:15.959859Z [info     ] [Rerun] Mesh loaded: 14362 vertices, 28684 faces             [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:15.960626Z [info     ] [Rerun] Direct vertex_colors: shape=(14362, 4), dtype=uint8  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:15.960916Z [info     ] [Rerun] Using fp_world pose: trans=[4.629345284985078, -2.3067330843748493, 0.8128759880962887], quat=[0.119837381645923, -0.006212513803072039, -0.677445348499653, -0.7257191253979669] [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:15.961071Z [info     ] [Rerun] Logging to entity path: /world/perception/objects/f99de479 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:16.009339Z [info     ] [Rerun] Logged Mesh3D for f99de479                           [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:16.010172Z [info     ] [Rerun] Logged InstancePoses3D for f99de479                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:16.010622Z [info     ] [Rerun] ✓ Successfully logged complete mesh for f99de479 with vertex colors [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:16.010856Z [info     ] [Rerun] Successfully logged mesh for f99de479                [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:16.011574Z [info     ] Mesh complete for object_id=f99de479                         [dimos/perception/object_scene_registration.py]
+2025-12-25 12:15:16,211 [INFO] Sending request to mesh/pose service (endpoint=/process, use_box_prompt=True) for label='<box_prompt>'
+2025-12-25T20:15:16.709413Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=766581pts/8.8MB | terrain_map=273757pts/3.1MB | overall_map=0pts/0.0MB | Total=11.9MB | Frames=4204 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:15:17.360468Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=2 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 13, 'PENDING': 1} | PCPoints: 106588 (~4.9MB) | ProcessCount: 537 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:26.721564Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=694909pts/8.0MB | terrain_map=249394pts/2.9MB | overall_map=0pts/0.0MB | Total=10.8MB | Frames=4284 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:15:27.695452Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 13, 'PENDING': 1} | PCPoints: 107786 (~4.9MB) | ProcessCount: 549 [dimos/perception/object_scene_registration.py]
+2025-12-25 12:15:31,494 [INFO] Downloaded mesh 1bc45094-df8b-4a5c-b23e-45bc02ee821a: 758999 bytes
+2025-12-25 12:15:31,502 [INFO] Received response for '<box_prompt>': mesh=yes, pose=yes
+2025-12-25T20:15:31.515640Z [info     ] [Rerun] Attempting to log mesh for d0aa8062                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.516549Z [info     ] [Rerun] _log_mesh_to_rerun called for d0aa8062, mesh_path=/home/dimensional/dimos/meshes/elevator_door_d0aa8062.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.517251Z [info     ] [Rerun] Loading mesh from /home/dimensional/dimos/meshes/elevator_door_d0aa8062.obj [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.642838Z [info     ] [Rerun] Mesh loaded: 8254 vertices, 16492 faces              [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.644288Z [info     ] [Rerun] Direct vertex_colors: shape=(8254, 4), dtype=uint8   [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.644995Z [info     ] [Rerun] Using fp_world pose: trans=[4.673223712500316, 1.1858832414303002, 1.0032938553661415], quat=[0.2192261090354532, -0.6652097631112466, -0.7119845038769208, -0.050139896371856174] [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.645177Z [info     ] [Rerun] Logging to entity path: /world/perception/objects/d0aa8062 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.672775Z [info     ] [Rerun] Logged Mesh3D for d0aa8062                           [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.673676Z [info     ] [Rerun] Logged InstancePoses3D for d0aa8062                  [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.674145Z [info     ] [Rerun] ✓ Successfully logged complete mesh for d0aa8062 with vertex colors [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.674495Z [info     ] [Rerun] Successfully logged mesh for d0aa8062                [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:31.674750Z [info     ] Mesh complete for object_id=d0aa8062                         [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:36.736010Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=731001pts/8.4MB | terrain_map=272790pts/3.1MB | overall_map=0pts/0.0MB | Total=11.5MB | Frames=4365 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:15:38.093324Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 115219 (~5.3MB) | ProcessCount: 561 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:46.777684Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=731916pts/8.4MB | terrain_map=268403pts/3.1MB | overall_map=0pts/0.0MB | Total=11.4MB | Frames=4446 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:15:48.385715Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 112547 (~5.2MB) | ProcessCount: 573 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:15:56.914064Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=712723pts/8.2MB | terrain_map=256109pts/2.9MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=4527 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:15:58.670925Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 119002 (~5.4MB) | ProcessCount: 586 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:16:06.940982Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=801510pts/9.2MB | terrain_map=296432pts/3.4MB | overall_map=0pts/0.0MB | Total=12.6MB | Frames=4612 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:16:09.089208Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 124120 (~5.7MB) | ProcessCount: 599 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:16:16.972920Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=748202pts/8.6MB | terrain_map=268357pts/3.1MB | overall_map=0pts/0.0MB | Total=11.6MB | Frames=4695 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:16:19.386580Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 117123 (~5.4MB) | ProcessCount: 611 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:16:27.034151Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=695486pts/8.0MB | terrain_map=258747pts/3.0MB | overall_map=0pts/0.0MB | Total=10.9MB | Frames=4773 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:16:29.617658Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 123931 (~5.7MB) | ProcessCount: 623 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:16:37.075602Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=659363pts/7.5MB | terrain_map=246672pts/2.8MB | overall_map=0pts/0.0MB | Total=10.4MB | Frames=4854 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:16:40.355997Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 130465 (~6.0MB) | ProcessCount: 636 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:16:47.229759Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730280pts/8.4MB | terrain_map=276652pts/3.2MB | overall_map=0pts/0.0MB | Total=11.5MB | Frames=4938 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:16:51.146873Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 134692 (~6.2MB) | ProcessCount: 648 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:16:57.343258Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=694776pts/8.0MB | terrain_map=268079pts/3.1MB | overall_map=0pts/0.0MB | Total=11.0MB | Frames=5018 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:17:01.678177Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 137145 (~6.3MB) | ProcessCount: 659 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:17:07.431380Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=712961pts/8.2MB | terrain_map=265705pts/3.0MB | overall_map=0pts/0.0MB | Total=11.2MB | Frames=5101 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:17:11.880783Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 140253 (~6.4MB) | ProcessCount: 670 [dimos/perception/object_scene_registration.py]
+2025-12-25 12:17:12,472 - distributed.worker.memory - WARNING - Unmanaged memory use is high. This may indicate a memory leak or the memory may not be released to the OS; see https://distributed.dask.org/en/latest/worker-memory.html#memory-not-released-back-to-the-os for more information. -- Unmanaged memory: 4.78 GiB -- Worker memory limit: 6.81 GiB
+2025-12-25T20:17:17.795949Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=694744pts/8.0MB | terrain_map=265828pts/3.0MB | overall_map=0pts/0.0MB | Total=11.0MB | Frames=5182 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25 12:17:22,555 - distributed.worker.memory - WARNING - Worker is at 80% memory usage. Pausing worker.  Process memory: 5.46 GiB -- Worker memory limit: 6.81 GiB
+2025-12-25 12:17:22,670 - distributed.worker.memory - WARNING - Worker is at 79% memory usage. Resuming worker. Process memory: 5.41 GiB -- Worker memory limit: 6.81 GiB
+2025-12-25T20:17:22.848386Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 142030 (~6.5MB) | ProcessCount: 681 [dimos/perception/object_scene_registration.py]
+2025-12-25 12:17:23,067 - distributed.worker.memory - WARNING - Worker is at 80% memory usage. Pausing worker.  Process memory: 5.46 GiB -- Worker memory limit: 6.81 GiB
+2025-12-25T20:17:27.922913Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730826pts/8.4MB | terrain_map=277413pts/3.2MB | overall_map=0pts/0.0MB | Total=11.5MB | Frames=5267 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:17:33.735674Z [warning  ] [ObjectSceneReg:MemStats] after_process | ObjectDB: perm=14 pend=0 | Queues: mesh=0 proc=1 | MeshStates: {'DONE': 14} | PCPoints: 143496 (~6.6MB) | ProcessCount: 692 [dimos/perception/object_scene_registration.py]
+2025-12-25T20:17:38.022156Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=714212pts/8.2MB | terrain_map=252011pts/2.9MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=5347 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25 12:17:38,485 - distributed.nanny.memory - WARNING - Worker tcp://127.0.0.1:37487 (pid=714835) exceeded 95% memory budget. Restarting...
+Exception in thread ObjectSceneRegistrationSpinThread:
+Traceback (most recent call last):
+  File "/home/dimensional/miniconda3/envs/dimos-ros/lib/python3.12/threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "/home/dimensional/miniconda3/envs/dimos-ros/lib/python3.12/threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/dimensional/dimos/dimos/perception/object_scene_registration.py", line 362, in _spin_node
+    rclpy.spin_once(self._node, timeout_sec=0.1)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 226, in spin_once
+    executor.spin_once(timeout_sec=timeout_sec)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 839, in spin_once
+    self._spin_once_impl(timeout_sec)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 823, in _spin_once_impl
+    handler, entity, node = self.wait_for_ready_callbacks(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 793, in wait_for_ready_callbacks
+    return next(self._cb_iter)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 701, in _wait_for_ready_callbacks
+    raise ExternalShutdownException()
+rclpy.executors.ExternalShutdownException
+2025-12-25T20:17:38.525479Z [error    ] Error processing images                                      [dimos/perception/object_scene_registration.py]
+2025-12-25 12:17:38,885 - distributed.nanny.memory - WARNING - Worker tcp://127.0.0.1:37487 (pid=714835) is slow to accept SIGTERM; sending SIGKILL
+2025-12-25 12:17:39,561 - distributed.nanny - WARNING - Restarting worker
+[2025-12-25T20:17:39Z ERROR re_grpc_client::write] Write messages call failed: gRPC error, message: "transport error"
+2025-12-25T20:17:48.056996Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=695628pts/8.0MB | terrain_map=262062pts/3.0MB | overall_map=0pts/0.0MB | Total=11.0MB | Frames=5429 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:17:58.163711Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=659273pts/7.5MB | terrain_map=253152pts/2.9MB | overall_map=0pts/0.0MB | Total=10.4MB | Frames=5504 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:18:08.229778Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=641313pts/7.3MB | terrain_map=229799pts/2.6MB | overall_map=0pts/0.0MB | Total=10.0MB | Frames=5579 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:18:18.344526Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=678108pts/7.8MB | terrain_map=256741pts/2.9MB | overall_map=0pts/0.0MB | Total=10.7MB | Frames=5655 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:18:28.374331Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=659080pts/7.5MB | terrain_map=244561pts/2.8MB | overall_map=0pts/0.0MB | Total=10.3MB | Frames=5728 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:18:38.394381Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=676469pts/7.7MB | terrain_map=250399pts/2.9MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=5802 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:18:48.510777Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=695090pts/8.0MB | terrain_map=264957pts/3.0MB | overall_map=0pts/0.0MB | Total=11.0MB | Frames=5880 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:18:58.614570Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=605755pts/6.9MB | terrain_map=217273pts/2.5MB | overall_map=0pts/0.0MB | Total=9.4MB | Frames=5951 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:19:08.630320Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=695722pts/8.0MB | terrain_map=248639pts/2.8MB | overall_map=0pts/0.0MB | Total=10.8MB | Frames=6029 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:19:18.706058Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=623682pts/7.1MB | terrain_map=235955pts/2.7MB | overall_map=0pts/0.0MB | Total=9.8MB | Frames=6099 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:19:28.742622Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=677196pts/7.7MB | terrain_map=253155pts/2.9MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=6176 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:19:38.765831Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=678263pts/7.8MB | terrain_map=251516pts/2.9MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=6250 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:19:48.874064Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730007pts/8.4MB | terrain_map=279813pts/3.2MB | overall_map=0pts/0.0MB | Total=11.6MB | Frames=6329 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:19:59.025567Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=659115pts/7.5MB | terrain_map=243062pts/2.8MB | overall_map=0pts/0.0MB | Total=10.3MB | Frames=6406 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:20:09.035023Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730566pts/8.4MB | terrain_map=268349pts/3.1MB | overall_map=0pts/0.0MB | Total=11.4MB | Frames=6485 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:20:19.130785Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=677071pts/7.7MB | terrain_map=247527pts/2.8MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=6562 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:20:29.135269Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=659239pts/7.5MB | terrain_map=249641pts/2.9MB | overall_map=0pts/0.0MB | Total=10.4MB | Frames=6638 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:20:39.205009Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=677059pts/7.7MB | terrain_map=247058pts/2.8MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=6711 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:20:49.275556Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730486pts/8.4MB | terrain_map=262812pts/3.0MB | overall_map=0pts/0.0MB | Total=11.4MB | Frames=6786 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:20:59.308688Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=712465pts/8.2MB | terrain_map=254822pts/2.9MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=6862 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:21:09.350161Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=623733pts/7.1MB | terrain_map=235347pts/2.7MB | overall_map=0pts/0.0MB | Total=9.8MB | Frames=6935 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:21:19.358716Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730101pts/8.4MB | terrain_map=269808pts/3.1MB | overall_map=0pts/0.0MB | Total=11.4MB | Frames=7014 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:21:29.436211Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=748070pts/8.6MB | terrain_map=265787pts/3.0MB | overall_map=0pts/0.0MB | Total=11.6MB | Frames=7095 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:21:39.452886Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=694420pts/7.9MB | terrain_map=266712pts/3.1MB | overall_map=0pts/0.0MB | Total=11.0MB | Frames=7172 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:21:49.595307Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=659220pts/7.5MB | terrain_map=235503pts/2.7MB | overall_map=0pts/0.0MB | Total=10.2MB | Frames=7251 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:21:59.788737Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=712488pts/8.2MB | terrain_map=260625pts/3.0MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=7332 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:22:09.803898Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730056pts/8.4MB | terrain_map=257030pts/2.9MB | overall_map=0pts/0.0MB | Total=11.3MB | Frames=7412 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:22:19.809492Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=694418pts/7.9MB | terrain_map=249206pts/2.9MB | overall_map=0pts/0.0MB | Total=10.8MB | Frames=7488 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:22:29.940970Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=730269pts/8.4MB | terrain_map=255597pts/2.9MB | overall_map=0pts/0.0MB | Total=11.3MB | Frames=7568 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:22:40.119563Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=693500pts/7.9MB | terrain_map=255114pts/2.9MB | overall_map=0pts/0.0MB | Total=10.9MB | Frames=7645 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:22:50.166378Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=712242pts/8.2MB | terrain_map=268359pts/3.1MB | overall_map=0pts/0.0MB | Total=11.2MB | Frames=7723 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:23:00.269329Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=640671pts/7.3MB | terrain_map=241794pts/2.8MB | overall_map=0pts/0.0MB | Total=10.1MB | Frames=7796 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:23:10.346749Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=676810pts/7.7MB | terrain_map=249339pts/2.9MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=7872 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:23:20.362505Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=676234pts/7.7MB | terrain_map=253882pts/2.9MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=7949 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:23:30.401843Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=676198pts/7.7MB | terrain_map=251090pts/2.9MB | overall_map=0pts/0.0MB | Total=10.6MB | Frames=8025 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:23:40.491205Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=711689pts/8.1MB | terrain_map=261401pts/3.0MB | overall_map=0pts/0.0MB | Total=11.1MB | Frames=8103 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:23:50.716840Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=621778pts/7.1MB | terrain_map=221056pts/2.5MB | overall_map=0pts/0.0MB | Total=9.6MB | Frames=8179 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:24:00.768933Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=692266pts/7.9MB | terrain_map=249071pts/2.9MB | overall_map=0pts/0.0MB | Total=10.8MB | Frames=8258 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:24:10.785248Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=673803pts/7.7MB | terrain_map=225830pts/2.6MB | overall_map=0pts/0.0MB | Total=10.3MB | Frames=8332 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:24:20.851236Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=639959pts/7.3MB | terrain_map=227758pts/2.6MB | overall_map=0pts/0.0MB | Total=9.9MB | Frames=8406 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:24:30.916045Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=675194pts/7.7MB | terrain_map=230306pts/2.6MB | overall_map=0pts/0.0MB | Total=10.4MB | Frames=8479 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:24:40.954220Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=622342pts/7.1MB | terrain_map=221291pts/2.5MB | overall_map=0pts/0.0MB | Total=9.7MB | Frames=8553 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:24:50.991173Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=675322pts/7.7MB | terrain_map=227947pts/2.6MB | overall_map=0pts/0.0MB | Total=10.3MB | Frames=8631 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:25:01.109373Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=675700pts/7.7MB | terrain_map=242662pts/2.8MB | overall_map=0pts/0.0MB | Total=10.5MB | Frames=8704 [dimos/visualization/ros_rerun_bridge.py]
+2025-12-25T20:25:11.121178Z [warning  ] [RosRerunBridge:MemStats] Buffers: registered_scan=693493pts/7.9MB | terrain_map=242385pts/2.8MB | overall_map=0pts/0.0MB | Total=10.7MB | Frames=8782 [dimos/visualization/ros_rerun_bridge.py]
+^CShutting down (signal 2)...
+
