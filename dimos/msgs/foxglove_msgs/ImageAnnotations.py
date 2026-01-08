@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 from dimos_lcm.foxglove_msgs.ImageAnnotations import (
     ImageAnnotations as FoxgloveImageAnnotations,
 )
@@ -36,3 +38,5 @@ class ImageAnnotations(FoxgloveImageAnnotations):  # type: ignore[misc]
         if len(self.texts) == 0:
             return None  # type: ignore[return-value]
         return list(map(lambda t: t.text, self.texts))  # type: ignore[return-value]
+
+    # No to_rerun() - labels are attached to 3D boxes via Detection3DArray

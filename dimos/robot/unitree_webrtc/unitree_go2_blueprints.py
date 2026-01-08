@@ -34,7 +34,7 @@ from dimos.dashboard import rerun_viz
 from dimos.mapping.costmapper import cost_mapper
 from dimos.mapping.voxels import voxel_mapper
 from dimos.msgs.sensor_msgs import Image, PointCloud2
-from dimos.msgs.vision_msgs import Detection2DArray
+from dimos.msgs.vision_msgs import Detection2DArray, Detection3DArray
 from dimos.navigation.frontier_exploration import (
     wavefront_frontier_explorer,
 )
@@ -105,6 +105,9 @@ detection = (
             # Detection 3D module outputs
             ("detections", ObjectDBModule): LCMTransport(
                 "/detector3d/detections", Detection2DArray
+            ),
+            ("detections_3d", ObjectDBModule): LCMTransport(
+                "/detector3d/detections_3d", Detection3DArray
             ),
             ("annotations", ObjectDBModule): LCMTransport(
                 "/detector3d/annotations", ImageAnnotations

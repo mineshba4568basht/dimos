@@ -26,7 +26,7 @@ from reactivex.observable import Observable
 from dimos.core import In, Out, rpc
 from dimos.msgs.geometry_msgs import PoseStamped, Quaternion, Transform, Vector3
 from dimos.msgs.sensor_msgs import Image, PointCloud2
-from dimos.msgs.vision_msgs import Detection2DArray
+from dimos.msgs.vision_msgs import Detection2DArray, Detection3DArray
 from dimos.perception.detection.module3D import Detection3DModule
 from dimos.perception.detection.type import ImageDetections3DPC, TableStr
 from dimos.perception.detection.type.detection3d import Detection3DPC
@@ -80,16 +80,16 @@ class Object3D(Detection3DPC):
         new_object.track_id = self.track_id
         new_object.class_id = self.class_id
         new_object.name = self.name
-        new_object.transform = self.transform
-        new_object.pointcloud = self.pointcloud + detection.pointcloud
-        new_object.frame_id = self.frame_id
-        new_object.center = (self.center + detection.center) / 2
+        # Always use the latest detection's pose/pointcloud; do NOT accumulate pointclouds.
+        # Accumulation makes the AABB grow without bound and causes unrelated objects to intersect/merge.
+        new_object.transform = detection.transform
+        new_object.pointcloud = detection.pointcloud
+        new_object.frame_id = detection.frame_id
+        new_object.center = detection.center
         new_object.detections = self.detections + 1
 
-        if detection.bbox_2d_volume() > self.bbox_2d_volume():
-            new_object.best_detection = detection
-        else:
-            new_object.best_detection = self.best_detection
+        # For tracking & visualization, "best_detection" should represent the current object state.
+        new_object.best_detection = detection
 
         return new_object
 
@@ -146,6 +146,7 @@ class ObjectDBModule(Detection3DModule, TableStr):
     pointcloud: In[PointCloud2]
 
     detections: Out[Detection2DArray]
+    detections_3d: Out[Detection3DArray]
     annotations: Out[ImageAnnotations]
 
     detected_pointcloud_0: Out[PointCloud2]
@@ -174,6 +175,8 @@ class ObjectDBModule(Detection3DModule, TableStr):
             while True:
                 scene_update = self.to_foxglove_scene_update()
                 self.scene_update.publish(scene_update)
+                detections_3d = self.to_detection3d_array()
+                self.detections_3d.publish(detections_3d)
                 time.sleep(1.0)
 
         threading.Thread(target=scene_thread, daemon=True).start()
@@ -302,6 +305,51 @@ class ObjectDBModule(Detection3DModule, TableStr):
 
         scene_update.entities_length = len(scene_update.entities)
         return scene_update
+
+    def to_detection3d_array(self) -> Detection3DArray:
+        """Convert tracked objects to Detection3DArray for Rerun visualization."""
+        from copy import copy
+
+        from dimos_lcm.vision_msgs import Detection3D, ObjectHypothesisWithPose
+
+        detections = []
+        for obj in copy(self.objects).values():
+            if obj.center is None:
+                continue
+            try:
+                det = Detection3D()
+                det.id = obj.track_id or ""
+
+                # Set hypothesis with class name and confidence
+                hyp = ObjectHypothesisWithPose()
+                hyp.hypothesis.class_id = obj.name
+                hyp.hypothesis.score = obj.confidence
+                det.results = [hyp]
+                det.results_length = 1
+
+                # Set 3D bounding box center
+                det.bbox.center.position.x = obj.center.x
+                det.bbox.center.position.y = obj.center.y
+                det.bbox.center.position.z = obj.center.z
+                det.bbox.center.orientation.w = 1.0
+
+                # Set size from bounding box
+                dims = obj.get_bounding_box_dimensions()
+                det.bbox.size.x = dims[0]
+                det.bbox.size.y = dims[1]
+                det.bbox.size.z = dims[2]
+
+                detections.append(det)
+            except Exception:
+                pass
+
+        from dimos.msgs.std_msgs import Header
+
+        result = Detection3DArray()
+        result.header = Header("map")
+        result.detections = detections
+        result.detections_length = len(detections)
+        return result
 
     def __len__(self) -> int:
         return len(self.objects.values())

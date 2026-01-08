@@ -183,17 +183,58 @@ def make_rerun_tap(
         except Exception:
             # Best-effort: never break the producer due to visualization conversion.
             return
+        
+        # A message may intentionally opt out of Rerun logging.
+        if data is None:
+            return
+        # An empty batch should not clear/override existing entities.
+        if data == []:
+            return
 
         # Support messages that return multiple logs (e.g. [(path, archetype), ...]).
         if isinstance(data, tuple) and len(data) == 2 and isinstance(data[0], str):
-            rr.log(data[0], data[1])
+            # Ensure custom-path logs are still attached to a TF frame if the message has one.
+            if isinstance(frame_id, str) and frame_id:
+                p = data[0]
+                if last_frame_id_by_path.get(p) != frame_id:
+                    try:
+                        rr.log(
+                            p,
+                            rr.Transform3D(
+                                translation=[0, 0, 0],
+                                rotation=rr.Quaternion(xyzw=[0, 0, 0, 1]),
+                                parent_frame=frame_id,
+                            ),
+                            static=True,
+                        )
+                        last_frame_id_by_path[p] = frame_id
+                    except Exception:
+                        pass
+            rr.log(data[0], data[1], static=static)
             return
         if isinstance(data, list) and data and isinstance(data[0], tuple) and len(data[0]) == 2:
             first_path = data[0][0]
             if isinstance(first_path, str):
                 for p, d in data:
                     if isinstance(p, str):
-                        rr.log(p, d)
+                        full_path = f"{entity_path}/{p}"
+                        # Ensure per-object child entities inherit the correct TF frame.
+                        if isinstance(frame_id, str) and frame_id:
+                            if last_frame_id_by_path.get(full_path) != frame_id:
+                                try:
+                                    rr.log(
+                                        full_path,
+                                        rr.Transform3D(
+                                            translation=[0, 0, 0],
+                                            rotation=rr.Quaternion(xyzw=[0, 0, 0, 1]),
+                                            parent_frame=frame_id,
+                                        ),
+                                        static=True,
+                                    )
+                                    last_frame_id_by_path[full_path] = frame_id
+                                except Exception:
+                                    pass
+                        rr.log(full_path, d, static=static)
                 return
 
         rr.log(entity_path, data, static=static)
