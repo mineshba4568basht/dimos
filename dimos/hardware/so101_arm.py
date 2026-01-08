@@ -14,12 +14,8 @@
 
 from __future__ import annotations
 
-import select
-import sys
-import termios
 import threading
 import time
-import tty
 from typing import TYPE_CHECKING
 
 from dimos_lcm.geometry_msgs import Pose as LCMPose
@@ -85,7 +81,6 @@ class SO101Arm:
     def gotoObserve(self, duration: float | None = None) -> None:
         """Move to an 'observe' pose with simple joint interpolation."""
         logger.info("Going to observe")
-        # observe_angles = np.radians(np.array([-0.96703297, -0.96703296, -1.93406593, 76.65934066, -3.95604396], dtype=float))
         observe_angles = np.array(
             [-0.062909, -1.396263, 0.208672, 1.793661, -1.614142], dtype=float
         )
@@ -149,22 +144,16 @@ class SO101Arm:
     def get_gripper_feedback(self) -> tuple[float, float]:
         """
         Get gripper position (meters) and normalized effort (0..1).
-
-        Under the hood:
-        - Feetech Present_Load is approx −1000..1000 (sign = direction).
-        - We use |load| / 1000 → [0,1].
         """
         position_m, raw_load = self.arm.get_gripper_state()
-        effort_mag = abs(raw_load)
-        effort_mag = min(1000.0, effort_mag)
+        effort_mag = min(1000.0, abs(raw_load))
 
         norm_effort = effort_mag / 1000.0
         return position_m, norm_effort
 
     def close_gripper(self, commanded_effort: float = 0.5) -> None:
         """
-        Close gripper until we hit a load threshold, then back off slightly.
-
+        Close gripper.
         """
         self._last_gripper_effort_cmd = commanded_effort
         self.cmd_gripper_ctrl(0.0, effort=commanded_effort)

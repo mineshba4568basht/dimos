@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# lerobot_kinematics.py
-# LeRobot-based kinematics wrapper for MuJoCo simulation
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -225,43 +222,6 @@ class LerobotKinematics:
             )
 
         return q_sol_deg
-
-    def ik_lerobot(
-        self,
-        q_init: NDArray[np.float64],
-        target_pos: NDArray[np.float64],
-        target_quat_wxyz: NDArray[np.float64],
-        position_weight: float = 50.0,
-        orientation_weight: float = 1.0,
-    ) -> NDArray[np.float64]:
-        """
-        Lerobot SDK IK solver.
-
-        Note: This solver had issues with position accuracy ~ sanjaypokkali.
-        """
-        q_init = np.asarray(q_init, dtype=float).reshape(-1)
-        target_pos = np.asarray(target_pos, dtype=float).reshape(3)
-        target_quat_wxyz = np.asarray(target_quat_wxyz, dtype=float).reshape(4)
-
-        # Convert quaternion (w, x, y, z) to rotation matrix
-        quat_xyzw = np.array(
-            [target_quat_wxyz[1], target_quat_wxyz[2], target_quat_wxyz[3], target_quat_wxyz[0]],
-            dtype=float,
-        )
-        rot = R.from_quat(quat_xyzw)
-        R_matrix = rot.as_matrix()
-
-        T = np.eye(4, dtype=float)
-        T[:3, :3] = R_matrix
-        T[:3, 3] = target_pos
-
-        q_sol = self._lerobot_kin.inverse_kinematics(
-            current_joint_pos=q_init,
-            desired_ee_pose=T,
-            position_weight=position_weight,
-            orientation_weight=orientation_weight,
-        )
-        return np.asarray(q_sol, dtype=float)
 
     # ------------------------------------------------------------------
     # Jacobian & velocity-level control

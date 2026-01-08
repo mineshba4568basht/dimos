@@ -15,10 +15,12 @@
 import asyncio
 
 # Import LCM message types
-from dimos_lcm.sensor_msgs import CameraInfo
+from dimos_lcm.sensor_msgs import CameraInfo # type: ignore[import-untyped]
 
 from dimos import core
+from dimos.hardware.so101_arm import SO101Arm
 from dimos.hardware.camera.realsense import RealSenseModule
+from dimos.hardware.camera.zed import ZEDModule
 from dimos.manipulation.visual_servoing.manipulation_module import ManipulationModule
 from dimos.msgs.sensor_msgs import Image
 from dimos.protocol import pubsub
@@ -34,7 +36,7 @@ logger = setup_logger("dimos.robot.lerobot.so101_arm")
 class SO101ArmRobot(Robot):
     """SO101 Arm robot with RGB camera and manipulation capabilities."""
 
-    def __init__(self, robot_capabilities: list[RobotCapability] | None = None) -> None:
+    def __init__(self, robot_capabilities: list[RobotCapability] | None = None, realsense_id: str | None = None) -> None:
         super().__init__()
         self.dimos = None
         self.camera = None
@@ -47,6 +49,8 @@ class SO101ArmRobot(Robot):
             RobotCapability.MANIPULATION,
         ]
 
+        self.realsense_id = realsense_id
+
     async def start(self) -> None:
         """Start the robot modules."""
         self.dimos = core.start(2)
@@ -54,29 +58,44 @@ class SO101ArmRobot(Robot):
 
         pubsub.lcm.autoconf()
 
-        # Deploy Camera Module (Can replace with ZED module)
         logger.info("Deploying camera module...")
-        self.camera = self.dimos.deploy(
-            RealSenseModule,
-            serial_number="215322078948",
-            width=640,
-            height=480,
-            fps=30,
-            enable_color=True,
-            enable_depth=True,
-            align_depth_to_color=True,
-        )
+        if self.realsense_id:
+            self.camera = self.dimos.deploy(
+                RealSenseModule,
+                serial_number=self.realsense_id,
+                width=640,
+                height=480,
+                fps=30,
+                enable_color=True,
+                enable_depth=True,
+                align_depth_to_color=True,
+            )
 
-        # Configure camera LCM
-        self.camera.color_image.transport = core.LCMTransport("/camera/rgb", Image)
-        self.camera.depth_image.transport = core.LCMTransport("/camera/depth", Image)
-        self.camera.camera_info.transport = core.LCMTransport("/camera/info", CameraInfo)
+            self.camera.color_image.transport = core.LCMTransport("/camera/rgb", Image)
+            self.camera.depth_image.transport = core.LCMTransport("/camera/depth", Image)
+            self.camera.camera_info.transport = core.LCMTransport("/camera/info", CameraInfo)
+        else:
+            self.camera = self.dimos.deploy(  # type: ignore[attr-defined]
+                ZEDModule,
+                camera_id=0,
+                resolution="HD720",
+                depth_mode="NEURAL",
+                fps=30,
+                enable_tracking=False,  # We don't need tracking for manipulation
+                publish_rate=30.0,
+                frame_id="zed_camera",
+            )
 
-        # Deploy manipulation module
+            self.camera.color_image.transport = core.LCMTransport("/zed/color_image", Image)  # type: ignore[attr-defined]
+            self.camera.depth_image.transport = core.LCMTransport("/zed/depth_image", Image)  # type: ignore[attr-defined]
+            self.camera.camera_info.transport = core.LCMTransport("/zed/camera_info", CameraInfo)  # type: ignore[attr-defined]
+
         logger.info("Deploying manipulation module...")
         self.manipulation_interface = self.dimos.deploy(
             ManipulationModule,
             arm="so101",
+            arm_module=SO101Arm,
+            ee_to_camera_6dof = [0.0246, 0.0407, -0.0670, 1.57553, -1.18879, -1.57516]
         )
 
         # Connect modules

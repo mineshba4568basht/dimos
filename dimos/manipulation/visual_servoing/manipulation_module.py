@@ -119,6 +119,7 @@ class ManipulationModule(Module):
     def __init__(  # type: ignore[no-untyped-def]
         self,
         arm: str = "piper",
+        arm_module = None,
         ee_to_camera_6dof: list | None = None,  # type: ignore[type-arg]
         **kwargs,
     ) -> None:
@@ -135,15 +136,10 @@ class ManipulationModule(Module):
         super().__init__(**kwargs)
 
         self.arm_type = arm
-        self.arm = PiperArm() if arm == "piper" else SO101Arm()
+        self.arm = arm_module() if arm_module else PiperArm()
 
         if ee_to_camera_6dof is None:
-            # Default calibration for SO101 arm wrist camera
-            # Format: [x, y, z, rx, ry, rz] in meters and radians
-            if arm == "so101":
-                ee_to_camera_6dof = [0.0246, 0.0407, -0.0670, -0.3822, 0.00176, 3.14153]
-            else:
-                ee_to_camera_6dof = [-0.065, 0.03, -0.095, 0.0, -1.57, 0.0]
+            ee_to_camera_6dof = [-0.065, 0.03, -0.095, 0.0, -1.57, 0.0]
         pos = Vector3(ee_to_camera_6dof[0], ee_to_camera_6dof[1], ee_to_camera_6dof[2])
         rot = Vector3(ee_to_camera_6dof[3], ee_to_camera_6dof[4], ee_to_camera_6dof[5])
         self.T_ee_to_camera = create_transform_from_6dof(pos, rot)
@@ -369,18 +365,11 @@ class ManipulationModule(Module):
                 ee_pose = self.arm.get_ee_pose()
                 ee_transform = pose_to_matrix(ee_pose)
                 camera_transform = compose_transforms(ee_transform, self.T_ee_to_camera)
-                if self.arm_type == "so101":
-                    points_3d_world = transform_points_3d(
-                        points_3d_camera,
-                        camera_transform,
-                        to_robot=False,
-                    )
-                else:
-                    points_3d_world = transform_points_3d(
-                        points_3d_camera,
-                        camera_transform,
-                        to_robot=True,
-                    )
+                points_3d_world = transform_points_3d(
+                    points_3d_camera,
+                    camera_transform,
+                    to_robot=True,
+                )
 
                 place_position = np.mean(points_3d_world, axis=0)
                 self.place_target_position = place_position
@@ -603,7 +592,6 @@ class ManipulationModule(Module):
         """
         Apply gripper offset for specific arm types.
         For SO101, applies a +2cm X offset in local gripper frame to account for fixed left finger.
-
         Args:
             pose: Original target pose
 
@@ -611,7 +599,6 @@ class ManipulationModule(Module):
             Offset target pose
         """
         if self.arm_type == "so101":
-            # Clone pose to avoid modifying original
             new_pose = Pose(
                 position=Vector3(pose.position.x, pose.position.y, pose.position.z),
                 orientation=Quaternion(
@@ -760,9 +747,7 @@ class ManipulationModule(Module):
 
                 logger.info(f"Executing grasp: gripper={gripper_opening * 1000:.1f}mm")
 
-                # Apply gripper offset for SO101 arm
                 final_target_pose = self._apply_gripper_offset(target_pose)
-
                 self.arm.cmd_gripper_ctrl(gripper_opening)
                 self.arm.cmd_ee_pose(final_target_pose)
                 self.current_executed_pose = final_target_pose
@@ -862,7 +847,7 @@ class ManipulationModule(Module):
         camera_transform = compose_transforms(ee_transform, self.T_ee_to_camera)
         camera_pose = matrix_to_pose(camera_transform)
         detection_3d_array, detection_2d_array = self.detector.process_frame(
-            self.latest_rgb, self.latest_depth, camera_transform, self.arm_type
+            self.latest_rgb, self.latest_depth, camera_transform
         )
 
         return self.latest_rgb, detection_3d_array, detection_2d_array, camera_pose

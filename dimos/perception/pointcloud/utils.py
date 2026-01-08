@@ -1091,34 +1091,15 @@ def extract_centroids_from_masks(
         Y = (y_coords - cy) * depths / fy
         Z = depths
 
-        # Calculate centroid
-        # Use 25th percentile for Z to be more robust to background noise and "halo" effects
-        # This matches the logic in test_sam_webcam_detection.py
-        if len(Z) > 0:
-            centroid_z = np.percentile(Z, 25)
-
-            # Recalculate X and Y using the robust Z
-            # Note: We use the mean pixel coordinates (geometric center of mask)
-            # projected to the robust depth
-            mean_x_pixel = np.mean(x_coords)
-            mean_y_pixel = np.mean(y_coords)
-
-            centroid_x = (mean_x_pixel - cx) * centroid_z / fx
-            centroid_y = (mean_y_pixel - cy) * centroid_z / fy
-        else:
-            centroid_x = np.mean(X)
-            centroid_y = np.mean(Y)
-            centroid_z = np.mean(Z)
+        centroid_x = np.mean(X)
+        centroid_y = np.mean(Y)
+        centroid_z = np.mean(Z)
 
         centroid = np.array([centroid_x, centroid_y, centroid_z])
 
         # Calculate orientation as normalized direction from camera origin to centroid
         # Camera origin is at (0, 0, 0)
-        norm = np.linalg.norm(centroid)
-        if norm > 1e-6:
-            orientation = centroid / norm
-        else:
-            orientation = np.array([0.0, 0.0, 1.0])
+        orientation = centroid / np.linalg.norm(centroid)
 
         results.append(
             {

@@ -95,7 +95,6 @@ class Detection3DProcessor:
         rgb_image: np.ndarray,  # type: ignore[type-arg]
         depth_image: np.ndarray,  # type: ignore[type-arg]
         transform: np.ndarray | None = None,  # type: ignore[type-arg]
-        arm_type: str = "piper",
     ) -> tuple[Detection3DArray, Detection2DArray]:
         """
         Process a single RGB-D frame to extract 3D object detections.
@@ -175,14 +174,9 @@ class Detection3DProcessor:
                 obj_cam_orientation = pose.get(
                     "rotation", np.array([0.0, 0.0, 0.0])
                 )  # Default to no rotation
-                if arm_type == "so101":
-                    transformed_pose = transform_pose(
-                        obj_cam_pos, obj_cam_orientation, transform, to_robot=False
-                    )
-                else:
-                    transformed_pose = transform_pose(
-                        obj_cam_pos, obj_cam_orientation, transform, to_robot=True
-                    )
+                transformed_pose = transform_pose(
+                    obj_cam_pos, obj_cam_orientation, transform, to_robot=True
+                )
                 center_pose = transformed_pose
             else:
                 # If no transform, use camera coordinates

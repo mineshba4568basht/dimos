@@ -309,7 +309,7 @@ async def run_so101_arm_with_viz():
     logger.info("Starting SO101 Arm Robot")
 
     # Create robot instance
-    robot = SO101ArmRobot()
+    robot = SO101ArmRobot(realsense_id="215322078948")
 
     try:
         # Start the robot
