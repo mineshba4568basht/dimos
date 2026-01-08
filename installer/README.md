@@ -19,7 +19,7 @@ The python installer is bootstrapped from a shell based installer which is under
 - run `python ./installer/installer.pyz` to test it
 - to publish your change, you'll have to make a release and you *must* name the pyz file `installer.pyz` and attach it to the release. Also note: github url's can lag. Even when you can view a change on github, the github raw endpoint will take several minutes to update.
 
-## How do I add a pip dependency? 
+## How do I add a pip dependency?
 
 The python app needs to be bundled with all pip dependencies. Just make sure the pip dependency is minimal (no system dependencies) and add it to the `installer/pyz_app/requirements.txt` file. The build command should handle the rest.
 
