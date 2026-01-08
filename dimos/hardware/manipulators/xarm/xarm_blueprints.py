@@ -35,16 +35,20 @@ from typing import Any
 from dimos.core.blueprints import autoconnect
 from dimos.core.transport import LCMTransport
 from dimos.hardware.manipulators.xarm.xarm_driver import xarm_driver as xarm_driver_blueprint
-from dimos.hardware.sensors.camera.realsense import realsense_camera, RealSenseCamera, RealSenseCameraConfig
+from dimos.hardware.sensors.camera.realsense import (
+    RealSenseCamera,
+    RealSenseCameraConfig,
+    realsense_camera,
+)
 from dimos.manipulation.control import cartesian_motion_controller, joint_trajectory_controller
 from dimos.msgs.geometry_msgs import PoseStamped
-from dimos.msgs.sensor_msgs import CameraInfo, JointCommand, JointState, RobotState
+from dimos.msgs.sensor_msgs import CameraInfo, Image, JointCommand, JointState, RobotState
 from dimos.msgs.trajectory_msgs import JointTrajectory
-from dimos.msgs.sensor_msgs import Image
 
 
 class RealSenseWrist(RealSenseCamera):
     pass
+
 
 class RealSenseExterior(RealSenseCamera):
     pass
@@ -181,7 +185,9 @@ xarm_trajectory = autoconnect(
         # Shared topics between driver and controller
         ("joint_state", JointState): LCMTransport("/xarm/joint_states", JointState),
         ("robot_state", RobotState): LCMTransport("/xarm/robot_state", RobotState),
-        ("joint_position_command", JointCommand): LCMTransport("/xarm/joint_position_command", JointCommand),
+        ("joint_position_command", JointCommand): LCMTransport(
+            "/xarm/joint_position_command", JointCommand
+        ),
         # Trajectory input topic
         ("trajectory", JointTrajectory): LCMTransport("/trajectory", JointTrajectory),
     }
@@ -243,7 +249,9 @@ xarm_cartesian = autoconnect(
         # Shared topics between driver and controller
         ("joint_state", JointState): LCMTransport("/xarm/joint_states", JointState),
         ("robot_state", RobotState): LCMTransport("/xarm/robot_state", RobotState),
-        ("joint_position_command", JointCommand): LCMTransport("/xarm/joint_position_command", JointCommand),
+        ("joint_position_command", JointCommand): LCMTransport(
+            "/xarm/joint_position_command", JointCommand
+        ),
         # Controller-specific topics
         ("target_pose", PoseStamped): LCMTransport("/target_pose", PoseStamped),
         ("current_pose", PoseStamped): LCMTransport("/xarm/current_pose", PoseStamped),
@@ -254,61 +262,71 @@ xarm_cartesian = autoconnect(
 # xArm Servo Control with Camera Blueprint
 # =============================================================================
 
-xarm_camera = autoconnect(
-    xarm_driver(
-        ip="192.168.2.235",
-        dof=7,
-        has_gripper=False,
-        has_force_torque=False,
-        control_rate=100,
-        monitor_rate=10,
-    ),
-    RealSenseWrist.blueprint(
-        serial_number="254343060929", # come from realsenses
-        camera_name="wrist_camera",
-        base_frame_id="wrist_link",
-        enable_depth=False,
-        enable_pointcloud=False,
-    ),
-    RealSenseExterior.blueprint(
-        serial_number="2",
-        camera_name="exterior_camera",
-        base_frame_id="base_link",
-        enable_depth=False,
-        enable_pointcloud=False,
+xarm_camera = (
+    autoconnect(
+        xarm_driver(
+            ip="192.168.2.235",
+            dof=7,
+            has_gripper=False,
+            has_force_torque=False,
+            control_rate=100,
+            monitor_rate=10,
+        ),
+        RealSenseWrist.blueprint(
+            serial_number="254343060929",  # come from realsenses
+            camera_name="wrist_camera",
+            base_frame_id="wrist_link",
+            enable_depth=False,
+            enable_pointcloud=False,
+        ),
+        RealSenseExterior.blueprint(
+            serial_number="2",
+            camera_name="exterior_camera",
+            base_frame_id="base_link",
+            enable_depth=False,
+            enable_pointcloud=False,
+        ),
     )
-).remappings(
-    [
-        # remap wrist cam connections to unique names
-        (RealSenseWrist, "color_image", "wrist_color_image"),
-        (RealSenseWrist, "camera_info", "wrist_camera_info"),
-        # remap exterior cam connections to unique names
-        (RealSenseExterior, "color_image", "exterior_color_image"),
-        (RealSenseExterior, "camera_info", "exterior_camera_info"),
-    ]
-).transports(
-    {
-        # Shared topics between driver and controller
-        ("joint_state", JointState): LCMTransport("/xarm/joint_states", JointState),
-        ("robot_state", RobotState): LCMTransport("/xarm/robot_state", RobotState),
-        ("joint_position_command", JointCommand): LCMTransport("/xarm/joint_position_command", JointCommand),
-        # Trajectory input topic
-        ("trajectory", JointTrajectory): LCMTransport("/trajectory", JointTrajectory),
-        # Remapped wrist cam connections
-        ("wrist_color_image", Image): LCMTransport("/wrist_camera/color_image", Image),
-        ("wrist_camera_info", CameraInfo): LCMTransport("/wrist_camera/camera_info", CameraInfo),
-        # Remapped exterior cam connections
-        ("exterior_color_image", Image): LCMTransport("/exterior_camera/color_image", Image),
-        ("exterior_camera_info", CameraInfo): LCMTransport("/exterior_camera/camera_info", CameraInfo),
-    }
+    .remappings(
+        [
+            # remap wrist cam connections to unique names
+            (RealSenseWrist, "color_image", "wrist_color_image"),
+            (RealSenseWrist, "camera_info", "wrist_camera_info"),
+            # remap exterior cam connections to unique names
+            (RealSenseExterior, "color_image", "exterior_color_image"),
+            (RealSenseExterior, "camera_info", "exterior_camera_info"),
+        ]
+    )
+    .transports(
+        {
+            # Shared topics between driver and controller
+            ("joint_state", JointState): LCMTransport("/xarm/joint_states", JointState),
+            ("robot_state", RobotState): LCMTransport("/xarm/robot_state", RobotState),
+            ("joint_position_command", JointCommand): LCMTransport(
+                "/xarm/joint_position_command", JointCommand
+            ),
+            # Trajectory input topic
+            ("trajectory", JointTrajectory): LCMTransport("/trajectory", JointTrajectory),
+            # Remapped wrist cam connections
+            ("wrist_color_image", Image): LCMTransport("/wrist_camera/color_image", Image),
+            ("wrist_camera_info", CameraInfo): LCMTransport(
+                "/wrist_camera/camera_info", CameraInfo
+            ),
+            # Remapped exterior cam connections
+            ("exterior_color_image", Image): LCMTransport("/exterior_camera/color_image", Image),
+            ("exterior_camera_info", CameraInfo): LCMTransport(
+                "/exterior_camera/camera_info", CameraInfo
+            ),
+        }
+    )
 )
 
 __all__ = [
     "xarm5_servo",
     "xarm7_servo",
     "xarm7_trajectory",
+    "xarm_camera",
     "xarm_cartesian",
     "xarm_servo",
     "xarm_trajectory",
-    "xarm_camera",
 ]
