@@ -35,6 +35,7 @@ from dimos.msgs.geometry_msgs import (
     Vector3,
 )
 from dimos.msgs.sensor_msgs import CameraInfo, Image, PointCloud2
+from dimos.msgs.sensor_msgs.image_impls.AbstractImage import ImageFormat
 from dimos.robot.unitree.connection.connection import UnitreeWebRTCConnection
 from dimos.robot.unitree_webrtc.type.lidar import LidarMessage
 from dimos.utils.data import get_data
@@ -120,7 +121,22 @@ class ReplayConnection(UnitreeWebRTCConnection):
     # we don't have raw video stream in the data set
     @simple_mcache
     def video_stream(self):  # type: ignore[no-untyped-def]
-        video_store = TimedSensorReplay(f"{self.dir_name}/video")  # type: ignore[var-annotated]
+        # Legacy Unitree recordings can have RGB bytes that were tagged/assumed as BGR.
+        # Fix at replay-time by coercing everything to RGB before publishing/logging.
+        def _autocast_video(x):  # type: ignore[no-untyped-def]
+            # If the old recording tagged it as BGR, relabel to RGB (do NOT channel-swap again).
+            if isinstance(x, Image):
+                if x.format == ImageFormat.BGR:
+                    x.format = ImageFormat.RGB
+                if not x.frame_id:
+                    x.frame_id = "camera_optical"
+                return x
+
+            # Some recordings may store raw arrays or frame wrappers.
+            arr = x.to_ndarray(format="rgb24") if hasattr(x, "to_ndarray") else x
+            return Image.from_numpy(arr, format=ImageFormat.RGB, frame_id="camera_optical")
+
+        video_store = TimedSensorReplay(f"{self.dir_name}/video", autocast=_autocast_video)  # type: ignore[var-annotated]
         return video_store.stream(**self.replay_config)  # type: ignore[arg-type]
 
     def move(self, twist: Twist, duration: float = 0.0) -> bool:

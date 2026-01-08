@@ -1,0 +1,290 @@
+[200~(dimos-ros) dimensional@dimensional-cpu-0:~/dimos$ dimos run unitree-go2
+2026-01-07T12:32:41.905197Z [info     ] Rerun: spawned native viewer                                 [dimos/dashboard/rerun_init.py] memory_limit=4GB port=9876
+2026-01-07T12:32:41.905473Z [info     ] Rerun server initialized                                     [dimos/core/blueprints.py] addr=rerun+http://127.0.0.1:9876/proxy
+Initialized dimos local cluster with 6 workers, memory limit: auto
+2026-01-07T12:32:48.256760Z [info     ] Deploying module.                                            [dimos/core/__init__.py] module=GO2Connection
+🕒 WebRTC connection        : 🟡 started       (04:32:48)
+Decoder set to: LibVoxelDecoder
+🕒 Signaling State          : 🟡 have-local-offer (04:32:48)
+🕒 ICE Gathering State      : 🟡 gathering     (04:32:48)
+🕒 ICE Gathering State      : 🟢 complete      (04:32:48)
+ERROR:root:An error occurred: HTTPConnectionPool(host='10.0.0.152', port=8081): Max retries exceeded with url: /offer (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x729d811c3050>: Failed to establish a new connection: [Errno 111] Connection refused'))
+ERROR:root:An error occurred with the old method: Failed to receive SDP Answer: No response
+🕒 ICE Connection State     : 🔵 checking      (04:32:49)
+🕒 Peer Connection State    : 🔵 connecting    (04:32:49)
+🕒 Signaling State          : 🟢 stable        (04:32:49)
+🕒 ICE Connection State     : 🟢 completed     (04:32:49)
+🕒 Peer Connection State    : 🟢 connected     (04:32:49)
+🕒 Data Channel Verification: ✅ OK            (04:32:49)
+DisableTrafficSavings: on
+Decoder set to: NativeDecoder
+2026-01-07T12:32:49.725772Z [info     ] Deployed module.                                             [dimos/core/__init__.py] module=GO2Connection worker_id=4
+2026-01-07T12:32:49.734036Z [info     ] Deploying module.                                            [dimos/core/__init__.py] module=FoxgloveBridge
+2026-01-07T12:32:49.804975Z [info     ] Deployed module.                                             [dimos/core/__init__.py] module=FoxgloveBridge worker_id=3
+2026-01-07T12:32:49.813059Z [info     ] Deploying module.                                            [dimos/core/__init__.py] module=WebsocketVisModule
+2026-01-07T12:32:49.988802Z [info     ] WebSocket visualization module initialized on port 7779, GPS goal tracking enabled [dimos/web/websocket_vis/websocket_vis_module.py]
+2026-01-07T12:32:49.996952Z [info     ] Deployed module.                                             [dimos/core/__init__.py] module=WebsocketVisModule worker_id=0
+2026-01-07T12:32:50.004325Z [info     ] Deploying module.                                            [dimos/core/__init__.py] module=TFRerunModule
+2026-01-07T12:32:50.106053Z [info     ] Deployed module.                                             [dimos/core/__init__.py] module=TFRerunModule worker_id=5
+2026-01-07T12:32:50.114733Z [info     ] Deploying module.                                            [dimos/core/__init__.py] module=VoxelGridMapper
+VoxelGridMapper using device: CPU:0
+2026-01-07T12:32:50.219813Z [info     ] Deployed module.                                             [dimos/core/__init__.py] module=VoxelGridMapper worker_id=2
+2026-01-07T12:32:50.229583Z [info     ] Deploying module.                                            [dimos/core/__init__.py] module=CostMapper
+2026-01-07T12:32:50.591184Z [info     ] Deployed module.                                             [dimos/core/__init__.py] module=CostMapper worker_id=1
+2026-01-07T12:32:50.599113Z [info     ] Deploying module.                                            [dimos/core/__init__.py] module=ReplanningAStarPlanner
+2026-01-07T12:32:50.896726Z [info     ] Deployed module.                                             [dimos/core/__init__.py] module=ReplanningAStarPlanner worker_id=4
+2026-01-07T12:32:50.905955Z [info     ] Deploying module.                                            [dimos/core/__init__.py] module=WavefrontFrontierExplorer
+2026-01-07T12:32:50.970641Z [info     ] WavefrontFrontierExplorer module initialized                 [dimos/navigation/frontier_exploration/wavefront_frontier_goal_selector.py]
+2026-01-07T12:32:50.976655Z [info     ] Deployed module.                                             [dimos/core/__init__.py] module=WavefrontFrontierExplorer worker_id=3
+2026-01-07T12:32:50.986367Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=GO2Connection name=pointcloud original_name=pointcloud topic=/pointcloud#sensor_msgs.PointCloud2 transport=LCMTransport type=dimos.msgs.sensor_msgs.PointCloud2.PointCloud2
+2026-01-07T12:32:50.986988Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=GO2Connection name=color_image original_name=color_image topic=/color_image#sensor_msgs.Image transport=LCMTransport type=dimos.msgs.sensor_msgs.Image.Image
+2026-01-07T12:32:50.987402Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=GO2Connection name=camera_info original_name=camera_info topic=/camera_info#sensor_msgs.CameraInfo transport=LCMTransport type=dimos.msgs.sensor_msgs.CameraInfo.CameraInfo
+2026-01-07T12:32:50.987841Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=GO2Connection name=cmd_vel original_name=cmd_vel topic=/cmd_vel#geometry_msgs.Twist transport=LCMTransport type=dimos.msgs.geometry_msgs.Twist.Twist
+2026-01-07T12:32:50.988472Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=cmd_vel original_name=cmd_vel topic=/cmd_vel#geometry_msgs.Twist transport=LCMTransport type=dimos.msgs.geometry_msgs.Twist.Twist
+2026-01-07T12:32:50.989165Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=cmd_vel original_name=cmd_vel topic=/cmd_vel#geometry_msgs.Twist transport=LCMTransport type=dimos.msgs.geometry_msgs.Twist.Twist
+2026-01-07T12:32:50.989673Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=GO2Connection name=odom original_name=odom topic=/odom#geometry_msgs.PoseStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.PoseStamped.PoseStamped
+2026-01-07T12:32:50.990200Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=odom original_name=odom topic=/odom#geometry_msgs.PoseStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.PoseStamped.PoseStamped
+2026-01-07T12:32:50.990763Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=odom original_name=odom topic=/odom#geometry_msgs.PoseStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.PoseStamped.PoseStamped
+2026-01-07T12:32:50.991530Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WavefrontFrontierExplorer name=odom original_name=odom topic=/odom#geometry_msgs.PoseStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.PoseStamped.PoseStamped
+2026-01-07T12:32:50.992049Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=GO2Connection name=lidar original_name=lidar topic=/lidar#sensor_msgs.PointCloud2 transport=LCMTransport type=dimos.robot.unitree_webrtc.type.lidar.LidarMessage
+2026-01-07T12:32:50.992889Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=VoxelGridMapper name=lidar original_name=lidar topic=/lidar#sensor_msgs.PointCloud2 transport=LCMTransport type=dimos.robot.unitree_webrtc.type.lidar.LidarMessage
+2026-01-07T12:32:50.993336Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=gps_location original_name=gps_location topic=/gps_location transport=pLCMTransport type=dimos.mapping.types.LatLon
+2026-01-07T12:32:50.993734Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=path original_name=path topic=/path#nav_msgs.Path transport=LCMTransport type=dimos.msgs.nav_msgs.Path.Path
+2026-01-07T12:32:50.994148Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=path original_name=path topic=/path#nav_msgs.Path transport=LCMTransport type=dimos.msgs.nav_msgs.Path.Path
+2026-01-07T12:32:50.994548Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=global_costmap original_name=global_costmap topic=/global_costmap#nav_msgs.OccupancyGrid transport=LCMTransport type=dimos.msgs.nav_msgs.OccupancyGrid.OccupancyGrid
+2026-01-07T12:32:50.995419Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=CostMapper name=global_costmap original_name=global_costmap topic=/global_costmap#nav_msgs.OccupancyGrid transport=LCMTransport type=dimos.msgs.nav_msgs.OccupancyGrid.OccupancyGrid
+2026-01-07T12:32:50.995736Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=global_costmap original_name=global_costmap topic=/global_costmap#nav_msgs.OccupancyGrid transport=LCMTransport type=dimos.msgs.nav_msgs.OccupancyGrid.OccupancyGrid
+2026-01-07T12:32:50.996071Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WavefrontFrontierExplorer name=global_costmap original_name=global_costmap topic=/global_costmap#nav_msgs.OccupancyGrid transport=LCMTransport type=dimos.msgs.nav_msgs.OccupancyGrid.OccupancyGrid
+2026-01-07T12:32:50.996452Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=goal_request original_name=goal_request topic=/goal_request#geometry_msgs.PoseStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.PoseStamped.PoseStamped
+2026-01-07T12:32:50.996747Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=goal_request original_name=goal_request topic=/goal_request#geometry_msgs.PoseStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.PoseStamped.PoseStamped
+2026-01-07T12:32:50.997159Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WavefrontFrontierExplorer name=goal_request original_name=goal_request topic=/goal_request#geometry_msgs.PoseStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.PoseStamped.PoseStamped
+2026-01-07T12:32:50.997634Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=gps_goal original_name=gps_goal topic=/gps_goal transport=pLCMTransport type=dimos.mapping.types.LatLon
+2026-01-07T12:32:50.998133Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=explore_cmd original_name=explore_cmd topic=/explore_cmd#std_msgs.Bool transport=LCMTransport type=dimos_lcm.std_msgs.Bool.Bool
+2026-01-07T12:32:50.998416Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WavefrontFrontierExplorer name=explore_cmd original_name=explore_cmd topic=/explore_cmd#std_msgs.Bool transport=LCMTransport type=dimos_lcm.std_msgs.Bool.Bool
+2026-01-07T12:32:50.998744Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=stop_explore_cmd original_name=stop_explore_cmd topic=/stop_explore_cmd#std_msgs.Bool transport=LCMTransport type=dimos_lcm.std_msgs.Bool.Bool
+2026-01-07T12:32:50.999043Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WavefrontFrontierExplorer name=stop_explore_cmd original_name=stop_explore_cmd topic=/stop_explore_cmd#std_msgs.Bool transport=LCMTransport type=dimos_lcm.std_msgs.Bool.Bool
+2026-01-07T12:32:50.999387Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WebsocketVisModule name=movecmd_stamped original_name=movecmd_stamped topic=/movecmd_stamped#geometry_msgs.TwistStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.TwistStamped.TwistStamped
+2026-01-07T12:32:51.000020Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=VoxelGridMapper name=global_map original_name=global_map topic=/global_map#sensor_msgs.PointCloud2 transport=LCMTransport type=dimos.msgs.sensor_msgs.PointCloud2.PointCloud2
+2026-01-07T12:32:51.000571Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=CostMapper name=global_map original_name=global_map topic=/global_map#sensor_msgs.PointCloud2 transport=LCMTransport type=dimos.msgs.sensor_msgs.PointCloud2.PointCloud2
+2026-01-07T12:32:51.001061Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=target original_name=target topic=/target#geometry_msgs.PoseStamped transport=LCMTransport type=dimos.msgs.geometry_msgs.PoseStamped.PoseStamped
+2026-01-07T12:32:51.001410Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=goal_reached original_name=goal_reached topic=/goal_reached#std_msgs.Bool transport=LCMTransport type=dimos_lcm.std_msgs.Bool.Bool
+2026-01-07T12:32:51.001672Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=WavefrontFrontierExplorer name=goal_reached original_name=goal_reached topic=/goal_reached#std_msgs.Bool transport=LCMTransport type=dimos_lcm.std_msgs.Bool.Bool
+2026-01-07T12:32:51.002007Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=navigation_state original_name=navigation_state topic=/navigation_state#std_msgs.String transport=LCMTransport type=dimos_lcm.std_msgs.String.String
+2026-01-07T12:32:51.002475Z [info     ] Transport                                                    [dimos/core/blueprints.py] module=ReplanningAStarPlanner name=debug_navigation original_name=debug_navigation topic=/debug_navigation#sensor_msgs.Image transport=LCMTransport type=dimos.msgs.sensor_msgs.Image.Image
+2026-01-07T12:32:51.022760Z [info     ] Rerun: connected to server                                   [dimos/dashboard/rerun_init.py] addr=rerun+http://127.0.0.1:9876/proxy
+2026-01-07T12:32:51.033519Z [info     ] Loaded URDF from /home/dimensional/dimos/dimos/robot/unitree/go2/go2.urdf [dimos/robot/unitree/connection/go2.py]
+Video channel: on
+2026-01-07T12:32:51.057047Z [info     ] Foxglove bridge skipped                                      [dimos/robot/foxglove_bridge.py] viewer_backend=rerun-native
+2026-01-07T12:32:51.058689Z [info     ] Command Center: http://localhost:7779/command-center         [dimos/web/websocket_vis/websocket_vis_module.py]
+2026-01-07T12:32:51.096989Z [info     ] Rerun: connected to server                                   [dimos/dashboard/rerun_init.py] addr=rerun+http://127.0.0.1:9876/proxy
+2026-01-07T12:32:51.110088Z [info     ] TFRerunModule: started TF snapshot polling                   [dimos/dashboard/tf_rerun_module.py] poll_hz=30.0
+2026-01-07T12:32:51.112414Z [info     ] Rerun: connected to server                                   [dimos/dashboard/rerun_init.py] addr=rerun+http://127.0.0.1:9876/proxy
+2026-01-07T12:32:51.112705Z [info     ] VoxelGridMapper: Rerun logging enabled (sync)                [dimos/mapping/voxels.py]
+2026-01-07T12:32:51.121912Z [info     ] Rerun: connected to server                                   [dimos/dashboard/rerun_init.py] addr=rerun+http://127.0.0.1:9876/proxy
+2026-01-07T12:32:51.122197Z [info     ] CostMapper: Rerun logging enabled (sync)                     [dimos/mapping/costmapper.py]
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+[h264 @ 0x729c0c000c00] non-existing PPS 0 referenced
+[h264 @ 0x729c0c000c00] decode_slice_header error
+[h264 @ 0x729c0c000c00] no frame!
+Go2 connection mode: STA-L
+2026-01-07T12:32:58.859507Z [info     ] Client iYBRThqUfl1Ix7ZrAAAB connected, sent state with 0 GPS goal points [dimos/web/websocket_vis/websocket_vis_module.py]
+2026-01-07T12:33:00.193278Z [info     ] Click goal published                                         [dimos/web/websocket_vis/websocket_vis_module.py] x=-2.916 y=-8.329
+2026-01-07T12:33:00.194817Z [info     ] Got new goal                                                 [dimos/navigation/replanning_a_star/global_planner.py] goal='PoseStamped(pos=[-2.916, -8.329, 0.000], euler=[0.0, 0.0, 0.0])'
+2026-01-07T12:33:00.195222Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:33:00.226690Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:33:00.229275Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-2.95 y=-8.35
+2026-01-07T12:33:00.238680Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:33:00.319300Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:33:00.330394Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:33:00.331789Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=initial_rotation
+2026-01-07T12:33:03.352303Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:33:11.709789Z [info     ] Reached goal position, starting final rotation               [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:33:11.710093Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=final_rotation
+2026-01-07T12:33:13.121235Z [info     ] Final rotation complete, goal reached                        [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:33:13.121758Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=arrived
+2026-01-07T12:33:13.225887Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:33:13.228923Z [info     ] Arrived at goal.                                             [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:33:13.229651Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=True but_will_try_again=False
+2026-01-07T12:33:13.231329Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:33:50.344700Z [info     ] Click goal published                                         [dimos/web/websocket_vis/websocket_vis_module.py] x=-1.968 y=-11.165
+2026-01-07T12:33:50.345051Z [info     ] Got new goal                                                 [dimos/navigation/replanning_a_star/global_planner.py] goal='PoseStamped(pos=[-1.968, -11.165, 0.000], euler=[0.0, 0.0, 0.0])'
+2026-01-07T12:33:50.349711Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:33:50.351467Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:33:50.353539Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-2.0 y=-11.2
+2026-01-07T12:33:50.363350Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:33:50.377563Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:33:50.390854Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:33:50.392089Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=initial_rotation
+2026-01-07T12:33:52.097538Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:34:00.136855Z [info     ] Reached goal position, starting final rotation               [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:34:00.137089Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=final_rotation
+2026-01-07T12:34:00.137368Z [info     ] Final rotation complete, goal reached                        [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:34:00.137500Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=arrived
+2026-01-07T12:34:00.238238Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:00.245384Z [info     ] Arrived at goal.                                             [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:34:00.245967Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=True but_will_try_again=False
+2026-01-07T12:34:00.247362Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:03.189215Z [info     ] Click goal published                                         [dimos/web/websocket_vis/websocket_vis_module.py] x=-1.169 y=-13.864
+2026-01-07T12:34:03.189673Z [info     ] Got new goal                                                 [dimos/navigation/replanning_a_star/global_planner.py] goal='PoseStamped(pos=[-1.169, -13.864, 0.000], euler=[0.0, 0.0, 0.0])'
+2026-01-07T12:34:03.189964Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:34:03.191881Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:03.193877Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-1.2 y=-13.9
+2026-01-07T12:34:03.205417Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:34:03.437604Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:34:03.444952Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:03.453334Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=initial_rotation
+2026-01-07T12:34:04.061241Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:34:12.679946Z [info     ] Robot is stuck. Replanning.                                  [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:34:12.680278Z [info     ] Replanning.                                                  [dimos/navigation/replanning_a_star/global_planner.py] attempt=0
+2026-01-07T12:34:12.680897Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:34:12.683100Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:12.683403Z [info     ] Local planner loop exited due to stop event.                 [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:34:12.684436Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-1.2 y=-13.9
+2026-01-07T12:34:12.685209Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:12.695597Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:34:12.880287Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:34:12.887582Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:12.888877Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:34:13.796643Z [info     ] Obstacle detected ahead, stopping local planner.             [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:34:13.797536Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:13.801010Z [info     ] Replanning path due to obstacle found.                       [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:34:13.802154Z [info     ] Replanning.                                                  [dimos/navigation/replanning_a_star/global_planner.py] attempt=1
+2026-01-07T12:34:13.803225Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:34:13.806178Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:13.807129Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-1.2 y=-13.9
+2026-01-07T12:34:13.826716Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:34:14.143079Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:34:14.154214Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:14.156012Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:34:21.168094Z [info     ] Click goal published                                         [dimos/web/websocket_vis/websocket_vis_module.py] x=-3.465 y=-8.428
+2026-01-07T12:34:21.170785Z [info     ] Got new goal                                                 [dimos/navigation/replanning_a_star/global_planner.py] goal='PoseStamped(pos=[-3.465, -8.428, 0.000], euler=[0.0, 0.0, 0.0])'
+2026-01-07T12:34:21.172285Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:34:21.174719Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:21.179269Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-3.5 y=-8.45
+2026-01-07T12:34:21.181800Z [info     ] Local planner loop exited due to stop event.                 [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:34:21.183003Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:21.198861Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:34:21.338837Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:34:21.358687Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:21.360570Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=initial_rotation
+2026-01-07T12:34:23.885891Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:34:39.406709Z [info     ] Click goal published                                         [dimos/web/websocket_vis/websocket_vis_module.py] x=-5.228 y=-5.15
+2026-01-07T12:34:39.407322Z [info     ] Got new goal                                                 [dimos/navigation/replanning_a_star/global_planner.py] goal='PoseStamped(pos=[-5.228, -5.150, 0.000], euler=[0.0, 0.0, 0.0])'
+2026-01-07T12:34:39.407708Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:34:39.408940Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:39.409431Z [info     ] Local planner loop exited due to stop event.                 [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:34:39.410266Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-5.25 y=-5.15
+2026-01-07T12:34:39.410616Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:39.427769Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:34:39.626864Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:34:39.656556Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:34:39.658239Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=initial_rotation
+2026-01-07T12:34:41.864636Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:34:59.966716Z [info     ] Reached goal position, starting final rotation               [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:34:59.968127Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=final_rotation
+2026-01-07T12:35:00.560626Z [info     ] Final rotation complete, goal reached                        [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:35:00.560866Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=arrived
+2026-01-07T12:35:00.661637Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:35:00.670926Z [info     ] Arrived at goal.                                             [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:35:00.671769Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=True but_will_try_again=False
+2026-01-07T12:35:00.673988Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:35:38.327242Z [info     ] Click goal published                                         [dimos/web/websocket_vis/websocket_vis_module.py] x=0.017 y=-13.469
+2026-01-07T12:35:38.329906Z [info     ] Got new goal                                                 [dimos/navigation/replanning_a_star/global_planner.py] goal='PoseStamped(pos=[0.017, -13.469, 0.000], euler=[0.0, 0.0, 0.0])'
+2026-01-07T12:35:38.330641Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:35:38.341060Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:35:38.347190Z [warning  ] Travelling to goal 0.6737753354121581m away from requested goal. [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:35:38.347848Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-0.25 y=-12.85
+2026-01-07T12:35:38.370136Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:35:38.443777Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:35:38.478644Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:35:38.480976Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=initial_rotation
+2026-01-07T12:35:39.486575Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:35:39.721297Z [info     ] Click goal published                                         [dimos/web/websocket_vis/websocket_vis_module.py] x=-3.637 y=-5.555
+2026-01-07T12:35:39.721746Z [info     ] Got new goal                                                 [dimos/navigation/replanning_a_star/global_planner.py] goal='PoseStamped(pos=[-3.637, -5.555, 0.000], euler=[0.0, 0.0, 0.0])'
+2026-01-07T12:35:39.722244Z [info     ] Cancelling goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] arrived=False but_will_try_again=True
+2026-01-07T12:35:39.724822Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:35:39.725130Z [info     ] Local planner loop exited due to stop event.                 [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:35:39.726128Z [info     ] Found safe goal.                                             [dimos/navigation/replanning_a_star/global_planner.py] x=-3.65 y=-5.6
+2026-01-07T12:35:39.732787Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:35:39.763145Z [warning  ] C++ A* module could not be imported. Using Python.           [dimos/navigation/replanning_a_star/min_cost_astar.py]
+2026-01-07T12:35:39.937545Z [info     ] Found path 1.1x robot width.                                 [dimos/navigation/replanning_a_star/global_planner.py]
+2026-01-07T12:35:39.957193Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:35:39.958670Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=initial_rotation
+2026-01-07T12:35:40.565899Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=path_following
+2026-01-07T12:35:46.090032Z [info     ] Reached goal position, starting final rotation               [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:35:46.090297Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=final_rotation
+2026-01-07T12:35:46.190280Z [info     ] Final rotation complete, goal reached                        [dimos/navigation/replanning_a_star/local_planner.py]
+2026-01-07T12:35:46.190650Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=arrived
+2026-01-07T12:35:46.290203Z [info     ] changed state                                                [dimos/navigation/replanning_a_star/local_planner.py] state=idle
+2026-01-07T12:35:46.293115Z [info     ] Arrived at goal. 
