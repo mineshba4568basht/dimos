@@ -220,6 +220,16 @@ jobs:
       cmd: "MYPYPATH=/opt/ros/humble/lib/python3.10/site-packages mypy dimos"
       dev-image: ros-dev:${{ (needs.check-changes.outputs.python == 'true' || needs.check-changes.outputs.dev == 'true' || needs.check-changes.outputs.ros == 'true') && needs.ros-dev.result == 'success' && needs.check-changes.outputs.branch-tag || 'dev' }}
 
+  check-markdown:
+    needs: [check-changes]
+    runs-on: [self-hosted, Linux]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leshy/md-babel-py@main
+        with:
+          files: 'README.md docs/*.md'
+          fail-on-change: true
+
   # Run module tests directly to avoid pytest forking issues
   # run-module-tests:
   #   needs: [check-changes, dev]
