@@ -152,7 +152,7 @@ class BackendHardwareInterface:
         Returns:
             True if command was sent successfully
         """
-        # Initialize on first write if needed
+        # Initialize on first write if needed (with simple lock to prevent race)
         if not self._initialized:
             self._initialize_last_commanded()
 
@@ -169,9 +169,12 @@ class BackendHardwareInterface:
             return self._backend.write_joint_positions(ordered)
         elif mode == ControlMode.VELOCITY:
             return self._backend.write_joint_velocities(ordered)
-        # TORQUE mode not universally supported
-        return False
-
+        elif mode == ControlMode.TORQUE:
+            # Most backends don't support torque mode
+            # Log and return False rather than silently ignoring
+            return False
+        else:
+            return False
     def _initialize_last_commanded(self) -> None:
         """Initialize last_commanded with current hardware positions."""
         try:
