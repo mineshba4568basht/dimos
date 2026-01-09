@@ -170,7 +170,7 @@ class ManipulatorBackend(Protocol):
         """Read current joint efforts (Nm)."""
         ...
 
-    def read_state(self) -> dict:
+    def read_state(self) -> dict[str, int]:
         """Read robot state (mode, state code, etc)."""
         ...
 

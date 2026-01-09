@@ -182,7 +182,7 @@ class XArmBackend:
             return list(torques[: self._dof])
         return [0.0] * self._dof
 
-    def read_state(self) -> dict:
+    def read_state(self) -> dict[str, int]:
         """Read robot state."""
         if not self._arm:
             return {"state": 0, "mode": 0}
@@ -228,7 +228,8 @@ class XArmBackend:
 
         # Use set_servo_angle_j for high-frequency servo control (100Hz+)
         # This only executes the last instruction, suitable for real-time control
-        return self._arm.set_servo_angle_j(angles, speed=100, mvacc=500) == 0
+        code: int = self._arm.set_servo_angle_j(angles, speed=100, mvacc=500)
+        return code == 0
 
     def write_joint_velocities(self, velocities: list[float]) -> bool:
         """Write joint velocities (rad/s -> deg/s).
@@ -240,13 +241,15 @@ class XArmBackend:
 
         # Convert rad/s to deg/s
         speeds = [math.degrees(v) for v in velocities]
-        return self._arm.vc_set_joint_velocity(speeds) == 0
+        code: int = self._arm.vc_set_joint_velocity(speeds)
+        return code == 0
 
     def write_stop(self) -> bool:
         """Emergency stop."""
         if not self._arm:
             return False
-        return self._arm.emergency_stop() == 0
+        code: int = self._arm.emergency_stop()
+        return code == 0
 
     # =========================================================================
     # Servo Control
@@ -256,20 +259,23 @@ class XArmBackend:
         """Enable or disable servos."""
         if not self._arm:
             return False
-        return self._arm.motion_enable(enable=enable) == 0
+        code: int = self._arm.motion_enable(enable=enable)
+        return code == 0
 
     def read_enabled(self) -> bool:
         """Check if servos are enabled."""
         if not self._arm:
             return False
         # XArm state 0 = ready/enabled
-        return self._arm.state == 0
+        state: int = self._arm.state
+        return state == 0
 
     def write_clear_errors(self) -> bool:
         """Clear error state."""
         if not self._arm:
             return False
-        return self._arm.clean_error() == 0
+        code: int = self._arm.clean_error()
+        return code == 0
 
     # =========================================================================
     # Cartesian Control (Optional)
@@ -312,19 +318,17 @@ class XArmBackend:
         # Speed in mm/s (max ~1000 mm/s)
         speed = velocity * 500
 
-        return (
-            self._arm.set_position(
-                x=x,
-                y=y,
-                z=z,
-                roll=roll,
-                pitch=pitch,
-                yaw=yaw,
-                speed=speed,
-                wait=False,
-            )
-            == 0
+        code: int = self._arm.set_position(
+            x=x,
+            y=y,
+            z=z,
+            roll=roll,
+            pitch=pitch,
+            yaw=yaw,
+            speed=speed,
+            wait=False,
         )
+        return code == 0
 
     # =========================================================================
     # Gripper (Optional)
@@ -335,7 +339,9 @@ class XArmBackend:
         if not self._arm:
             return None
 
-        code, pos = self._arm.get_gripper_position()
+        result = self._arm.get_gripper_position()
+        code: int = result[0]
+        pos: float | None = result[1]
         if code == 0 and pos is not None:
             return pos / 1000.0  # mm -> m
         return None
@@ -346,7 +352,8 @@ class XArmBackend:
             return False
 
         pos_mm = position * 1000.0  # m -> mm
-        return self._arm.set_gripper_position(pos_mm) == 0
+        code: int = self._arm.set_gripper_position(pos_mm)
+        return code == 0
 
     # =========================================================================
     # Force/Torque Sensor (Optional)

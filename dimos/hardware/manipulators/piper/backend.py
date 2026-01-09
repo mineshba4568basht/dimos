@@ -223,7 +223,7 @@ class PiperBackend:
         """
         return [0.0] * self._dof
 
-    def read_state(self) -> dict:
+    def read_state(self) -> dict[str, int]:
         """Read robot state."""
         if not self._sdk:
             return {"state": 0, "mode": 0}

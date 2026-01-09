@@ -132,11 +132,13 @@ class MockBackend:
         """Return mock joint efforts."""
         return self._efforts.copy()
 
-    def read_state(self) -> dict:
+    def read_state(self) -> dict[str, int]:
         """Return mock state."""
+        # Use index of control mode as int (0=position, 1=velocity, etc.)
+        mode_int = list(ControlMode).index(self._control_mode)
         return {
             "state": 0 if self._enabled else 1,
-            "mode": self._control_mode.value,
+            "mode": mode_int,
         }
 
     def read_error(self) -> tuple[int, str]:

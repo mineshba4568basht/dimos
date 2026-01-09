@@ -49,7 +49,7 @@ import sys
 import time
 
 from dimos.core.transport import LCMTransport
-from dimos.hardware.manipulators.base.sdk_interface import BaseManipulatorSDK, ManipulatorInfo
+from dimos.hardware.manipulators_old.base.sdk_interface import BaseManipulatorSDK, ManipulatorInfo
 from dimos.msgs.sensor_msgs import JointState, RobotState
 
 
