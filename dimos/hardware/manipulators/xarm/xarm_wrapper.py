@@ -68,7 +68,9 @@ class XArmSDKWrapper(BaseManipulatorSDK):
                 self.native_sdk = XArmAPI(ip, is_radian=False)
 
             elif connection_type == "sim":
-                from dimos.hardware.manipulators.xarm.xarm_sim_bridge import XArmSimBridge
+                from dimos.simulation.manipulators.mujoco_sim.xarm_sim_bridge import (
+                    XArmSimBridge,
+                )
 
                 self.dof = config.get("dof", 7)
                 control_rate = config.get("control_rate", 100)
