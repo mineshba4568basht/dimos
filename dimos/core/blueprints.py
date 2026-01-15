@@ -392,7 +392,7 @@ class ModuleBlueprintSet:
         module_coordinator.start_all_modules()
 
         # Compose and send Rerun blueprint from module contributions
-        if global_config.viewer_backend.startswith("rerun"):
+        if global_config.rerun_enabled and global_config.viewer_backend.startswith("rerun"):
             self._init_rerun_blueprint(module_coordinator)
 
         return module_coordinator

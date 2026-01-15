@@ -63,9 +63,11 @@ class MujocoConnection:
 
         # Trigger the download of the mujoco_menagerie package. This is so it
         # doesn't trigger in the mujoco process where it can time out.
-        from mujoco_playground._src import mjx_env
+        # When using a profile bundle, we should not rely on menagerie assets.
+        if not global_config.mujoco_profile:
+            from mujoco_playground._src import mjx_env
 
-        mjx_env.ensure_menagerie_exists()
+            mjx_env.ensure_menagerie_exists()
 
         self.global_config = global_config
         self.process: subprocess.Popen[bytes] | None = None

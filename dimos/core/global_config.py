@@ -44,6 +44,11 @@ class GlobalConfig(BaseSettings):
     mujoco_start_pos: str = "-1.0, 1.0"
     mujoco_steps_per_frame: int = 7
     robot_model: str | None = None
+    # Optional: name of a MuJoCo "bundle" that selects the robot MJCF + policy together.
+    # If set, Dimos MuJoCo sim will prefer:
+    # - data/mujoco_sim/{mujoco_profile}.xml
+    # - data/mujoco_sim/{mujoco_profile}_policy.onnx
+    mujoco_profile: str | None = None
     robot_width: float = 0.3
     robot_rotation_diameter: float = 0.6
     planner_strategy: NavigationStrategy = "simple"
