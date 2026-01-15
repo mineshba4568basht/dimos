@@ -12,14 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Configuration for the eval generator module."""
+"""Configuration for the eval generator and runner modules."""
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Literal
 
 from dimos.agents.spec import Model, Provider
 from dimos.core.module import ModuleConfig
+
+
+class MatchMode(str, Enum):
+    """How to compare tool calls for evaluation."""
+
+    EXACT = "exact"  # Tool name and arguments must match exactly
+    SEMANTIC = "semantic"  # Use LLM to judge semantic equivalence
 
 
 @dataclass
@@ -46,11 +54,25 @@ class EvalGeneratorConfig(ModuleConfig):
 
 
 @dataclass
-class ModuleInfo:
-    """Extracted information about a module's IO interface."""
+class EvalRunnerConfig(ModuleConfig):
+    """Configuration for the EvalRunner module."""
 
-    name: str
-    inputs: list[StreamInfo] = field(default_factory=list)
-    outputs: list[StreamInfo] = field(default_factory=list)
-    rpcs: list[RpcInfo] = field(default_factory=list)
-    skills: list[SkillInfo] = field(default_factory=list)
+    # Model to evaluate
+    model: str = Model.GPT_4O.value
+    provider: Provider = Provider.OPENAI
+
+    # Evaluation settings
+    match_mode: MatchMode = MatchMode.EXACT
+    temperature: float = 0.0  # Use deterministic outputs for evaluation
+
+    # Output settings
+    output_dir: Path = field(default_factory=lambda: Path("./eval_results"))
+    save_results: bool = True
+
+    # Execution settings
+    max_concurrent: int = 5  # Max concurrent eval runs
+    timeout_seconds: float = 30.0  # Timeout per eval
+
+    # Semantic matching settings (only used when match_mode is SEMANTIC)
+    judge_model: str = Model.GPT_4O.value
+    judge_provider: Provider = Provider.OPENAI

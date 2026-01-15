@@ -65,9 +65,8 @@ class EvalGenerator(Module):
     def llm(self) -> BaseChatModel:
         """Lazily initialize the LLM."""
         if self._llm is None:
-            # Handle both enum and string types for model/provider
-            model = self.config.model.value if hasattr(self.config.model, "value") else self.config.model
-            provider = self.config.provider.value if hasattr(self.config.provider, "value") else self.config.provider
+            model = self.config.model
+            provider = self.config.provider.value
             self._llm = init_chat_model(
                 model_provider=provider,
                 model=model,
@@ -150,9 +149,6 @@ class EvalGenerator(Module):
         Returns:
             Tuple of (jsonl_path, json_path), either can be None based on config.
         """
-        if not tools:
-            logger.warning("No tools provided")
-            return None, None
 
         logger.info(f"Generating evals for {len(tools)} tools")
 

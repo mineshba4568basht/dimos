@@ -14,16 +14,35 @@
 
 """Evaluation generation module from blueprint configurations."""
 
-from dimos.agents.evals.config import EvalGeneratorConfig
+from dimos.agents.evals.config import EvalGeneratorConfig, EvalRunnerConfig, MatchMode
 from dimos.agents.evals.generator import EvalGenerator
+from dimos.agents.evals.runner import (
+    EvalResult,
+    EvalRunner,
+    EvalRunSummary,
+    ModelComparisonResult,
+    ModelSpec,
+    ToolCallResult,
+)
 from dimos.agents.evals.schema_extractor import (
     extract_skills_from_blueprint,
     extract_skills_from_container,
 )
 
 __all__ = [
+    # Generator
     "EvalGenerator",
     "EvalGeneratorConfig",
+    # Runner
+    "EvalRunner",
+    "EvalRunnerConfig",
+    "EvalResult",
+    "EvalRunSummary",
+    "ToolCallResult",
+    "ModelSpec",
+    "ModelComparisonResult",
+    "MatchMode",
+    # Utilities
     "extract_skills_from_blueprint",
     "extract_skills_from_container",
 ]
