@@ -1,3 +1,17 @@
+# Copyright 2026 Dimensional Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import csv
@@ -10,14 +24,16 @@ import re
 import subprocess
 import threading
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dimos.constants import DIMOS_LOG_DIR
-from dimos.core.global_config import GlobalConfig
 from dimos.protocol.pubsub.lcmpubsub import LCMPubSubBase
 from dimos.utils.cli.lcmspy.lcmspy import GraphLCMSpy
 from dimos.utils.logging_config import setup_logger
 from dimos.utils.monitoring import get_worker_pids
+
+if TYPE_CHECKING:
+    from dimos.core.global_config import GlobalConfig
 
 try:
     from dimos_lcm.std_msgs import Float32  # type: ignore[import-untyped]
@@ -340,7 +356,9 @@ class TelemetryRecorder:
 
         self._ping_f = open(self._run_dir / "ping.csv", "w", newline="")
         self._ping_w = csv.writer(self._ping_f)
-        self._ping_w.writerow(["ts_wall", "ts_mono", "t_rel", "host", "success", "rtt_ms", "loss_pct"])
+        self._ping_w.writerow(
+            ["ts_wall", "ts_mono", "t_rel", "host", "success", "rtt_ms", "loss_pct"]
+        )
 
         self._gpu_f = open(self._run_dir / "gpu.csv", "w", newline="")
         self._gpu_w = csv.writer(self._gpu_f)
@@ -540,7 +558,9 @@ class TelemetryRecorder:
                         ps_row = _ps_sample_pid(pid)
                         cpu, rss_kb = ps_row if ps_row is not None else (-1.0, -1)
                         cmd = _read_proc_cmdline(pid)
-                        self._process_w.writerow([ts_wall, ts_mono, t_rel, pid, kind, cpu, rss_kb, cmd])
+                        self._process_w.writerow(
+                            [ts_wall, ts_mono, t_rel, pid, kind, cpu, rss_kb, cmd]
+                        )
 
             # Ping (robot_ip)
             if self._cfg.robot_ip and ts_mono >= next_ping:
@@ -565,7 +585,7 @@ class TelemetryRecorder:
                 next_gpu = ts_mono + 1.0
                 try:
                     # Import here to avoid hard dependency at import time.
-                    import shutil  # noqa: PLC0415
+                    import shutil
 
                     if shutil.which("nvidia-smi"):
                         gpus = _sample_nvidia_smi()
@@ -635,4 +655,3 @@ class TelemetryRecorder:
                             continue
 
             self._stop_event.wait(period_s)
-
