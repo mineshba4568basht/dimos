@@ -81,6 +81,7 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
             "dtype",
             "last_local_payload",
             "last_seq",
+            "publish_buffer",
             "shape",
             "stop",
             "subs",
@@ -101,6 +102,8 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
             self.cp = cp_mod
             self.last_local_payload: bytes | None = None
             self.suppress_counts: dict[bytes, int] = defaultdict(int)  # UUID bytes as key
+            # Pre-allocated buffer to avoid allocation on every publish
+            self.publish_buffer: np.ndarray = np.zeros(self.shape, dtype=self.dtype)
 
     # ----- init / lifecycle -------------------------------------------------
 
@@ -178,7 +181,8 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
 
         # Build host frame [len:4] + [uuid:16] + payload and publish
         # We embed the message UUID in the frame for echo suppression
-        host = np.zeros(st.shape, dtype=st.dtype)
+        # Reuse pre-allocated buffer to avoid allocation overhead
+        host = st.publish_buffer
         # Pack: length(4) + uuid(16) + payload
         header = struct.pack("<I", L + 16)  # L+16 for uuid
         host[:4] = np.frombuffer(header, dtype=np.uint8)
@@ -186,7 +190,8 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
         if L:
             host[20 : 20 + L] = np.frombuffer(memoryview(payload_bytes), dtype=np.uint8)
 
-        st.channel.publish(host)
+        # Only copy actual message size (header + payload) not full capacity
+        st.channel.publish(host, length=20 + L)
 
     def subscribe(self, topic: str, callback: Callable[[bytes, str], Any]) -> Callable[[], None]:
         """Subscribe a callback(message: bytes, topic). Returns unsubscribe."""
@@ -221,6 +226,7 @@ class SharedMemoryPubSubBase(PubSub[str, Any]):
         st.shape = new_shape
         st.dtype = np.uint8
         st.last_seq = -1
+        st.publish_buffer = np.zeros(new_shape, dtype=np.uint8)
         return desc  # type: ignore[no-any-return]
 
     # ----- Internals --------------------------------------------------------

@@ -272,6 +272,8 @@ class BenchmarkResults:
         def fmt(v: float) -> str:
             if v >= 1:
                 return f"{v:.1f}s"
-            return f"{v * 1000:.0f}ms"
+            elif v >= 0.001:
+                return f"{v * 1000:.1f}ms"
+            return f"{v * 1_000_000:.0f}µs"
 
         self._print_heatmap("Latency", lambda r: r.receive_time, fmt, high_is_good=False)
