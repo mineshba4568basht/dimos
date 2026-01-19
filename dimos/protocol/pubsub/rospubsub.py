@@ -101,6 +101,9 @@ class RawROS(PubSub[RawROSTopic, Any]):
             self._qos = qos
         else:
             self._qos = QoSProfile(
+                # Haven't noticed any difference between BEST_EFFORT and RELIABLE for local comms in our tests
+                # ./bin/dev python -m pytest -svm tool -k ros dimos/protocol/pubsub/benchmark/test_benchmark.py
+                # RELIABLE seems to have marginally higher throughput
                 reliability=QoSReliabilityPolicy.RELIABLE,
                 history=QoSHistoryPolicy.KEEP_LAST,
                 durability=QoSDurabilityPolicy.VOLATILE,

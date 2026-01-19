@@ -175,7 +175,7 @@ except (ConnectionError, ImportError):
     print("Redis not available")
 
 
-from dimos.protocol.pubsub.rospubsub import ROS_AVAILABLE, RawROS, ROSTopic
+from dimos.protocol.pubsub.rospubsub import ROS_AVAILABLE, RawROS, RawROSTopic
 
 if ROS_AVAILABLE:
     from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
@@ -207,7 +207,7 @@ if ROS_AVAILABLE:
         yield ros_pubsub
         ros_pubsub.stop()
 
-    def ros_msggen(size: int) -> tuple[ROSTopic, ROSImage]:
+    def ros_msggen(size: int) -> tuple[RawROSTopic, ROSImage]:
         import numpy as np
 
         # Create image data
@@ -227,7 +227,7 @@ if ROS_AVAILABLE:
         msg.step = width * 3
         msg.data = data.tobytes()
 
-        topic = ROSTopic(topic="/benchmark/ros", ros_type=ROSImage)
+        topic = RawROSTopic(topic="/benchmark/ros", ros_type=ROSImage)
         return (topic, msg)
 
     testdata.append(
