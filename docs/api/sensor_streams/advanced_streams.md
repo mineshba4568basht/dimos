@@ -165,7 +165,6 @@ If you'd still like to switch to synchronous fetching, we provide two approaches
 color = white
 fill = none
 
-# === getter_hot section ===
 H_Title: box "getter_hot()" rad 5px fit wid 170% ht 170%
 
 Sub: box "subscribe" rad 5px fit wid 170% ht 170% with .n at H_Title.s + (0, -0.5in)
