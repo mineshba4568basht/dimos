@@ -27,6 +27,7 @@ from dimos.utils.data import get_data
 from dimos.utils.testing import TimedSensorReplay
 
 
+@pytest.fixture()
 def ros_node():
     ros = DimosROS()
     ros.start()
@@ -37,15 +38,16 @@ def ros_node():
 
 
 @pytest.fixture()
-def publisher() -> Generator[DimosROS, None, None]:
+def publisher(ros_node) -> Generator[DimosROS, None, None]:
     yield from ros_node()
 
 
 @pytest.fixture()
-def subscriber() -> Generator[DimosROS, None, None]:
+def subscriber(ros_node) -> Generator[DimosROS, None, None]:
     yield from ros_node()
 
 
+@pytest.mark.ros
 def test_basic_conversion(publisher, subscriber):
     topic = ROSTopic("/test_ros_topic", Vector3)
 
@@ -68,6 +70,7 @@ def test_basic_conversion(publisher, subscriber):
     assert msg.z == 3.0
 
 
+@pytest.mark.ros
 def test_pointcloud2_pubsub(publisher, subscriber):
     """Test PointCloud2 publish/subscribe through ROS."""
     dir_name = get_data("unitree_go2_bigoffice")
@@ -120,6 +123,7 @@ def test_pointcloud2_pubsub(publisher, subscriber):
     assert abs(original.ts - converted.ts) < 0.001
 
 
+@pytest.mark.ros
 def test_pointcloud2_empty_pubsub(publisher, subscriber):
     """Test empty PointCloud2 publish/subscribe."""
     original = PointCloud2.from_numpy(
@@ -146,6 +150,7 @@ def test_pointcloud2_empty_pubsub(publisher, subscriber):
     assert len(received[0]) == 0
 
 
+@pytest.mark.ros
 def test_posestamped_pubsub(publisher, subscriber):
     """Test PoseStamped publish/subscribe through ROS."""
     original = PoseStamped(
