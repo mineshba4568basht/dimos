@@ -69,7 +69,7 @@ testcases.append(
 
 
 @contextmanager
-def udp_raw_pubsub_channel() -> Generator[LCMPubSubBase, None, None]:
+def udp_bytes_pubsub_channel() -> Generator[LCMPubSubBase, None, None]:
     """LCM with raw bytes - no encoding overhead."""
     lcm_pubsub = LCMPubSubBase(autoconf=True)
     lcm_pubsub.start()
@@ -77,7 +77,7 @@ def udp_raw_pubsub_channel() -> Generator[LCMPubSubBase, None, None]:
     lcm_pubsub.stop()
 
 
-def udp_raw_msggen(size: int) -> tuple[LCMTopic, bytes]:
+def udp_bytes_msggen(size: int) -> tuple[LCMTopic, bytes]:
     """Generate raw bytes for LCM transport benchmark."""
     topic = LCMTopic(topic="benchmark/lcm_raw")
     return (topic, make_data_bytes(size))
@@ -85,8 +85,8 @@ def udp_raw_msggen(size: int) -> tuple[LCMTopic, bytes]:
 
 testcases.append(
     Case(
-        pubsub_context=udp_raw_pubsub_channel,
-        msg_gen=udp_raw_msggen,
+        pubsub_context=udp_bytes_pubsub_channel,
+        msg_gen=udp_bytes_msggen,
     )
 )
 
