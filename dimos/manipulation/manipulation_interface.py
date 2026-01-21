@@ -21,7 +21,7 @@ for agent-generated constraints, manipulation tasks, and perception streams.
 
 from typing import TYPE_CHECKING, Any
 
-from dimos.manipulation.manipulation_history import (  # type: ignore[import-not-found]
+from dimos.manipulation.manipulation_history import (  # type: ignore[import-not-found,import-untyped]
     ManipulationHistory,
 )
 from dimos.types.manipulation import (
