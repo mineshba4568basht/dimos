@@ -145,6 +145,47 @@ def _add_person_object(root: ET.Element) -> None:
     )
 
 
+def load_model_sdk2(
+    robot: str, scene_xml: str, *, profile: str | None = None
+) -> tuple[mujoco.MjModel, mujoco.MjData]:
+    """Load MuJoCo model without ONNX policy for SDK2 bridge mode.
+
+    In SDK2 mode, motor control is handled by the SDK2BridgeController
+    which receives commands via DDS and applies PD control directly.
+    No policy callback is registered - mj_step uses data.ctrl directly.
+
+    Args:
+        robot: Robot name (e.g., "unitree_go2", "unitree_g1")
+        scene_xml: Scene XML string
+        profile: Optional MuJoCo profile bundle name
+
+    Returns:
+        Tuple of (MjModel, MjData)
+    """
+    mujoco.set_mjcb_control(None)  # Clear any existing callback
+
+    xml_string = get_model_xml(robot=robot, scene_xml=scene_xml, profile=profile)
+    model = mujoco.MjModel.from_xml_string(xml_string, assets=get_assets(profile=profile))
+    data = mujoco.MjData(model)
+
+    # Apply keyframe if available
+    if model.nkey > 0:
+        mujoco.mj_resetDataKeyframe(model, data, 0)
+        print(f"[load_model_sdk2] Applied keyframe 0, qpos[7:13] = {data.qpos[7:13].tolist()}")
+    else:
+        print(f"[load_model_sdk2] WARNING: No keyframes in model (nkey={model.nkey})")
+
+    # Set timestep based on robot type (matching load_model behavior)
+    match robot:
+        case "unitree_g1":
+            sim_dt = 0.002
+        case _:
+            sim_dt = 0.005
+    model.opt.timestep = sim_dt
+
+    return model, data
+
+
 def load_scene_xml(config: GlobalConfig) -> str:
     if config.mujoco_room_from_occupancy:
         path = Path(config.mujoco_room_from_occupancy)

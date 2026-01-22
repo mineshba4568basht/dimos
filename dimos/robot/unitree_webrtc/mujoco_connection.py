@@ -15,18 +15,17 @@
 # limitations under the License.
 
 
-import atexit
 import base64
 from collections.abc import Callable
 import functools
 import json
+from pathlib import Path
 import pickle
 import subprocess
 import sys
 import threading
 import time
 from typing import Any, TypeVar
-import weakref
 
 import numpy as np
 from numpy.typing import NDArray
@@ -36,16 +35,11 @@ from reactivex.disposable import Disposable
 
 from dimos.core.global_config import GlobalConfig
 from dimos.msgs.geometry_msgs import Quaternion, Twist, Vector3
-from dimos.msgs.sensor_msgs import CameraInfo, Image, ImageFormat, PointCloud2
+from dimos.msgs.sensor_msgs import Image, ImageFormat
+from dimos.robot.unitree_webrtc.type.lidar import LidarMessage
 from dimos.robot.unitree_webrtc.type.odometry import Odometry
-from dimos.simulation.mujoco.constants import (
-    LAUNCHER_PATH,
-    LIDAR_FPS,
-    VIDEO_CAMERA_FOV,
-    VIDEO_FPS,
-    VIDEO_HEIGHT,
-    VIDEO_WIDTH,
-)
+from dimos.simulation.mujoco.constants import LAUNCHER_PATH, LIDAR_FPS, VIDEO_FPS
+from dimos.simulation.mujoco.model import load_bundle_json
 from dimos.simulation.mujoco.shared_memory import ShmWriter
 from dimos.utils.data import get_data
 from dimos.utils.logging_config import setup_logger
@@ -71,9 +65,11 @@ class MujocoConnection:
 
         # Trigger the download of the mujoco_menagerie package. This is so it
         # doesn't trigger in the mujoco process where it can time out.
-        from mujoco_playground._src import mjx_env
+        # When using a profile bundle, we should not rely on menagerie assets.
+        if not global_config.mujoco_profile:
+            from mujoco_playground._src import mjx_env
 
-        mjx_env.ensure_menagerie_exists()
+            mjx_env.ensure_menagerie_exists()
 
         self.global_config = global_config
         self.process: subprocess.Popen[bytes] | None = None
@@ -87,31 +83,10 @@ class MujocoConnection:
         self._stop_events: list[threading.Event] = []
         self._is_cleaned_up = False
 
-    @staticmethod
-    def _compute_camera_info() -> CameraInfo:
-        """Compute camera intrinsics from MuJoCo camera parameters.
-
-        Uses pinhole camera model: f = height / (2 * tan(fovy / 2))
-        """
-        import math
-
-        fovy = math.radians(VIDEO_CAMERA_FOV)
-        f = VIDEO_HEIGHT / (2 * math.tan(fovy / 2))
-        cx = VIDEO_WIDTH / 2.0
-        cy = VIDEO_HEIGHT / 2.0
-
-        return CameraInfo(
-            frame_id="camera_optical",
-            height=VIDEO_HEIGHT,
-            width=VIDEO_WIDTH,
-            distortion_model="plumb_bob",
-            D=[0.0, 0.0, 0.0, 0.0, 0.0],
-            K=[f, 0.0, cx, 0.0, f, cy, 0.0, 0.0, 1.0],
-            R=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-            P=[f, 0.0, cx, 0.0, 0.0, f, cy, 0.0, 0.0, 0.0, 1.0, 0.0],
-        )
-
-    camera_info_static: CameraInfo = _compute_camera_info()
+        # SDK2 policy runner
+        self._policy_runner: Any = None
+        self._policy_thread: threading.Thread | None = None
+        self._policy_stop_event: threading.Event | None = None
 
     def start(self) -> None:
         self.shm_data = ShmWriter()
@@ -123,7 +98,6 @@ class MujocoConnection:
         try:
             # mjpython must be used macOS (because of launch_passive inside mujoco_process.py)
             executable = sys.executable if sys.platform != "darwin" else "mjpython"
-
             self.process = subprocess.Popen(
                 [executable, str(LAUNCHER_PATH), config_pickle, shm_names_json],
             )
@@ -143,22 +117,86 @@ class MujocoConnection:
                 raise RuntimeError(f"MuJoCo process failed to start (exit code {exit_code})")
             if self.shm_data.is_ready():
                 logger.info("MuJoCo process started successfully")
-                # Register atexit handler to ensure subprocess is cleaned up
-                # Use weakref to avoid preventing garbage collection
-                weak_self = weakref.ref(self)
-
-                def cleanup_on_exit() -> None:
-                    instance = weak_self()
-                    if instance is not None:
-                        instance.stop()
-
-                atexit.register(cleanup_on_exit)
+                # Start SDK2 policy runner if configured
+                self._start_sdk2_policy_runner()
                 return
             time.sleep(0.1)
 
         # Timeout
         self.stop()
         raise RuntimeError("MuJoCo process failed to start (timeout)")
+
+    def _start_sdk2_policy_runner(self) -> None:
+        """Start the SDK2 policy runner if configured."""
+        if self.global_config.mujoco_control_mode != "sdk2":
+            return
+
+        profile = self.global_config.mujoco_profile
+        if not profile:
+            logger.warning("SDK2 mode enabled but no profile specified, skipping policy runner")
+            return
+
+        bundle_cfg = load_bundle_json(profile)
+        if not bundle_cfg:
+            logger.warning(f"No bundle.json found for profile {profile}")
+            return
+
+        policy_name = bundle_cfg.get("policy")
+        if not policy_name:
+            logger.info("SDK2 mode: no policy in bundle.json, waiting for external policy")
+            return
+
+        robot_type = bundle_cfg.get("robot_type", "g1")
+
+        # Find policy file
+        data_dir = Path(__file__).parent.parent.parent.parent / "data" / "mujoco_sim"
+        policy_path = data_dir / policy_name
+        if not policy_path.exists():
+            # Try in profile directory
+            policy_path = data_dir / profile / policy_name
+        if not policy_path.exists():
+            logger.warning(f"SDK2 policy not found: {policy_name}")
+            return
+
+        logger.info(
+            "Starting SDK2 policy runner",
+            policy=str(policy_path),
+            robot_type=robot_type,
+        )
+
+        # Import here to avoid circular imports
+        from dimos.simulation.mujoco.sdk2_policy_runner import SDK2PolicyRunner
+
+        self._policy_stop_event = threading.Event()
+
+        def run_policy() -> None:
+            try:
+                # Wait a bit for the simulator to fully initialize
+                time.sleep(1.0)
+
+                self._policy_runner = SDK2PolicyRunner(
+                    policy_path=str(policy_path),
+                    robot_type=robot_type,
+                    domain_id=self.global_config.sdk2_domain_id,
+                    interface=self.global_config.sdk2_interface,
+                    control_dt=0.02,  # 50 Hz
+                )
+
+                # Run policy loop with stop check
+                logger.info("SDK2 policy runner started")
+                while not self._policy_stop_event.is_set():
+                    step_start = time.perf_counter()
+                    self._policy_runner.step()
+                    elapsed = time.perf_counter() - step_start
+                    sleep_time = 0.02 - elapsed
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+
+            except Exception as e:
+                logger.error(f"SDK2 policy runner error: {e}")
+
+        self._policy_thread = threading.Thread(target=run_policy, daemon=True, name="SDK2PolicyRunner")
+        self._policy_thread.start()
 
     def stop(self) -> None:
         if self._is_cleaned_up:
@@ -177,6 +215,17 @@ class MujocoConnection:
         if self._stop_timer:
             self._stop_timer.cancel()
             self._stop_timer = None
+
+        # Stop SDK2 policy runner
+        if self._policy_stop_event:
+            self._policy_stop_event.set()
+        if self._policy_thread and self._policy_thread.is_alive():
+            self._policy_thread.join(timeout=2.0)
+            if self._policy_thread.is_alive():
+                logger.warning("SDK2 policy runner did not stop gracefully")
+        self._policy_runner = None
+        self._policy_thread = None
+        self._policy_stop_event = None
 
         # Stop all stream threads
         for stop_event in self._stop_events:
@@ -259,7 +308,7 @@ class MujocoConnection:
 
         return None
 
-    def get_lidar_message(self) -> PointCloud2 | None:
+    def get_lidar_message(self) -> LidarMessage | None:
         if self.shm_data is None:
             return None
 
@@ -308,7 +357,7 @@ class MujocoConnection:
         return Observable(on_subscribe)
 
     @functools.cache
-    def lidar_stream(self) -> Observable[PointCloud2]:
+    def lidar_stream(self) -> Observable[LidarMessage]:
         return self._create_stream(self.get_lidar_message, LIDAR_FPS, "Lidar")
 
     @functools.cache
@@ -325,19 +374,30 @@ class MujocoConnection:
         return self._create_stream(get_video_as_image, VIDEO_FPS, "Video")
 
     def move(self, twist: Twist, duration: float = 0.0) -> bool:
-        if self._is_cleaned_up or self.shm_data is None:
+        if self._is_cleaned_up:
             return True
 
-        linear = np.array([twist.linear.x, twist.linear.y, twist.linear.z], dtype=np.float32)
-        angular = np.array([twist.angular.x, twist.angular.y, twist.angular.z], dtype=np.float32)
-        self.shm_data.write_command(linear, angular)
+        # SDK2 mode: send velocity command to policy runner
+        if self._policy_runner is not None:
+            self._policy_runner.set_command(
+                twist.linear.x,
+                twist.linear.y,
+                twist.angular.z,
+            )
+        elif self.shm_data is not None:
+            # ONNX mode: send to shared memory
+            linear = np.array([twist.linear.x, twist.linear.y, twist.linear.z], dtype=np.float32)
+            angular = np.array([twist.angular.x, twist.angular.y, twist.angular.z], dtype=np.float32)
+            self.shm_data.write_command(linear, angular)
 
         if duration > 0:
             if self._stop_timer:
                 self._stop_timer.cancel()
 
             def stop_movement() -> None:
-                if self.shm_data:
+                if self._policy_runner is not None:
+                    self._policy_runner.set_command(0.0, 0.0, 0.0)
+                elif self.shm_data:
                     self.shm_data.write_command(
                         np.zeros(3, dtype=np.float32), np.zeros(3, dtype=np.float32)
                     )

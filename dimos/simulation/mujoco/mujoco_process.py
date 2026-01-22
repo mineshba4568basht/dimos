@@ -39,7 +39,12 @@ from dimos.simulation.mujoco.constants import (
     VIDEO_WIDTH,
 )
 from dimos.simulation.mujoco.depth_camera import depth_image_to_point_cloud
-from dimos.simulation.mujoco.model import load_model, load_scene_xml
+from dimos.simulation.mujoco.model import (
+    load_bundle_json,
+    load_model,
+    load_model_sdk2,
+    load_scene_xml,
+)
 from dimos.simulation.mujoco.person_on_track import PersonPositionController
 from dimos.simulation.mujoco.shared_memory import ShmReader
 from dimos.utils.logging_config import setup_logger
@@ -75,8 +80,38 @@ def _run_simulation(config: GlobalConfig, shm: ShmReader) -> None:
     if robot_name == "unitree_go2":
         robot_name = "unitree_go1"
 
-    controller = MockController(shm)
-    model, data = load_model(controller, robot=robot_name, scene_xml=load_scene_xml(config))
+    # Only use a MuJoCo profile bundle when explicitly requested.
+    # Otherwise fall back to the legacy behavior (menagerie assets + <robot>.xml include).
+    profile = config.mujoco_profile
+    scene_xml = load_scene_xml(config)
+
+    # SDK2 bridge for direct motor control via DDS
+    sdk2_bridge = None
+
+    if config.mujoco_control_mode == "sdk2":
+        # SDK2 mode: load model without ONNX policy, use DDS bridge for control
+        # SDK2BridgeController is created later, after mj_forward updates sensors
+        model, data = load_model_sdk2(
+            robot=robot_name,
+            scene_xml=scene_xml,
+            profile=profile,
+        )
+        # Debug: verify keyframe was applied in load_model_sdk2
+        logger.info(
+            "SDK2 model loaded",
+            nkey=model.nkey,
+            qpos_joints_0_5=data.qpos[7:13].tolist(),
+            expected_joints=[-0.312, 0, 0, 0.669, -0.363, 0],
+        )
+    else:
+        # ONNX policy mode (default): use shared memory controller
+        controller = MockController(shm)
+        model, data = load_model(
+            controller,
+            robot=robot_name,
+            scene_xml=scene_xml,
+            profile=profile,
+        )
 
     if model is None or data is None:
         raise ValueError("Failed to load MuJoCo model: model or data is None")
@@ -95,15 +130,62 @@ def _run_simulation(config: GlobalConfig, shm: ShmReader) -> None:
 
     mujoco.mj_forward(model, data)
 
-    camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "head_camera")
-    lidar_camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "lidar_front_camera")
+    # Create SDK2 bridge AFTER mj_forward so sensors are updated from keyframe
+    if config.mujoco_control_mode == "sdk2":
+        # Debug: verify qpos and sensordata after mj_forward
+        logger.info(
+            "After mj_forward",
+            qpos_joints_0_5=data.qpos[7:13].tolist(),
+            sensordata_0_5=data.sensordata[0:6].tolist(),
+        )
+        from dimos.simulation.mujoco.sdk2_bridge import (
+            SDK2BridgeConfig,
+            SDK2BridgeController,
+        )
+        sdk2_bridge = SDK2BridgeController(
+            model,
+            data,
+            SDK2BridgeConfig(
+                domain_id=config.sdk2_domain_id,
+                interface=config.sdk2_interface,
+                robot_type=robot_name.replace("unitree_", ""),  # "g1" -> "g1"
+            ),
+        )
+        logger.info(
+            "SDK2 bridge mode enabled",
+            domain_id=config.sdk2_domain_id,
+            interface=config.sdk2_interface,
+        )
+
+    # Camera naming can differ per profile bundle. If bundle.json exists, use it.
+    bundle_cfg = load_bundle_json(profile) if profile else None
+    rgb_cam_name = (
+        str(bundle_cfg.get("rgb_camera"))  # type: ignore[union-attr]
+        if bundle_cfg and "rgb_camera" in bundle_cfg
+        else "head_camera"
+    )
+    lidar_front_name = (
+        str(bundle_cfg.get("lidar_front_camera"))  # type: ignore[union-attr]
+        if bundle_cfg and "lidar_front_camera" in bundle_cfg
+        else "lidar_front_camera"
+    )
+    lidar_left_name = (
+        str(bundle_cfg.get("lidar_left_camera"))  # type: ignore[union-attr]
+        if bundle_cfg and "lidar_left_camera" in bundle_cfg
+        else "lidar_left_camera"
+    )
+    lidar_right_name = (
+        str(bundle_cfg.get("lidar_right_camera"))  # type: ignore[union-attr]
+        if bundle_cfg and "lidar_right_camera" in bundle_cfg
+        else "lidar_right_camera"
+    )
 
     person_position_controller = PersonPositionController(model)
 
-    lidar_left_camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "lidar_left_camera")
-    lidar_right_camera_id = mujoco.mj_name2id(
-        model, mujoco.mjtObj.mjOBJ_CAMERA, "lidar_right_camera"
-    )
+    camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, rgb_cam_name)
+    lidar_camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, lidar_front_name)
+    lidar_left_camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, lidar_left_name)
+    lidar_right_camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, lidar_right_name)
 
     shm.signal_ready()
 
@@ -140,6 +222,9 @@ def _run_simulation(config: GlobalConfig, shm: ShmReader) -> None:
             # Step simulation
             for _ in range(config.mujoco_steps_per_frame):
                 mujoco.mj_step(model, data)
+                # In SDK2 mode, publish state after each physics step
+                if sdk2_bridge is not None:
+                    sdk2_bridge.publish_state()
 
             person_position_controller.tick(data)
 
