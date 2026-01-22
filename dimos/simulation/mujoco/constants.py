@@ -14,6 +14,12 @@
 
 from pathlib import Path
 
+# Path to the MuJoCo subprocess entrypoint. This is used by
+# `dimos.robot.unitree_webrtc.mujoco_connection.MujocoConnection` to launch
+# the simulator in a separate process.
+_MUJOCO_DIR = Path(__file__).resolve().parent
+LAUNCHER_PATH = _MUJOCO_DIR / "mujoco_process.py"
+
 # Video/Camera constants
 VIDEO_WIDTH = 320
 VIDEO_HEIGHT = 240
