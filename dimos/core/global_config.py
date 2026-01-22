@@ -21,6 +21,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from dimos.mapping.occupancy.path_map import NavigationStrategy
 
 ViewerBackend: TypeAlias = Literal["rerun-web", "rerun-native", "foxglove"]
+MujocoControlMode: TypeAlias = Literal["onnx", "sdk2"]
 
 
 def _get_all_numbers(s: str) -> list[float]:
@@ -52,6 +53,10 @@ class GlobalConfig(BaseSettings):
     # Enable lightweight timing breakdown logs from the MuJoCo subprocess (physics/render/pcd/policy).
     mujoco_profiler: bool = False
     mujoco_profiler_interval_s: float = 2.0
+    # SDK2 bridge configuration for low-level motor control via DDS
+    mujoco_control_mode: MujocoControlMode = "onnx"
+    sdk2_domain_id: int = 1  # Unitree convention: 1 for sim, 0 for real robot
+    sdk2_interface: str = "lo0"  # "lo0" for macOS sim, "lo" for Linux, network interface for real
     robot_width: float = 0.3
     robot_rotation_diameter: float = 0.6
     planner_strategy: NavigationStrategy = "simple"
