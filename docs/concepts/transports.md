@@ -2,11 +2,9 @@
 
 Transports enable communication between [modules](modules.md) across process boundaries and networks.
 
-Each line in this example graph is a Transport, each node is a Module.
+Each line in this graph is a Transport (can be different protocols), each node is a Module:
 
-![output](assets/go2_agentic.svg)
-
-Each of these lines can be a different Transport (protocol) that modules use to communicate with each other.
+![output](assets/go2_basic.svg)
 
 Module transports are always unidirectional (they have a broadcaster and receiver side)
 
@@ -15,6 +13,14 @@ Implementation wise these are things like HTTP server, redis, ROS DDS etc. Gener
 Modules internally don't know or care how their data is transported. They just emit messages and subscribe to messages. It is a job of a transport to reliably deliver those messages.
 
 Messages can be anything a transport can transport, so binary data, images, pointclouds etc. Most of the time these are `dimos.msgs`
+
+# Benchmarks
+
+Quick view on performance of our transports
+
+`python -m pytest -svm tool -k "not bytes" dimos/protocol/pubsub/benchmark/test_benchmark.py`
+
+![Benchmark results](assets/pubsub_benchmark.png)
 
 # Using Transports with Blueprints
 
@@ -130,29 +136,15 @@ Your init arguments to Transport can be anything you'd like - an IP address and 
 
 The way you transfer and encode the data is an implementation detail left to you. You can specify which type of data you are able to transport on a type level.
 
-For example Video encoding HTTP transport probaby only takes Image type. TCP channel takes bytes etc.
+For example a video streaming HTTP transport probably only takes Image type, while a TCP channel takes bytes.
 
-Rebinding an existing go2 blueprint to use (imagined) TCP transport for lidar (each module that requires lidar data would connect via TCP to this ip) would look something like this:
-
-
-```python skip
-from dimos.robot.unitree_webrtc.unitree_go2_blueprints import nav
-
-# use TCP for lidar data (each module individually would establish a tcp connection)
-ros = nav.transports(
-   {("lidar", PointCloud2): TCPTransport(ip="10.10.10.1",port=1414)}
-)
-```
-
-subscribe() of your TCP transport needs to return a standard `PointCloud2` object in the case above, we don't care how you transport, encode or construct it,
+Your transport's `subscribe()` just needs to return the expected message type - we don't care how you transport, encode, or construct it.
 
 If helpful, all our types provide `lcm_encode` and `lcm_decode` functions for (faster then pickle and language agnostic) binary encoding. for more info on this, check [lcm](/docs/concepts/lcm.md)
 
-# Practice (PubSub Transports)
+# PubSub Transports
 
-For now at dimos, we've been using exclusively PubSub protocols for our transports.
-
-`PubSub` abstract class is what those protocols implement, it's just `publish(topic, message)` and `subscribe(topic, callback)` functions
+All our transports implement the `PubSub` interface - just `publish(topic, message)` and `subscribe(topic, callback)`:
 
 ```python session=pubsub_demo ansi=false
 from dimos.protocol.pubsub.spec import PubSub
@@ -178,15 +170,9 @@ print(inspect.getsource(PubSub.subscribe))
         ...
 ```
 
-So new protocols are very easy to implement.
+Topic and message types are flexible - bytes, json, or our ROS-compatible [LCM](/docs/concepts/lcm.md) types. We also have pickle transports for any Python object.
 
-We don't tell you what topic type actually is, it can be a complex configuration object, and we also don't tell you what a message is. it can be bytes, json etc. Generally most of our transports we have are made to transport specifically our ros compatible message types (see [LCM](/docs/concepts/lcm.md))
-
-But we also have generic pickle transports that will send off any python object
-
-# Using Transports Directly
-
-We could easily instantiate and pass messages using a pubsub implementation, though normally you would not do this, and would use module or blueprint level API.
+You can use pubsub directly (though normally you'd use module/blueprint APIs):
 
 ## LCM
 
@@ -219,7 +205,7 @@ Received velocity: x=1.0, y=0.0, z=0.5
 
 ## Shared Memory
 
-Shared Memory is highest performancce, works only on the same machien as IPC
+Shared Memory is highest performance, works only on the same machine as IPC
 
 ```python session=shm_demo ansi=false
 from dimos.protocol.pubsub.shmpubsub import PickleSharedMemory
@@ -339,11 +325,10 @@ check [`pubsub/test_spec.py`](/dimos/protocol/pubsub/test_spec.py) for grid test
 
 ## Benchmarks
 
-We also have fancy benchmark tests that will tell you your max bandwidth, latency, message throughput etc.
+Make sure to also benchmark your stuff to see it in context
 
 `python -m pytest -svm tool -k "not bytes" dimos/protocol/pubsub/benchmark/test_benchmark.py`
 
-![Benchmark results](assets/pubsub_benchmark.png)
 
 # Available Transports
 
