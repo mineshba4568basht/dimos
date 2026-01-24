@@ -21,6 +21,7 @@ import math
 from typing import TYPE_CHECKING
 
 from dimos.hardware.manipulators.spec import ControlMode, JointLimits, ManipulatorInfo
+from dimos.msgs.sensor_msgs import JointState
 
 if TYPE_CHECKING:
     from dimos.simulation.engines.base import SimulationEngine
@@ -132,26 +133,29 @@ class SimManipInterface:
     def read_error(self) -> tuple[int, str]:
         return self._error_code, self._error_message
 
-    def write_joint_positions(self, positions: list[float], velocity: float = 1.0) -> bool:
-        _ = velocity
+    def write_joint_positions(self, positions: list[float]) -> bool:
         if not self._servos_enabled:
             return False
         self._control_mode = ControlMode.POSITION
-        self._engine.write_joint_positions(positions[: self._dof])
+        self._engine.write_joint_command(JointState(position=positions[: self._dof]))
         return True
 
     def write_joint_velocities(self, velocities: list[float]) -> bool:
         if not self._servos_enabled:
             return False
         self._control_mode = ControlMode.VELOCITY
-        self._engine.write_joint_velocities(velocities[: self._dof])
+        self._engine.write_joint_command(JointState(velocity=velocities[: self._dof]))
+        return True
+
+    def write_joint_efforts(self, efforts: list[float]) -> bool:
+        if not self._servos_enabled:
+            return False
+        self._control_mode = ControlMode.TORQUE
+        self._engine.write_joint_command(JointState(effort=efforts[: self._dof]))
         return True
 
     def write_stop(self) -> bool:
-        if hasattr(self._engine, "hold_current_position"):
-            self._engine.hold_current_position()  # type: ignore[attr-defined]
-            return True
-        self._engine.write_joint_velocities([0.0] * self._dof)
+        self._engine.hold_current_position()
         return True
 
     def write_enable(self, enable: bool) -> bool:

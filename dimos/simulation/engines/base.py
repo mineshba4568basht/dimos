@@ -76,3 +76,7 @@ class SimulationEngine(ABC):
     @abstractmethod
     def write_joint_command(self, command: JointState) -> None:
         """Command joints using a JointState message."""
+
+    @abstractmethod
+    def hold_current_position(self) -> None:
+        """Hold current joint positions."""
