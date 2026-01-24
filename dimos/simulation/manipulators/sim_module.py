@@ -26,7 +26,7 @@ from reactivex.disposable import Disposable
 from dimos.core import In, Module, Out, rpc
 from dimos.core.module import ModuleConfig
 from dimos.msgs.sensor_msgs import JointCommand, JointState, RobotState
-from dimos.simulation.engines.mujoco_engine import MujocoEngine
+from dimos.simulation.engines import get_engine
 from dimos.simulation.manipulators.sim_manip_interface import SimManipInterface
 
 
@@ -49,9 +49,6 @@ class SimulationModule(Module[SimulationModuleConfig]):
     joint_velocity_command: In[JointCommand]
 
     MIN_CONTROL_RATE = 1.0
-    _ENGINES = {
-        "mujoco": MujocoEngine,
-    }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -71,10 +68,7 @@ class SimulationModule(Module[SimulationModuleConfig]):
             raise ValueError("engine is required for SimulationModule")
         if not self.config.config_path:
             raise ValueError("config_path is required for SimulationModule")
-        engine_key = self.config.engine.lower()
-        if engine_key not in self._ENGINES:
-            raise ValueError(f"Unknown simulation engine: {self.config.engine}")
-        engine_cls = self._ENGINES[engine_key]
+        engine_cls = get_engine(self.config.engine)
         engine = engine_cls(
             config_path=self.config.config_path,
             headless=self.config.headless,
