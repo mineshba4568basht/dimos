@@ -50,7 +50,6 @@ from . import temporal_utils as tu
 from .clip_filter import (
     CLIP_AVAILABLE,
     adaptive_keyframes,
-    select_diverse_frames_simple,
 )
 
 try:
