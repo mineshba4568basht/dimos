@@ -36,7 +36,7 @@ logger = setup_logger()
 
 # Optional CuPy support
 try:  # pragma: no cover - optional dependency
-    import cupy as cp  # type: ignore[import-not-found,import-untyped]
+    import cupy as cp  # type: ignore[import-not-found]
 
     _HAS_CUDA = True
 except Exception:  # pragma: no cover - optional dependency

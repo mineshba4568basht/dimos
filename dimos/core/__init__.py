@@ -68,7 +68,7 @@ class CudaCleanupPlugin:
             import sys
 
             if "cupy" in sys.modules:
-                import cupy as cp  # type: ignore[import-not-found,import-untyped]
+                import cupy as cp  # type: ignore[import-not-found]
 
                 # Clear memory pools
                 mempool = cp.get_default_memory_pool()
