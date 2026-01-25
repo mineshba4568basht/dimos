@@ -32,6 +32,7 @@ def _positions_within_tolerance(
 
 
 @pytest.mark.skipif(bool(os.getenv("CI")), reason="LCM doesn't work in CI.")
+@pytest.mark.e2e
 class TestSimulationModuleE2E:
     def test_xarm7_joint_state_published(self, lcm_spy, start_blueprint) -> None:
         joint_state_topic = "/xarm/joint_states#sensor_msgs.JointState"
