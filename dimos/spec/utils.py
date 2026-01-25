@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from typing import Protocol, runtime_checkable
 
 from annotation_protocol import AnnotationProtocol
@@ -96,3 +97,33 @@ def spec_annotation_compliance(
     )
 
     return isinstance(obj, strict_proto)
+
+
+def get_protocol_method_signatures(proto: type[Protocol]) -> dict[str, inspect.Signature]:
+    """
+    Return a mapping of method_name -> inspect.Signature
+    for all methods required by a Protocol.
+    """
+    if not getattr(proto, "_is_protocol", False):
+        raise TypeError(f"{proto} is not a Protocol")
+
+    methods: dict[str, inspect.Signature] = {}
+
+    # Walk MRO so inherited protocol methods are included
+    for cls in reversed(proto.__mro__):
+        if cls is Protocol:
+            continue
+
+        for name, value in cls.__dict__.items():
+            if name.startswith("_"):
+                continue
+
+            if callable(value):
+                try:
+                    sig = inspect.signature(value)
+                except (TypeError, ValueError):
+                    continue
+
+                methods[name] = sig
+
+    return methods
