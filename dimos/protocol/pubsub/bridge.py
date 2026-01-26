@@ -48,15 +48,15 @@ class Translator(Protocol[TopicFrom, TopicTo, MsgFrom, MsgTo]):  # type: ignore[
 
 
 def bridge(
-    pubsub1: AllPubSub[MsgFrom, TopicFrom],
+    pubsub1: AllPubSub[TopicFrom, MsgFrom],
     pubsub2: PubSub[TopicTo, MsgTo],
     translator: Translator[TopicFrom, TopicTo, MsgFrom, MsgTo],
     # optionally we can override subscribe_all
     # and only bridge a specific part of the pubsub tree
     topic_from: TopicFrom | None = None,
 ) -> Callable[[], None]:
-    def pass_msg(msg: MsgTo, topic: TopicTo) -> None:
-        return pubsub2.publish(translator.topic(topic), translator.msg(msg))
+    def pass_msg(msg: MsgFrom, topic: TopicFrom) -> None:
+        pubsub2.publish(translator.topic(topic), translator.msg(msg))
 
     # Bridge only specific messages from pubsub1 to pubsub2
     if topic_from:
@@ -70,7 +70,7 @@ def bridge(
 class BridgeConfig(Generic[TopicFrom, TopicTo, MsgFrom, MsgTo]):
     """Configuration for a one-way bridge."""
 
-    source: AllPubSub[MsgFrom, TopicFrom]
+    source: AllPubSub[TopicFrom, MsgFrom]
     destination: PubSub[TopicTo, MsgTo]
     translator: Translator[TopicFrom, TopicTo, MsgFrom, MsgTo]
     subscribe_topic: TopicFrom | None = None
@@ -87,6 +87,7 @@ class Bridge(Service[BridgeConfig[TopicFrom, TopicTo, MsgFrom, MsgTo]]):
             self.config.source,
             self.config.destination,
             self.config.translator,
+            self.config.subscribe_topic,
         )
 
     def stop(self) -> None:
