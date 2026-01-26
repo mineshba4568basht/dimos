@@ -3,6 +3,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import signal
 import time
+from typing import TYPE_CHECKING
 
 from dask.distributed import Client, LocalCluster
 from rich.console import Console
@@ -10,7 +11,7 @@ from rich.console import Console
 import dimos.core.colors as colors
 from dimos.core.core import rpc
 from dimos.core.module import Module, ModuleBase, ModuleConfig, ModuleConfigT
-from dimos.core.rpc_client import ModuleProxy
+from dimos.core.rpc_client import RPCClient
 from dimos.core.stream import In, Out, RemoteIn, RemoteOut, Transport
 from dimos.core.transport import (
     LCMTransport,
@@ -24,6 +25,9 @@ from dimos.protocol.rpc.spec import RPCSpec
 from dimos.protocol.tf import LCMTF, TF, PubSubTF, TFConfig, TFSpec
 from dimos.utils.actor_registry import ActorRegistry
 from dimos.utils.logging_config import setup_logger
+
+if TYPE_CHECKING:
+    from dimos.core.rpc_client import ModuleProxy
 
 logger = setup_logger()
 
@@ -108,7 +112,7 @@ def patchdask(dask_client: Client, local_cluster: LocalCluster) -> DimosCluster:
         # Register actor deployment in shared memory
         ActorRegistry.update(str(actor), str(worker))
 
-        return ModuleProxy(actor, actor_class)
+        return RPCClient(actor, actor_class)
 
     def check_worker_memory() -> None:
         """Check memory usage of all workers."""
