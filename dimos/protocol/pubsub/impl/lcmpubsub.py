@@ -152,9 +152,9 @@ class LCMPubSubBase(LCMService, AllPubSub[Topic, Any]):
         self.l.publish(topic_str, message)
 
     def subscribe_all(self, callback: Callable[[bytes, Topic], Any]) -> Callable[[], None]:
-        return self.subscribe(Topic(re.compile(".*")), callback)
+        return self.subscribe(Topic(re.compile(".*")), callback)  # type: ignore[arg-type]
 
-    def subscribe(
+    def subscribe(  # type: ignore[override]
         self, topic: Topic | str, callback: Callable[[bytes, Topic | str], Any]
     ) -> Callable[[], None]:
         if self.l is None:
@@ -191,19 +191,19 @@ class LCMPubSubBase(LCMService, AllPubSub[Topic, Any]):
         return unsubscribe
 
 
-class LCM(
+class LCM(  # type: ignore[misc]
     LCMEncoderMixin,  # type: ignore[type-arg]
     LCMPubSubBase,
 ): ...
 
 
-class PickleLCM(
+class PickleLCM(  # type: ignore[misc]
     PickleEncoderMixin,  # type: ignore[type-arg]
     LCMPubSubBase,
 ): ...
 
 
-class JpegLCM(
+class JpegLCM(  # type: ignore[misc]
     JpegEncoderMixin,  # type: ignore[type-arg]
     LCMPubSubBase,
 ): ...

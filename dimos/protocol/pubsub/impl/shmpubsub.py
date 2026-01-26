@@ -336,7 +336,7 @@ class LCMSharedMemoryPubSubBase(PubSub[Topic, Any]):
         return self._shm.reconfigure(str(topic), capacity=capacity)
 
 
-class LCMSharedMemory(
+class LCMSharedMemory(  # type: ignore[misc]
     LCMEncoderMixin[Topic],
     LCMSharedMemoryPubSubBase,
 ):

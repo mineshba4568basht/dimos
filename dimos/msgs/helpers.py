@@ -46,7 +46,7 @@ def resolve_msg_type(type_name: str) -> type[DimosMsg] | None:
     for path in import_paths:
         try:
             module = importlib.import_module(path)
-            return getattr(module, class_name)
+            return getattr(module, class_name)  # type: ignore[no-any-return]
         except (ImportError, AttributeError):
             continue
 
