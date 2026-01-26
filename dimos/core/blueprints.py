@@ -266,15 +266,11 @@ class Blueprint:
     def _connect_transports(self, module_coordinator: ModuleCoordinator) -> None:
         # Gather all the In/Out connections with remapping applied.
         connections = defaultdict(list)
-        # Track original name -> remapped name for each module
-        module_conn_mapping = defaultdict(dict)  # type: ignore[var-annotated]
 
         for blueprint in self.blueprints:
             for conn in blueprint.connections:
                 # Check if this connection should be remapped
                 remapped_name = self.remapping_map.get((blueprint.module, conn.name), conn.name)
-                # Store the mapping for later use
-                module_conn_mapping[blueprint.module][conn.name] = remapped_name
                 # Group by remapped name and type
                 connections[remapped_name, conn.type].append((blueprint.module, conn.name))
 
