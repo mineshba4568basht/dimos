@@ -92,7 +92,7 @@ class Blueprint:
     requirement_checks: tuple[Callable[[], str | None], ...] = field(default_factory=tuple)
 
     @staticmethod
-    def create(self, module: type[Module], *args: tuple[Any], **kwargs: dict[str, Any]) -> Self:
+    def create(module: type[Module], *args: tuple[Any], **kwargs: dict[str, Any]) -> Self:
         blueprint = _BlueprintAtom.create(module, args, kwargs)
         return Blueprint(blueprints=(blueprint,))
 
