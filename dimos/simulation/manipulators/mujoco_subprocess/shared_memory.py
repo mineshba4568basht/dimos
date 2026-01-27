@@ -98,9 +98,15 @@ class ShmReader:
             return None
         self._last_cmd_seq = seq
         mode = int(np.ndarray((1,), dtype=np.int32, buffer=self.shm.mode.buf)[0])
-        cmd_pos = np.ndarray((self._dof,), dtype=np.float64, buffer=self.shm.cmd_pos.buf).copy()
-        cmd_vel = np.ndarray((self._dof,), dtype=np.float64, buffer=self.shm.cmd_vel.buf).copy()
-        cmd_eff = np.ndarray((self._dof,), dtype=np.float64, buffer=self.shm.cmd_eff.buf).copy()
+        cmd_pos: NDArray[Any] = np.ndarray(
+            (self._dof,), dtype=np.float64, buffer=self.shm.cmd_pos.buf
+        ).copy()
+        cmd_vel: NDArray[Any] = np.ndarray(
+            (self._dof,), dtype=np.float64, buffer=self.shm.cmd_vel.buf
+        ).copy()
+        cmd_eff: NDArray[Any] = np.ndarray(
+            (self._dof,), dtype=np.float64, buffer=self.shm.cmd_eff.buf
+        ).copy()
         return mode, cmd_pos, cmd_vel, cmd_eff
 
     def write_state(
@@ -158,7 +164,9 @@ class ShmWriter:
         mode_array[0] = 0
 
         for name in ("cmd_pos", "cmd_vel", "cmd_eff", "state_pos", "state_vel", "state_eff"):
-            arr = np.ndarray((dof,), dtype=np.float64, buffer=getattr(self.shm, name).buf)
+            arr: NDArray[Any] = np.ndarray(
+                (dof,), dtype=np.float64, buffer=getattr(self.shm, name).buf
+            )
             arr[:] = 0.0
 
     def is_ready(self) -> bool:
@@ -180,15 +188,21 @@ class ShmWriter:
         mode_array[0] = mode
 
         if positions is not None:
-            pos_array = np.ndarray((self._dof,), dtype=np.float64, buffer=self.shm.cmd_pos.buf)
+            pos_array: NDArray[Any] = np.ndarray(
+                (self._dof,), dtype=np.float64, buffer=self.shm.cmd_pos.buf
+            )
             count = min(len(positions), self._dof)
             pos_array[:count] = positions[:count]
         if velocities is not None:
-            vel_array = np.ndarray((self._dof,), dtype=np.float64, buffer=self.shm.cmd_vel.buf)
+            vel_array: NDArray[Any] = np.ndarray(
+                (self._dof,), dtype=np.float64, buffer=self.shm.cmd_vel.buf
+            )
             count = min(len(velocities), self._dof)
             vel_array[:count] = velocities[:count]
         if efforts is not None:
-            eff_array = np.ndarray((self._dof,), dtype=np.float64, buffer=self.shm.cmd_eff.buf)
+            eff_array: NDArray[Any] = np.ndarray(
+                (self._dof,), dtype=np.float64, buffer=self.shm.cmd_eff.buf
+            )
             count = min(len(efforts), self._dof)
             eff_array[:count] = efforts[:count]
 
