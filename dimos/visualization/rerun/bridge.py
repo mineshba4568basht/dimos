@@ -38,6 +38,49 @@ from dimos.protocol.pubsub.impl.lcmpubsub import LCM
 from dimos.protocol.pubsub.patterns import Glob, pattern_matches
 from dimos.utils.logging_config import setup_logger
 
+# TODO OUT visual annotations
+#
+# In the future it would be nice if modules can annotate their individual OUTs with (general or rerun specific)
+# hints related to their visualization
+#
+# so stuff like color, update frequency etc (some Image needs to be rendered on the 3d floor like occupancy grid)
+# some other image is an image to be streamed into a specific 2D view etc.
+#
+# To achieve this we'd feed a full blueprint into the rerun bridge.
+#
+# rerun bridge can then inspect all transports used, all modules with their outs,
+# automatically spy an all the transports and read visualization hints
+#
+# Temporarily we are using these "sideloading" visual_override={} dict on the bridge
+# to define custom visualizations for specific topics
+#
+# as well as pubsubs={} to specify which protocols to listen to.
+
+
+# TODO better TF processing
+#
+# this is rerun bridge specific, rerun has a specific (better) way of handling TFs
+# using entity path conventions, each of these nodes in a path are TF frames:
+#
+# /world/robot1/base_link/camera/optical
+#
+# While here since we are just listening on TFMessage messages which optionally contain
+# just a subset of full TF tree we don't know the full tree structure to build full entity
+# path for a transform being published
+#
+# This is easy to reconstruct but a service/tf.py already does this so should be integrated here
+#
+# we have decoupled entity paths and actual transforms (like ROS TF frames)
+# https://rerun.io/docs/concepts/logging-and-ingestion/transforms
+#
+# tf#/world
+# tf#/base_link
+# tf#/camera
+#
+# In order to solve this, bridge needs to own it's own tf service
+# and render it's tf tree into correct rerun entity paths
+
+
 logger = setup_logger()
 
 if TYPE_CHECKING:
@@ -74,39 +117,6 @@ class RerunConvertible(Protocol):
 
 
 ViewerMode = Literal["native", "web", "none"]
-
-# TODO on plans with this system
-#
-# In the future it would be nice if modules can annotate their individual OUTs with (general or rerun specific)
-# hints related to their visualization
-#
-# so stuff like color, update frequency etc (some Image needs to be rendered on the 3d floor like occupancy grid)
-# some other image is an image to be streamed into a specific 2D view etc.
-#
-# to achieve this we'd feed a full blueprint into the rerun bridge.
-# rerun bridge can then inspect all transports used, all modules with their outs,
-# automatically spy an all the transports and read visualization hints
-#
-# this is the correct implementation.
-#
-# temporarily we are using these "sideloading" converters={} to define custom to_rerun methods for specific topics
-# as well as pubsubs to specify which protocols to listen to.
-
-
-# TODO Notes for correct TF processing
-#
-# TF for rerun would ideally follow rerun entity path conventions
-#
-# /world/robot1/base_link/camera/optical
-#
-# while we have decoupled entity paths and actual transforms (like ROS TF frames)
-#
-# tf#/world
-# tf#/base_link
-# tf#/camera
-#
-# In order to solve this, bridge needs to own it's own tf service
-# and render it's tf tree into correct rerun entity paths
 
 
 @dataclass

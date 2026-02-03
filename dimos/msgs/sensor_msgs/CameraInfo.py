@@ -407,7 +407,9 @@ class CameraInfo(Timestamped):
         # TODO this should be done by the actual emitting modules,
         # they know the camera image topic, spatial relationships etc
         #
-        # poor CameraInfo class has no idea on this
+        # Poor CameraInfo class has no idea on this
+        # We just provide the parameters here for convenience in case your
+        # module doesn't implement this correctly
         image_topic: str | None = None,
         optical_frame: str | None = None,
     ) -> RerunData:
@@ -441,19 +443,23 @@ class CameraInfo(Timestamped):
 
         ret: RerunMulti = []
 
+        pinhole = {
+            "focal_length": [fx, fy],
+            "principal_point": [cx, cy],
+            "width": self.width,
+            "height": self.height,
+            "image_plane_distance": image_plane_distance,
+            # This is supposed to work
+            # https://rerun.io/docs/reference/types/archetypes/pinhole
+            # But it doesn't
+            #
+            # "parent_frame": f"tf#/{optical_frame}"
+            #
+            # For now we add the transform separately below
+        }
+
         # Add pinhole under world/image_topic (we know which Image this CameraInfo refers to)
-        ret.append(
-            (
-                image_topic,
-                rr.Pinhole(
-                    focal_length=[fx, fy],
-                    principal_point=[cx, cy],
-                    width=self.width,
-                    height=self.height,
-                    image_plane_distance=image_plane_distance,
-                ),
-            )
-        )
+        ret.append((image_topic, rr.Pinhole(**pinhole)))
 
         if not optical_frame:
             return ret
