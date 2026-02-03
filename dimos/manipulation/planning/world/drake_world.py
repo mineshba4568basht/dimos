@@ -806,7 +806,7 @@ class DrakeWorld(WorldSpec):
         X_WL = self._plant.EvalBodyPoseInWorld(plant_ctx, body)
 
         result = X_WL.GetAsMatrix4()
-        return result  # type: ignore[return-value]
+        return result  # type: ignore[no-any-return]
 
     def get_jacobian(self, ctx: Context, robot_id: WorldRobotID) -> NDArray[np.float64]:
         """Get geometric Jacobian (6 x n_joints).

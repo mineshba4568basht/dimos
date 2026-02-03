@@ -443,23 +443,22 @@ class CameraInfo(Timestamped):
 
         ret: RerunMulti = []
 
-        pinhole = {
-            "focal_length": [fx, fy],
-            "principal_point": [cx, cy],
-            "width": self.width,
-            "height": self.height,
-            "image_plane_distance": image_plane_distance,
-            # This is supposed to work
-            # https://rerun.io/docs/reference/types/archetypes/pinhole
-            # But it doesn't
-            #
-            # "parent_frame": f"tf#/{optical_frame}"
-            #
-            # For now we add the transform separately below
-        }
-
         # Add pinhole under world/image_topic (we know which Image this CameraInfo refers to)
-        ret.append((image_topic, rr.Pinhole(**pinhole)))
+        # Note: parent_frame is supposed to work according to:
+        # https://rerun.io/docs/reference/types/archetypes/pinhole
+        # But it doesn't, so we add the transform separately below
+        ret.append(
+            (
+                image_topic,
+                rr.Pinhole(
+                    focal_length=[fx, fy],
+                    principal_point=[cx, cy],
+                    width=self.width,
+                    height=self.height,
+                    image_plane_distance=image_plane_distance,
+                ),
+            )
+        )
 
         if not optical_frame:
             return ret
