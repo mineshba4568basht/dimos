@@ -71,7 +71,7 @@ This happens on lower-end hardware (NUC, older laptops) with large maps.
 
 ### Increase Voxel Size
 
-Edit [`dimos/robot/unitree/go2/all_blueprints.py`](/dimos/robot/unitree/go2/all_blueprints.py) line 82:
+Edit [`dimos/robot/unitree/go2/blueprints/__init__.py`](/dimos/robot/unitree/go2/blueprints/__init__.py) line 82:
 
 ```python
 # Before (high detail, slower on large maps)
