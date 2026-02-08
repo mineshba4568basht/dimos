@@ -31,7 +31,7 @@ def test_moduleDB(dimos_cluster) -> None:
 
     moduleDB = dimos_cluster.deploy(
         ObjectDBModule,
-        camera_info=connection.camera_info_static(),
+        camera_info=go2_connection._camera_info_static(),
         goto=lambda obj_id: print(f"Going to {obj_id}"),
     )
     moduleDB.image.connect(connection.color_image)
