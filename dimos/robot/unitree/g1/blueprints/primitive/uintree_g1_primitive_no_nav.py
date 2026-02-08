@@ -33,7 +33,7 @@ from dimos.navigation.frontier_exploration import wavefront_frontier_explorer
 from dimos.robot.foxglove_bridge import foxglove_bridge
 from dimos.web.websocket_vis.websocket_vis_module import websocket_vis
 
-uintree_g1_basic_no_nav = (
+uintree_g1_primitive_no_nav = (
     autoconnect(
         camera_module(
             transform=Transform(
@@ -88,4 +88,4 @@ uintree_g1_basic_no_nav = (
     )
 )
 
-__all__ = ["uintree_g1_basic_no_nav"]
+__all__ = ["uintree_g1_primitive_no_nav"]

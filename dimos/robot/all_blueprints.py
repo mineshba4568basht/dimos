@@ -38,7 +38,7 @@ all_blueprints = {
     "demo-osm": "dimos.mapping.osm.demo_osm:demo_osm",
     "demo-skill": "dimos.agents.skills.demo_skill:demo_skill",
     "dual-xarm6-planner": "dimos.manipulation.manipulation_blueprints:dual_xarm6_planner",
-    "uintree-g1-basic-no-nav": "dimos.robot.unitree.g1.blueprints.primitive.uintree_g1_primitive_no_nav:uintree_g1_basic_no_nav",
+    "uintree-g1-basic-no-nav": "dimos.robot.unitree.g1.blueprints.primitive.uintree_g1_primitive_no_nav:uintree_g1_primitive_no_nav",
     "unitree-g1": "dimos.robot.unitree.g1.blueprints.perceptive.unitree_g1:unitree_g1",
     "unitree-g1-agentic": "dimos.robot.unitree.g1.blueprints.agentic.unitree_g1_agentic:unitree_g1_agentic",
     "unitree-g1-agentic-sim": "dimos.robot.unitree.g1.blueprints.agentic.unitree_g1_agentic_sim:unitree_g1_agentic_sim",
