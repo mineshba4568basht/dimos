@@ -210,11 +210,11 @@ cuda = [
     "cupy-cuda12x==13.6.0",
     "nvidia-nvimgcodec-cu12[all]",
     # Exclude on aarch64 Linux where jetson-jp6-cuda126 extra provides Jetson-specific wheels
-    "onnxruntime-gpu>=1.17.1 ; not (platform_machine == 'aarch64' and sys_platform == 'linux')",
+    "onnxruntime-gpu>=1.17.1; platform_machine != 'aarch64' or sys_platform != 'linux'",
     "ctransformers[cuda]==0.2.27",
     "mmengine>=0.10.3",
     "mmcv>=2.1.0",
-    "xformers>=0.0.20 ; not (platform_machine == 'aarch64' and sys_platform == 'linux')",
+    "xformers>=0.0.20; platform_machine != 'aarch64' or sys_platform != 'linux'",
 
     # Detic GPU stack
     "mss",
