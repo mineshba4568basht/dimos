@@ -1,6 +1,6 @@
 # Concepts
 
-This page explains general concepts. For specific API docs see [the API reference](/docs/usage/README.md).
+This page explains general concepts.
 
 ## Table of Contents
 
