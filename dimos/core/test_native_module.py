@@ -25,6 +25,7 @@ import time
 
 import pytest
 
+from dimos.core import DimosCluster
 from dimos.core.blueprints import autoconnect
 from dimos.core.core import rpc
 from dimos.core.module import Module
@@ -109,8 +110,8 @@ def test_process_crash_triggers_stop() -> None:
     assert mod._process is None, f"Watchdog did not clean up after process {pid} died"
 
 
-def test_manual(dimos_cluster, args_file) -> None:
-    native_module = dimos_cluster.deploy(
+def test_manual(dimos_cluster: DimosCluster, args_file: str) -> None:
+    native_module = dimos_cluster.deploy(  # type: ignore[attr-defined]
         StubNativeModule,
         some_param=2.5,
         output_file=args_file,
@@ -131,7 +132,7 @@ def test_manual(dimos_cluster, args_file) -> None:
 
 
 @pytest.mark.heavy
-def test_autoconnect(args_file) -> None:
+def test_autoconnect(args_file: str) -> None:
     """autoconnect passes correct topic args to the native subprocess."""
     blueprint = autoconnect(
         StubNativeModule.blueprint(
@@ -149,7 +150,7 @@ def test_autoconnect(args_file) -> None:
     coordinator = blueprint.global_config(viewer_backend="none").build()
     try:
         # Validate blueprint wiring: all modules deployed
-        native = coordinator.get_instance(StubNativeModule)
+        native = coordinator.get_instance(StubNativeModule)  # type: ignore[type-var]
         consumer = coordinator.get_instance(StubConsumer)
         producer = coordinator.get_instance(StubProducer)
         assert native is not None
