@@ -274,9 +274,9 @@ jobs:
     if: always()
     steps:
       - name: CI gate
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "❌ One or more CI jobs failed or were cancelled"
-            exit 1
-          fi
-          echo "✅ All CI checks passed or were intentionally skipped"
+          echo "❌ One or more CI jobs failed or were cancelled"
+          exit 1
+      - name: CI passed
+        run: echo "✅ All CI checks passed or were intentionally skipped"
