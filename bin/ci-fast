@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+#
+# note this command is used by CI directly, and also is used by bin/pr-check
+# this is intentional: to keep them in sync
+# if something should only be done locally, change bin/pr-check
+# if something should only be done on CI, change .github/workflows/fast-test.yml
+#
 set -euo pipefail
 
 echo "Ensuring pip versions are correct"
