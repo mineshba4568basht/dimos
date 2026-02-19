@@ -14,30 +14,41 @@
 
 """Quest teleoperation module."""
 
-import lazy_loader as lazy
-
-__getattr__, __dir__, __all__ = lazy.attach(
-    __name__,
-    submod_attrs={
-        "quest_types": [
-            "Buttons",
-            "QuestControllerState",
-            "ThumbstickState",
-        ],
-        "quest_teleop_module": [
-            "Hand",
-            "QuestTeleopConfig",
-            "QuestTeleopModule",
-            "QuestTeleopStatus",
-            "quest_teleop_module",
-        ],
-        "quest_extensions": [
-            "ArmTeleopModule",
-            "TwistTeleopModule",
-            "VisualizingTeleopModule",
-            "arm_teleop_module",
-            "twist_teleop_module",
-            "visualizing_teleop_module",
-        ],
-    },
+from dimos.teleop.quest.quest_extensions import (
+    ArmTeleopModule,
+    TwistTeleopModule,
+    VisualizingTeleopModule,
+    arm_teleop_module,
+    twist_teleop_module,
+    visualizing_teleop_module,
 )
+from dimos.teleop.quest.quest_teleop_module import (
+    Hand,
+    QuestTeleopConfig,
+    QuestTeleopModule,
+    QuestTeleopStatus,
+    quest_teleop_module,
+)
+from dimos.teleop.quest.quest_types import (
+    Buttons,
+    QuestControllerState,
+    ThumbstickState,
+)
+
+__all__ = [
+    "ArmTeleopModule",
+    "Buttons",
+    "Hand",
+    "QuestControllerState",
+    "QuestTeleopConfig",
+    "QuestTeleopModule",
+    "QuestTeleopStatus",
+    "ThumbstickState",
+    "TwistTeleopModule",
+    "VisualizingTeleopModule",
+    # Blueprints
+    "arm_teleop_module",
+    "quest_teleop_module",
+    "twist_teleop_module",
+    "visualizing_teleop_module",
+]
