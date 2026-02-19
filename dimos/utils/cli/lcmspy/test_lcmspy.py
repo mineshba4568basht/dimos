@@ -176,7 +176,8 @@ def test_lcmspy_global_totals() -> None:
     spy.msg("/imu", b"imu data")
 
     # The spy itself should have accumulated all messages
-    assert len(spy.message_history) == 3
+    # (may be > 3 due to async LCM discovery packets on the subscription thread)
+    assert len(spy.message_history) >= 3
 
     # Check global statistics
     global_freq = spy.freq(1.0)
