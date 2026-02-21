@@ -18,7 +18,6 @@ NavBot class for navigation-related functionality.
 Encapsulates ROS transport and topic remapping for Unitree robots.
 """
 
-from collections.abc import Generator
 from dataclasses import dataclass, field
 import logging
 import threading
@@ -28,7 +27,7 @@ from reactivex import operators as ops
 from reactivex.subject import Subject
 
 from dimos import spec
-from dimos.agents import Reducer, Stream, skill  # type: ignore[attr-defined]
+from dimos.agents.annotation import skill
 from dimos.core import DimosCluster, In, LCMTransport, Module, Out, rpc
 from dimos.core.module import ModuleConfig
 from dimos.core.transport import ROSTransport
@@ -54,14 +53,14 @@ logger = setup_logger(level=logging.INFO)
 @dataclass
 class Config(ModuleConfig):
     local_pointcloud_freq: float = 2.0
-    global_pointcloud_freq: float = 1.0
+    global_map_freq: float = 1.0
     sensor_to_base_link_transform: Transform = field(
         default_factory=lambda: Transform(frame_id="sensor", child_frame_id="base_link")
     )
 
 
 class ROSNav(
-    Module, NavigationInterface, spec.Nav, spec.Global3DMap, spec.Pointcloud, spec.LocalPlanner
+    Module, NavigationInterface, spec.Nav, spec.GlobalPointcloud, spec.Pointcloud, spec.LocalPlanner
 ):
     config: Config
     default_config = Config
@@ -70,7 +69,7 @@ class ROSNav(
     goal_req: In[PoseStamped]
 
     pointcloud: Out[PointCloud2]
-    global_pointcloud: Out[PointCloud2]
+    global_map: Out[PointCloud2]
 
     goal_active: Out[PoseStamped]
     path_active: Out[Path]
@@ -81,7 +80,7 @@ class ROSNav(
     ros_cmd_vel: In[TwistStamped]
     ros_way_point: In[PoseStamped]
     ros_registered_scan: In[PointCloud2]
-    ros_global_pointcloud: In[PointCloud2]
+    ros_global_map: In[PointCloud2]
     ros_path: In[Path]
     ros_tf: In[TFMessage]
 
@@ -93,7 +92,7 @@ class ROSNav(
 
     # Using RxPY Subjects for reactive data flow instead of storing state
     _local_pointcloud_subject: Subject  # type: ignore[type-arg]
-    _global_pointcloud_subject: Subject  # type: ignore[type-arg]
+    _global_map_subject: Subject  # type: ignore[type-arg]
 
     _current_position_running: bool = False
     _goal_reach: bool | None = None
@@ -110,7 +109,7 @@ class ROSNav(
 
         # Initialize RxPY Subjects for streaming data
         self._local_pointcloud_subject = Subject()
-        self._global_pointcloud_subject = Subject()
+        self._global_map_subject = Subject()
 
         # Initialize state tracking
         self._state_lock = threading.Lock()
@@ -133,10 +132,10 @@ class ROSNav(
         )
 
         self._disposables.add(
-            self._global_pointcloud_subject.pipe(
-                ops.sample(1.0 / self.config.global_pointcloud_freq),
+            self._global_map_subject.pipe(
+                ops.sample(1.0 / self.config.global_map_freq),
             ).subscribe(
-                on_next=self.global_pointcloud.publish,
+                on_next=self.global_map.publish,
                 on_error=lambda e: logger.error(f"Map stream error: {e}"),
             )
         )
@@ -146,7 +145,7 @@ class ROSNav(
         self.ros_cmd_vel.subscribe(self._on_ros_cmd_vel)
         self.ros_way_point.subscribe(self._on_ros_goal_waypoint)
         self.ros_registered_scan.subscribe(self._on_ros_registered_scan)
-        self.ros_global_pointcloud.subscribe(self._on_ros_global_pointcloud)
+        self.ros_global_map.subscribe(self._on_ros_global_map)
         self.ros_path.subscribe(self._on_ros_path)
         self.ros_tf.subscribe(self._on_ros_tf)
 
@@ -169,8 +168,8 @@ class ROSNav(
     def _on_ros_registered_scan(self, msg: PointCloud2) -> None:
         self._local_pointcloud_subject.on_next(msg)
 
-    def _on_ros_global_pointcloud(self, msg: PointCloud2) -> None:
-        self._global_pointcloud_subject.on_next(msg)
+    def _on_ros_global_map(self, msg: PointCloud2) -> None:
+        self._global_map_subject.on_next(msg)
 
     def _on_ros_path(self, msg: Path) -> None:
         msg.frame_id = "base_link"
@@ -206,21 +205,8 @@ class ROSNav(
         self.ros_joy.publish(joy_msg)
         logger.info("Setting autonomy mode via Joy message")
 
-    @skill(stream=Stream.passive, reducer=Reducer.latest)  # type: ignore[arg-type]
-    def current_position(self):  # type: ignore[no-untyped-def]
-        """passively stream the current position of the robot every second"""
-        if self._current_position_running:
-            return "already running"
-        while True:
-            self._current_position_running = True
-            time.sleep(1.0)
-            tf = self.tf.get("map", "base_link")
-            if not tf:
-                continue
-            yield f"current position {tf.translation.x}, {tf.translation.y}"
-
-    @skill(stream=Stream.call_agent, reducer=Reducer.string)  # type: ignore[arg-type]
-    def goto(self, x: float, y: float):  # type: ignore[no-untyped-def]
+    @skill
+    def goto(self, x: float, y: float) -> str:
         """
         move the robot in relative coordinates
         x is forward, y is left
@@ -234,12 +220,11 @@ class ROSNav(
             ts=time.time(),
         )
 
-        yield "moving, please wait..."
         self.navigate_to(pose_to)
-        yield "arrived"
+        return "arrived"
 
-    @skill(stream=Stream.call_agent, reducer=Reducer.string)  # type: ignore[arg-type]
-    def goto_global(self, x: float, y: float) -> Generator[str, None, None]:
+    @skill
+    def goto_global(self, x: float, y: float) -> str:
         """
         go to coordinates x,y in the map frame
         0,0 is your starting position
@@ -251,13 +236,9 @@ class ROSNav(
             orientation=Quaternion(0.0, 0.0, 0.0, 0.0),
         )
 
-        pos = self.tf.get("base_link", "map").translation
-
-        yield f"moving from {pos.x:.2f}, {pos.y:.2f} to {x:.2f}, {y:.2f}, please wait..."
-
         self.navigate_to(target)
 
-        yield "arrived to {x:.2f}, {y:.2f}"
+        return f"arrived to {x:.2f}, {y:.2f}"
 
     @rpc
     def navigate_to(self, pose: PoseStamped, timeout: float = 60.0) -> bool:
@@ -383,7 +364,7 @@ class ROSNav(
             self._running = False
 
             self._local_pointcloud_subject.on_completed()
-            self._global_pointcloud_subject.on_completed()
+            self._global_map_subject.on_completed()
 
         except Exception as e:
             logger.error(f"Error during shutdown: {e}")
@@ -399,7 +380,7 @@ def deploy(dimos: DimosCluster):  # type: ignore[no-untyped-def]
 
     # Existing ports on LCM transports
     nav.pointcloud.transport = LCMTransport("/lidar", PointCloud2)
-    nav.global_pointcloud.transport = LCMTransport("/map", PointCloud2)
+    nav.global_map.transport = LCMTransport("/map", PointCloud2)
     nav.goal_req.transport = LCMTransport("/goal_req", PoseStamped)
     nav.goal_active.transport = LCMTransport("/goal_active", PoseStamped)
     nav.path_active.transport = LCMTransport("/path_active", Path)
@@ -410,7 +391,7 @@ def deploy(dimos: DimosCluster):  # type: ignore[no-untyped-def]
     nav.ros_cmd_vel.transport = ROSTransport("/cmd_vel", TwistStamped)
     nav.ros_way_point.transport = ROSTransport("/way_point", PoseStamped)
     nav.ros_registered_scan.transport = ROSTransport("/registered_scan", PointCloud2)
-    nav.ros_global_pointcloud.transport = ROSTransport("/terrain_map_ext", PointCloud2)
+    nav.ros_global_map.transport = ROSTransport("/terrain_map_ext", PointCloud2)
     nav.ros_path.transport = ROSTransport("/path", Path)
     nav.ros_tf.transport = ROSTransport("/tf", TFMessage)
 

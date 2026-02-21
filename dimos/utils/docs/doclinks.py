@@ -106,8 +106,8 @@ def build_doc_index(root: Path) -> dict[str, list[Path]]:
     """
     Build an index mapping lowercase doc names to .md file paths.
 
-    For docs/concepts/modules.md, creates entry:
-    - "modules" -> [Path("docs/concepts/modules.md")]
+    For docs/usage/modules.md, creates entry:
+    - "modules" -> [Path("docs/usage/modules.md")]
 
     Also indexes directory index files:
     - "modules" -> [Path("docs/modules/index.md")] (if modules/index.md exists)
@@ -529,7 +529,7 @@ def main() -> None:
 
         watch_paths = args.paths if args.paths else [str(root / "docs")]
 
-        class MarkdownHandler(FileSystemEventHandler):  # type: ignore[misc]
+        class MarkdownHandler(FileSystemEventHandler):
             def on_modified(self, event: Any) -> None:
                 if not event.is_directory and event.src_path.endswith(".md"):
                     process_file(Path(event.src_path))

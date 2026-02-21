@@ -16,24 +16,28 @@
 Blueprints for manipulation module integration with ControlCoordinator.
 
 Usage:
-    # Start coordinator first, then planner:
-    coordinator = xarm7_planner_coordinator.build()
-    coordinator.loop()
+    # Non-agentic (manual RPC):
+    dimos run coordinator-mock
+    dimos run xarm-perception
 
-    # Plan and execute via RPC client:
-    from dimos.manipulation.planning.examples.manipulation_client import ManipulationClient
-    client = ManipulationClient()
-    client.plan_to_joints([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
-    client.execute()
+    # Agentic (LLM agent with skills):
+    dimos run coordinator-mock
+    dimos run xarm-perception-agent
 """
 
+import math
 from pathlib import Path
 
+from dimos.agents.agent import Agent
+from dimos.core.blueprints import autoconnect
 from dimos.core.transport import LCMTransport
+from dimos.hardware.sensors.camera.realsense import realsense_camera
 from dimos.manipulation.manipulation_module import manipulation_module
 from dimos.manipulation.planning.spec import RobotModelConfig
-from dimos.msgs.geometry_msgs import PoseStamped, Quaternion, Vector3
+from dimos.msgs.geometry_msgs import PoseStamped, Quaternion, Transform, Vector3
 from dimos.msgs.sensor_msgs import JointState
+from dimos.perception.object_scene_registration import object_scene_registration_module
+from dimos.robot.foxglove_bridge import foxglove_bridge  # TODO: migrate to rerun
 from dimos.utils.data import get_data
 
 # =============================================================================
@@ -171,24 +175,33 @@ def _make_xarm6_config(
         max_acceleration=2.0,
         joint_name_mapping=joint_mapping,
         coordinator_task_name=coordinator_task,
+        home_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     )
 
 
 def _make_xarm7_config(
     name: str = "arm",
     y_offset: float = 0.0,
+    z_offset: float = 0.0,
+    pitch: float = 0.0,
     joint_prefix: str = "",
     coordinator_task: str | None = None,
     add_gripper: bool = False,
+    gripper_hardware_id: str | None = None,
+    tf_extra_links: list[str] | None = None,
 ) -> RobotModelConfig:
     """Create XArm7 robot config.
 
     Args:
         name: Robot name in Drake world
         y_offset: Y-axis offset for base pose (for multi-arm setups)
+        z_offset: Z-axis offset for base pose (e.g., table height)
+        pitch: Base pitch angle in radians (e.g., tilted mount)
         joint_prefix: Prefix for joint name mapping (e.g., "left_" or "right_")
         coordinator_task: Task name for coordinator RPC execution
         add_gripper: Whether to add the xarm gripper
+        gripper_hardware_id: Coordinator hardware ID for gripper control
+        tf_extra_links: Additional links to publish TF for (e.g., ["link7"] for camera mount)
     """
     joint_names = ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "joint7"]
     joint_mapping = {f"{joint_prefix}{j}": j for j in joint_names} if joint_prefix else {}
@@ -196,7 +209,8 @@ def _make_xarm7_config(
     xacro_args: dict[str, str] = {
         "dof": "7",
         "limited": "true",
-        "attach_xyz": f"0 {y_offset} 0",
+        "attach_xyz": f"0 {y_offset} {z_offset}",
+        "attach_rpy": f"0 {pitch} 0",
     }
     if add_gripper:
         xacro_args["add_gripper"] = "true"
@@ -204,7 +218,7 @@ def _make_xarm7_config(
     return RobotModelConfig(
         name=name,
         urdf_path=_get_xarm_urdf_path(),
-        base_pose=_make_base_pose(y=y_offset),
+        base_pose=_make_base_pose(y=y_offset, z=z_offset, pitch=pitch),
         joint_names=joint_names,
         end_effector_link="link_tcp" if add_gripper else "link7",
         base_link="link_base",
@@ -216,6 +230,10 @@ def _make_xarm7_config(
         max_acceleration=2.0,
         joint_name_mapping=joint_mapping,
         coordinator_task_name=coordinator_task,
+        gripper_hardware_id=gripper_hardware_id,
+        tf_extra_links=tf_extra_links or [],
+        # Home configuration: arm extended forward, elbow up (safe observe pose)
+        home_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     )
 
 
@@ -256,6 +274,7 @@ def _make_piper_config(
         max_acceleration=2.0,
         joint_name_mapping=joint_mapping,
         coordinator_task_name=coordinator_task,
+        home_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     )
 
 
@@ -309,10 +328,83 @@ xarm7_planner_coordinator = manipulation_module(
 )
 
 
+# XArm7 with eye-in-hand RealSense camera for perception-based manipulation
+# TF chain: world → link7 (ManipulationModule) → camera_link (RealSense)
+# Usage: dimos run coordinator-mock, then dimos run xarm-perception
+_XARM_PERCEPTION_CAMERA_TRANSFORM = Transform(
+    translation=Vector3(x=0.06693724, y=-0.0309563, z=0.00691482),
+    rotation=Quaternion(0.70513398, 0.00535696, 0.70897578, -0.01052180),  # xyzw
+)
+
+xarm_perception = (
+    autoconnect(
+        manipulation_module(
+            robots=[
+                _make_xarm7_config(
+                    "arm",
+                    pitch=math.radians(45),
+                    joint_prefix="arm_",
+                    coordinator_task="traj_arm",
+                    add_gripper=True,
+                    gripper_hardware_id="arm",
+                    tf_extra_links=["link7"],
+                ),
+            ],
+            planning_timeout=10.0,
+            enable_viz=True,
+        ),
+        realsense_camera(
+            base_frame_id="link7",
+            base_transform=_XARM_PERCEPTION_CAMERA_TRANSFORM,
+        ),
+        object_scene_registration_module(target_frame="world"),
+        foxglove_bridge(),  # TODO: migrate to rerun
+    )
+    .transports(
+        {
+            ("joint_state", JointState): LCMTransport("/coordinator/joint_state", JointState),
+        }
+    )
+    .global_config(viewer_backend="foxglove")
+)
+
+
+# XArm7 perception + LLM agent for agentic manipulation
+# Skills (pick, place, move_to_pose, etc.) auto-register with the agent's SkillCoordinator.
+# Usage: dimos run coordinator-mock, then dimos run xarm-perception-agent
+_MANIPULATION_AGENT_SYSTEM_PROMPT = """\
+You are a robotic manipulation assistant controlling an xArm7 robot arm.
+
+Use ONLY these ManipulationModule skills for manipulation tasks:
+- scan_objects: Scan scene and list detected objects with 3D positions. Always call this first.
+- pick: Pick up an object by name. Requires scan_objects first.
+- place: Place a held object at x, y, z position.
+- place_back: Place a held object back at its original pick position.
+- pick_and_place: Pick an object and place it at a target location.
+- move_to_pose: Move end-effector to x, y, z with optional roll, pitch, yaw.
+- move_to_joints: Move to a joint configuration (comma-separated radians).
+- open_gripper / close_gripper / set_gripper: Control the gripper.
+- go_home: Move to the home/observe position.
+- go_init: Return to the startup position.
+- get_scene_info: Get full robot state, detected objects, and scene info.
+
+Do NOT use the 'detect' or 'select' skills — use scan_objects instead.
+For robot_name parameters, always omit or pass None (single-arm setup).
+After pick or place, return to init with go_init unless another action follows immediately.
+"""
+
+xarm_perception_agent = autoconnect(
+    xarm_perception,
+    Agent.blueprint(system_prompt=_MANIPULATION_AGENT_SYSTEM_PROMPT),
+)
+
+
 __all__ = [
     "PIPER_GRIPPER_COLLISION_EXCLUSIONS",
     "XARM_GRIPPER_COLLISION_EXCLUSIONS",
     "dual_xarm6_planner",
     "xarm6_planner_only",
     "xarm7_planner_coordinator",
+    "xarm_perception",
+    "xarm_perception_agent",
 ]

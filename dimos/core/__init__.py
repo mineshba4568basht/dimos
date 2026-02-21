@@ -1,64 +1,44 @@
 from __future__ import annotations
 
 import multiprocessing as mp
-import signal
 import time
 from typing import TYPE_CHECKING, cast
 
-from dask.distributed import Client, LocalCluster
+import lazy_loader as lazy
 from rich.console import Console
 
-import dimos.core.colors as colors
 from dimos.core.core import rpc
-from dimos.core.module import Module, ModuleBase, ModuleConfig, ModuleConfigT
-from dimos.core.rpc_client import RPCClient
-from dimos.core.stream import In, Out, RemoteIn, RemoteOut, Transport
-from dimos.core.transport import (
-    LCMTransport,
-    SHMTransport,
-    ZenohTransport,
-    pLCMTransport,
-    pSHMTransport,
-)
-from dimos.protocol.rpc import LCMRPC
-from dimos.protocol.rpc.spec import RPCSpec
-from dimos.protocol.tf import LCMTF, TF, PubSubTF, TFConfig, TFSpec
-from dimos.utils.actor_registry import ActorRegistry
 from dimos.utils.logging_config import setup_logger
 
 if TYPE_CHECKING:
     # Avoid runtime import to prevent circular import; ruff's TC001 would otherwise move it.
+    from dask.distributed import LocalCluster
+
+    from dimos.core._dask_exports import DimosCluster
+    from dimos.core.module import Module
     from dimos.core.rpc_client import ModuleProxy
 
 logger = setup_logger()
 
-__all__ = [
-    "LCMRPC",
-    "LCMTF",
-    "TF",
-    "DimosCluster",
-    "In",
-    "LCMTransport",
-    "Module",
-    "ModuleBase",
-    "ModuleConfig",
-    "ModuleConfigT",
-    "Out",
-    "PubSubTF",
-    "RPCSpec",
-    "RemoteIn",
-    "RemoteOut",
-    "SHMTransport",
-    "TFConfig",
-    "TFSpec",
-    "Transport",
-    "ZenohTransport",
-    "colors",
-    "pLCMTransport",
-    "pSHMTransport",
-    "rpc",
-    "start",
-]
+__getattr__, __dir__, __all__ = lazy.attach(
+    __name__,
+    submodules=["colors"],
+    submod_attrs={
+        "blueprints": ["autoconnect", "Blueprint"],
+        "_dask_exports": ["DimosCluster"],
+        "_protocol_exports": ["LCMRPC", "RPCSpec", "LCMTF", "TF", "PubSubTF", "TFConfig", "TFSpec"],
+        "module": ["Module", "ModuleBase", "ModuleConfig", "ModuleConfigT"],
+        "stream": ["In", "Out", "RemoteIn", "RemoteOut", "Transport"],
+        "transport": [
+            "LCMTransport",
+            "SHMTransport",
+            "ZenohTransport",
+            "pLCMTransport",
+            "pSHMTransport",
+        ],
+    },
+)
+__all__ += ["DimosCluster", "Module", "rpc", "start", "wait_exit"]
 
 
 class CudaCleanupPlugin:
@@ -91,10 +71,10 @@ class CudaCleanupPlugin:
 def patch_actor(actor, cls) -> None: ...  # type: ignore[no-untyped-def]
 
 
-DimosCluster = Client
+def patchdask(dask_client: DimosCluster, local_cluster: LocalCluster) -> DimosCluster:
+    from dimos.core.rpc_client import RPCClient
+    from dimos.utils.actor_registry import ActorRegistry
 
-
-def patchdask(dask_client: Client, local_cluster: LocalCluster) -> DimosCluster:
     def deploy(  # type: ignore[no-untyped-def]
         actor_class: type[Module],
         *args,
@@ -129,6 +109,7 @@ def patchdask(dask_client: Client, local_cluster: LocalCluster) -> DimosCluster:
     def check_worker_memory() -> None:
         """Check memory usage of all workers."""
         info = dask_client.scheduler_info()
+
         console = Console()
         total_workers = len(info.get("workers", {}))
         total_memory_used = 0
@@ -263,6 +244,8 @@ def start(n: int | None = None, memory_limit: str = "auto") -> DimosCluster:
         DimosCluster: A patched Dask client with deploy(), check_worker_memory(), stop(), and close_all() methods
     """
 
+    from dask.distributed import Client, LocalCluster
+
     console = Console()
     if not n:
         n = mp.cpu_count()
@@ -282,31 +265,6 @@ def start(n: int | None = None, memory_limit: str = "auto") -> DimosCluster:
     )
 
     patched_client = patchdask(client, cluster)
-    patched_client._shutting_down = False  # type: ignore[attr-defined]
-
-    # Signal handler with proper exit handling
-    def signal_handler(sig, frame) -> None:  # type: ignore[no-untyped-def]
-        # If already shutting down, force exit
-        if patched_client._shutting_down:  # type: ignore[attr-defined]
-            import os
-
-            console.print("[red]Force exit!")
-            os._exit(1)
-
-        patched_client._shutting_down = True  # type: ignore[attr-defined]
-        console.print(f"[yellow]Shutting down (signal {sig})...")
-
-        try:
-            patched_client.close_all()  # type: ignore[attr-defined]
-        except Exception:
-            pass
-
-        import sys
-
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
 
     return patched_client
 

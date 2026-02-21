@@ -56,25 +56,20 @@ uv pip install -e '.[base,dev,manipulation,misc,unitree,drone]'
 # setup pre-commit
 pre-commit install
 
-# test the install (takes about 3 minutes)
+# test the install (takes about 1 minute)
 uv run pytest dimos
 ```
 
 Note, a few dependencies do not have PyPI packages and need to be installed from their Git repositories. These are only required for specific features:
 
 - **CLIP** and **detectron2**: Required for the Detic open-vocabulary object detector
-- **contact_graspnet_pytorch**: Required for robotic grasp prediction
 
 You can install them with:
 
 ```bash
 uv add git+https://github.com/openai/CLIP.git
-uv add git+https://github.com/dimensionalOS/contact_graspnet_pytorch.git
 uv add git+https://github.com/facebookresearch/detectron2.git
 ```
-
-<!-- Enable this option once the dockerfile (ghcr.io/dimensionalos/ros-python:dev) is public and debugged! -->
-<!-- ## Setup Option B: Dev Containers (Recommended)
 
 ### Why pick this option? (pros/cons/when-to-use)
 
@@ -129,8 +124,6 @@ The script will:
 * Pull `ghcr.io/dimensionalos/dev:dev` if not present (external contributors: we plan to mirror to Docker Hub).
 
 You’ll land in the workspace as **root** with all project tooling available.
-
-</details> -->
 
 ## Setup Option B: Nix Flake + direnv
 
@@ -266,7 +259,7 @@ You can enable a tag by selecting -m <tag_name> - these are configured in `./pyp
 - Open the PR against the `dev` branch (not `main`).
 - **No matter what, provide a few-lines that, when run, let a reviewer test the feature you added** (assuming you changed functional python code).
 - Less changed files = better.
-- If you're writing documentation, see [writing docs](/docs/development/writing_docs/README.md)
+- If you're writing documentation, see [writing docs](/docs/development/writing_docs.md)
 - If you get mypy errors, please fix them. Don't just add # type: ignore. Please first understand why mypy is complaining and try to fix it. It's only okay to ignore if the issue cannot be fixed.
 - If you made a change that is likely going to involve a debate, open the github UI and add a graphical comment on that code. Justify your choice and explain downsides of alternatives.
 - We don't require 100% test coverage, but if you're making a PR of notable python changes you should probably either have unit tests or good reason why not (ex: visualization stuff is hard to test so we don't).

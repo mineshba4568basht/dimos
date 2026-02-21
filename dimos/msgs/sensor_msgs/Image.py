@@ -33,6 +33,7 @@ from dimos.types.timestamped import Timestamped, TimestampedBufferCollection, to
 from dimos.utils.reactive import quality_barrier
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     import os
 
     from reactivex.observable import Observable
@@ -465,7 +466,7 @@ class Image(Timestamped):
         channels = 1 if self.data.ndim == 2 else self.data.shape[2]
         msg.step = self.width * self.dtype.itemsize * channels
 
-        view = memoryview(np.ascontiguousarray(self.data)).cast("B")
+        view = memoryview(np.ascontiguousarray(self.data)).cast("B")  # type: ignore[arg-type]
         msg.data_length = len(view)
         msg.data = view
 
@@ -592,9 +593,9 @@ def sharpness_window(target_frequency: float, source: Observable[Image]) -> Obse
     thread_scheduler = ThreadPoolScheduler(max_workers=1)
 
     def find_best(*_args: Any) -> Image | None:
-        if not window._items:
+        if len(window) == 0:
             return None
-        return max(window._items, key=lambda img: img.sharpness)  # type: ignore[no-any-return]
+        return max(window, key=lambda img: img.sharpness)  # type: ignore[no-any-return]
 
     return rx.interval(1.0 / target_frequency).pipe(  # type: ignore[misc]
         ops.observe_on(thread_scheduler),
@@ -603,7 +604,7 @@ def sharpness_window(target_frequency: float, source: Observable[Image]) -> Obse
     )
 
 
-def sharpness_barrier(target_frequency: float) -> Any:
+def sharpness_barrier(target_frequency: float) -> Callable[[Observable[Image]], Observable[Image]]:
     """Select the sharpest Image within each time window."""
     if target_frequency <= 0:
         raise ValueError("target_frequency must be positive")

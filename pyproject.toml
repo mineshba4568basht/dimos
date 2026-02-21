@@ -23,7 +23,7 @@ name = "dimos"
 authors = [
     {name = "Dimensional Team", email = "build@dimensionalOS.com"},
 ]
-version = "0.0.9"
+version = "0.0.10.post1"
 description = "Powering agentive generalist robotics"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -42,6 +42,7 @@ dependencies = [
     "pydantic",
     "python-dotenv",
     "annotation-protocol>=1.4.0",
+    "lazy_loader",
 
     # Multiprocess
     "dask[complete]==2025.5.1",
@@ -51,7 +52,8 @@ dependencies = [
     "colorlog==6.9.0",
     # Core Msgs
     "opencv-python",
-    "open3d",
+    "open3d-unofficial-arm; platform_system == 'Linux' and platform_machine == 'aarch64'",
+    "open3d>=0.18.0; platform_system != 'Linux' or platform_machine != 'aarch64'",
     # CLI
     "pydantic-settings>=2.11.0,<3",
     "textual==3.7.1",
@@ -71,11 +73,10 @@ dependencies = [
 [project.scripts]
 lcmspy = "dimos.utils.cli.lcmspy.run_lcmspy:main"
 foxglove-bridge = "dimos.utils.cli.foxglove_bridge.run_foxglove_bridge:main"
-skillspy = "dimos.utils.cli.skillspy.skillspy:main"
 agentspy = "dimos.utils.cli.agentspy.agentspy:main"
 humancli = "dimos.utils.cli.human.humanclianim:main"
 dimos = "dimos.robot.cli.dimos:main"
-rerun-bridge = "dimos.visualization.rerun.bridge:main"
+rerun-bridge = "dimos.visualization.rerun.bridge:app"
 doclinks = "dimos.utils.docs.doclinks:main"
 
 [project.optional-dependencies]
@@ -125,9 +126,9 @@ visualization = [
 ]
 
 agents = [
-    "langchain>=1,<2",
+    "langchain==1.2.3",
     "langchain-chroma>=1,<2",
-    "langchain-core>=1,<2",
+    "langchain-core==1.2.3",
     "langchain-openai>=1,<2",
     "langchain-text-splitters>=1,<2",
     "langchain-huggingface>=1,<2",
@@ -171,20 +172,8 @@ unitree = [
 
 manipulation = [
     # Planning (Drake)
-    "drake>=1.40.0",
-
-    # Contact Graspnet Dependencies
-    "h5py>=3.7.0",
-    "pyrender>=0.1.45",
-    "trimesh>=3.22.0",
-    "python-fcl>=0.7.0.4",
-    "pyquaternion>=0.9.9",
-    "matplotlib>=3.7.1",
-    "rtree",
-    "pandas>=1.5.2",
-    "tqdm>=4.65.0",
-    "pyyaml>=6.0",
-    "contact-graspnet-pytorch",
+    "drake==1.45.0; sys_platform == 'darwin' and platform_machine != 'aarch64'",
+    "drake>=1.40.0; sys_platform != 'darwin' and platform_machine != 'aarch64'",
 
     # Hardware SDKs
     "piper-sdk",
@@ -194,6 +183,10 @@ manipulation = [
     "kaleido>=0.2.1",
     "plotly>=5.9.0",
     "xacro",
+
+    # Other
+    "matplotlib>=3.7.1",
+    "pyyaml>=6.0",
 ]
 
 
@@ -204,13 +197,11 @@ cpu = [
 ]
 
 cuda = [
-    "cupy-cuda12x==13.6.0",
-    "nvidia-nvimgcodec-cu12[all]",
-    "onnxruntime-gpu>=1.17.1", # Only versions supporting both cuda11 and cuda12
+    "cupy-cuda12x==13.6.0; platform_machine == 'x86_64'",
+    "nvidia-nvimgcodec-cu12[all]; platform_machine == 'x86_64'",
+    "onnxruntime-gpu>=1.17.1; platform_machine == 'x86_64'", # Only versions supporting both cuda11 and cuda12
     "ctransformers[cuda]==0.2.27",
-    "mmengine>=0.10.3",
-    "mmcv>=2.1.0",
-    "xformers>=0.0.20",
+    "xformers>=0.0.20; platform_machine == 'x86_64'",
 ]
 
 dev = [
@@ -253,9 +244,14 @@ dev = [
     "types-tabulate>=0.9.0.20241207,<1",
     "types-tensorflow>=2.18.0.20251008,<3",
     "types-tqdm>=4.67.0.20250809,<5",
+    "types-psycopg2>=2.9.21.20251012",
 
     # Tools
     "py-spy",
+]
+
+psql = [
+    "psycopg2-binary>=2.9.11"
 ]
 
 sim = [
@@ -279,6 +275,11 @@ drone = [
     "pymavlink"
 ]
 
+dds = [
+    "dimos[dev]",
+    "cyclonedds>=0.10.5",
+]
+
 # Minimal dependencies for Docker modules that communicate with the DimOS host
 docker = [
     "dimos-lcm",
@@ -296,7 +297,8 @@ docker = [
     "sortedcontainers",
     "PyTurboJPEG",
     "rerun-sdk",
-    "open3d"
+    "open3d-unofficial-arm; platform_system == 'Linux' and platform_machine == 'aarch64'",
+    "open3d>=0.18.0; platform_system != 'Linux' or platform_machine != 'aarch64'",
 ]
 
 base = [
@@ -346,15 +348,21 @@ exclude = "^dimos/models/Detic(/|$)|^dimos/rxpy_backpressure(/|$)|.*/test_.|.*/c
 [[tool.mypy.overrides]]
 module = [
     "annotation_protocol",
+    "cyclonedds",
+    "cyclonedds.*",
     "dimos_lcm.*",
     "etils",
     "geometry_msgs.*",
+    "lazy_loader",
     "mujoco",
     "mujoco_playground.*",
     "nav_msgs.*",
     "open_clip",
+    "pinocchio",
     "piper_sdk.*",
     "plotext",
+    "pydrake",
+    "pydrake.*",
     "plum.*",
     "pycuda",
     "pycuda.*",
@@ -368,13 +376,16 @@ module = [
     "torchreid",
     "ultralytics.*",
     "unitree_webrtc_connect.*",
-    "watchdog.*",
     "xarm.*",
 ]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["dimos.rxpy_backpressure", "dimos.rxpy_backpressure.*"]
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["pydrake", "pydrake.*"]
 follow_imports = "skip"
 
 [tool.pytest.ini_options]
@@ -387,7 +398,6 @@ markers = [
     "module: tests that need to run directly as modules",
     "gpu: tests that require GPU",
     "cuda: tests which require CUDA (specifically CUDA not just GPU acceleration)",
-    "tofix: temporarily disabled test",
     "e2e: end to end tests",
     "integration: slower integration tests",
     "neverending: they don't finish",
@@ -397,7 +407,7 @@ env = [
   "GOOGLE_MAPS_API_KEY=AIzafake_google_key",
   "PYTHONWARNINGS=ignore:cupyx.jit.rawkernel is experimental:FutureWarning",
 ]
-addopts = "-v -p no:warnings -ra --color=yes -m 'not (vis or exclude or tool or lcm or ros or heavy or gpu or module or tofix or e2e or integration or neverending or mujoco)'"
+addopts = "-v -s -p no:warnings -ra --color=yes -m 'not (vis or exclude or tool or lcm or ros or heavy or gpu or module or e2e or integration or neverending or mujoco)'"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
@@ -408,13 +418,5 @@ ignore = [
     "*/package-lock.json",
     "dimos/dashboard/dimos.rbl",
     "dimos/web/dimos_interface/themes.json",
+    "dimos/manipulation/manipulation_module.py",
 ]
-
-[tool.uv]
-# Build dependencies for packages that don't declare them properly
-extra-build-dependencies = { contact-graspnet-pytorch = ["numpy"] }
-
-default-groups = []
-
-[tool.uv.sources]
-contact-graspnet-pytorch = { git = "https://github.com/dimensionalOS/contact_graspnet_pytorch.git" }
