@@ -193,7 +193,7 @@ class BufferConfiguratorLinux(SystemConfigurator):
     def explanation(self) -> str | None:
         lines = []
         for key, target in self.needs:
-            lines.append(f"- LCM socket buffer optimization: sudo sysctl -w {key}={target}")
+            lines.append(f"- socket buffer optimization: sudo sysctl -w {key}={target}")
         return "\n".join(lines)
 
     def fix(self) -> None:
@@ -230,7 +230,7 @@ class BufferConfiguratorMacOS(SystemConfigurator):
     def explanation(self) -> str | None:
         lines = []
         for key, target in self.needs:
-            lines.append(f"- LCM socket buffer optimization: sudo sysctl -w {key}={target}")
+            lines.append(f"- socket buffer optimization: sudo sysctl -w {key}={target}")
         return "\n".join(lines)
 
     def fix(self) -> None:

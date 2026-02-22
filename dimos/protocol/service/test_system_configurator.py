@@ -548,10 +548,12 @@ class TestClockSyncConfigurator:
                 return_value="/usr/bin/ntpdate",
             ),
         ):
+            configurator._fix_cmd = configurator._resolve_fix_cmd()
             explanation = configurator.explanation()
             assert explanation is not None
             assert "+500.0 ms" in explanation or "+0.5 s" in explanation
             assert "ntpdate" in explanation
+            assert "systemd-timesyncd" in explanation
 
     def test_explanation_on_linux_no_ntp_tools(self) -> None:
         configurator = ClockSyncConfigurator()
@@ -566,8 +568,10 @@ class TestClockSyncConfigurator:
                 return_value=None,
             ),
         ):
+            configurator._fix_cmd = configurator._resolve_fix_cmd()
             explanation = configurator.explanation()
-            assert "install ntpdate" in explanation
+            # Falls back to `date -s` when ntpdate/sntp unavailable
+            assert "date -s" in explanation
             assert "systemd-timesyncd" in explanation
 
     def test_explanation_on_macos(self) -> None:
@@ -577,6 +581,7 @@ class TestClockSyncConfigurator:
             "dimos.protocol.service.system_configurator.clock_sync.platform.system",
             return_value="Darwin",
         ):
+            configurator._fix_cmd = configurator._resolve_fix_cmd()
             explanation = configurator.explanation()
             assert explanation is not None
             assert "-300.0 ms" in explanation
@@ -602,6 +607,7 @@ class TestClockSyncConfigurator:
             patch("os.geteuid", return_value=0),
             patch("subprocess.run") as mock_run,
         ):
+            configurator._fix_cmd = configurator._resolve_fix_cmd()
             mock_run.return_value = MagicMock(returncode=0)
             configurator.fix()
             assert mock_run.call_count == 1
@@ -622,6 +628,7 @@ class TestClockSyncConfigurator:
             patch("os.geteuid", return_value=0),
             patch("subprocess.run") as mock_run,
         ):
+            configurator._fix_cmd = configurator._resolve_fix_cmd()
             mock_run.return_value = MagicMock(returncode=0)
             configurator.fix()
             assert mock_run.call_count == 1
@@ -643,6 +650,7 @@ class TestClockSyncConfigurator:
             patch("os.geteuid", return_value=0),
             patch("subprocess.run") as mock_run,
         ):
+            configurator._fix_cmd = configurator._resolve_fix_cmd()
             mock_run.return_value = MagicMock(returncode=0)
             configurator.fix()
             assert mock_run.call_count == 1
@@ -651,17 +659,20 @@ class TestClockSyncConfigurator:
     def test_fix_on_macos(self) -> None:
         _is_root_user.cache_clear()
         configurator = ClockSyncConfigurator()
-        with patch(
-            "dimos.protocol.service.system_configurator.clock_sync.platform.system",
-            return_value="Darwin",
+        with (
+            patch(
+                "dimos.protocol.service.system_configurator.clock_sync.platform.system",
+                return_value="Darwin",
+            ),
+            patch("os.geteuid", return_value=0),
+            patch("subprocess.run") as mock_run,
         ):
-            with patch("os.geteuid", return_value=0):
-                with patch("subprocess.run") as mock_run:
-                    mock_run.return_value = MagicMock(returncode=0)
-                    configurator.fix()
-                    assert mock_run.call_count == 1
-                    args = mock_run.call_args[0][0]
-                    assert "sntp" in args
+            configurator._fix_cmd = configurator._resolve_fix_cmd()
+            mock_run.return_value = MagicMock(returncode=0)
+            configurator.fix()
+            assert mock_run.call_count == 1
+            args = mock_run.call_args[0][0]
+            assert "sntp" in args
 
     def test_ntp_offset_with_mocked_socket(self) -> None:
         # Build a minimal NTP response with a known transmit timestamp

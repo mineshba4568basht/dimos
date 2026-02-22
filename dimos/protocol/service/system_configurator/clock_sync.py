@@ -40,6 +40,7 @@ class ClockSyncConfigurator(SystemConfigurator):
 
     def __init__(self) -> None:
         self._offset: float | None = None  # seconds, filled by check()
+        self._fix_cmd: list[str] = []  # resolved by check()
 
     # ---- NTP query ----
 
@@ -75,6 +76,21 @@ class ClockSyncConfigurator(SystemConfigurator):
 
     # ---- SystemConfigurator interface ----
 
+    def _resolve_fix_cmd(self) -> list[str]:
+        """Determine the best available NTP sync command for this platform."""
+        system = platform.system()
+        if system == "Darwin":
+            return ["sntp", "-sS", self.NTP_SERVER]
+        if system == "Linux":
+            if shutil.which("ntpdate"):
+                return ["ntpdate", self.NTP_SERVER]
+            if shutil.which("sntp"):
+                return ["sntp", "-sS", self.NTP_SERVER]
+            if self._offset is not None:
+                new_time = time.time() - self._offset
+                return ["date", "-s", f"@{new_time:.3f}"]
+        return []
+
     def check(self) -> bool:
         try:
             self._offset = self._ntp_offset(self.NTP_SERVER, self.NTP_PORT, self.NTP_TIMEOUT)
@@ -86,55 +102,32 @@ class ClockSyncConfigurator(SystemConfigurator):
         if abs(self._offset) <= self.MAX_OFFSET_SECONDS:
             return True
 
+        self._fix_cmd = self._resolve_fix_cmd()
         return False
-
-    # ---- Linux fix helpers ----
-
-    @staticmethod
-    def _linux_fix_cmd(ntp_server: str) -> str:
-        """Return the shell command that fix() would run on Linux."""
-        if shutil.which("ntpdate"):
-            return f"sudo ntpdate {ntp_server}"
-        if shutil.which("sntp"):
-            return f"sudo sntp -sS {ntp_server}"
-        return "(install ntpdate or sntp, then re-run)"
 
     # ---- SystemConfigurator interface ----
 
     def explanation(self) -> str | None:
         if self._offset is None:
             return None
-        system = platform.system()
-        if system == "Linux":
-            cmd = self._linux_fix_cmd(self.NTP_SERVER)
-        elif system == "Darwin":
-            cmd = f"sudo sntp -sS {self.NTP_SERVER}"
+        if self._fix_cmd:
+            cmd = f"sudo {' '.join(self._fix_cmd)}"
         else:
-            cmd = "(manual NTP sync required for your platform)"
+            cmd = "(no NTP tool found — install ntpdate or sntp, then re-run)"
         hint = ""
-        if system == "Linux" and not shutil.which("ntpdate") and not shutil.which("sntp"):
-            hint = "\n  Tip: install ntpdate (or enable systemd-timesyncd) for automatic sync"
+        if platform.system() == "Linux":
+            hint = (
+                "\n  Alternatively, enable automatic time sync:"
+                " sudo systemctl enable --now systemd-timesyncd.service"
+            )
         return (
             f"- Clock sync: local clock is off by {human_duration(self._offset)} "
             f"(threshold: ±{self.MAX_OFFSET_SECONDS * 1000:.0f} ms)\n"
             f"  Fix: {cmd}{hint}"
         )
 
-    def _fix_linux(self) -> None:
-        """One-shot NTP sync: ntpdate > sntp > date -s fallback."""
-        if shutil.which("ntpdate"):
-            sudo_run("ntpdate", self.NTP_SERVER, check=True, text=True, capture_output=True)
-        elif shutil.which("sntp"):
-            sudo_run("sntp", "-sS", self.NTP_SERVER, check=True, text=True, capture_output=True)
-        elif self._offset is not None:
-            new_time = time.time() - self._offset
-            sudo_run("date", "-s", f"@{new_time:.3f}", check=True, text=True, capture_output=True)
-
     def fix(self) -> None:
-        system = platform.system()
-        if system == "Linux":
-            self._fix_linux()
-        elif system == "Darwin":
-            sudo_run("sntp", "-sS", self.NTP_SERVER, check=True, text=True, capture_output=True)
-        else:
-            print(f"[clock-sync] No automatic fix available for {system}")
+        if not self._fix_cmd:
+            print(f"[clock-sync] No automatic fix available on {platform.system()}")
+            return
+        sudo_run(*self._fix_cmd, check=True, text=True, capture_output=True)
