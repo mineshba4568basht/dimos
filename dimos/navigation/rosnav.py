@@ -74,6 +74,7 @@ class ROSNavConfig(DockerModuleConfig):
             "FASTRTPS_DEFAULT_PROFILES_FILE": "/ros2_ws/config/fastdds.xml",
             "START_ROS_NAV": "true",
             "START_UNITY_SIM": "false",
+            # "ROBOT_CONFIG_PATH": "unitree/unitree_g1",
         }
     )
     docker_volumes: list = field(default_factory=lambda: [])
