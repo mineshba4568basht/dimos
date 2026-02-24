@@ -20,8 +20,9 @@ from dotenv import load_dotenv
 from langchain_core.messages.base import BaseMessage
 import pytest
 
-from dimos.agents.agent import Agent
 from dimos.agents.agent_test_runner import AgentTestRunner
+from dimos.agents.mcp.mcp_client import McpClient
+from dimos.agents.mcp.mcp_server import McpServer
 from dimos.core.blueprints import autoconnect
 from dimos.core.global_config import global_config
 from dimos.core.transport import pLCMTransport
@@ -65,17 +66,15 @@ def agent_setup(request):
         else:
             fixture_path = FIXTURE_DIR / f"{request.node.name}.json"
 
-        agent_kwargs: dict = {"system_prompt": system_prompt}
+        client_kwargs: dict = {"system_prompt": system_prompt}
 
         if recording or fixture_path.exists():
-            # RECORD=1: use real LLM, save responses to fixture file.
-            # No RECORD but fixture exists: play back recorded responses.
-            # The MockModel checks RECORD internally to decide record vs playback.
-            agent_kwargs["model_fixture"] = str(fixture_path)
+            client_kwargs["model_fixture"] = str(fixture_path)
 
         blueprint = autoconnect(
             *blueprints,
-            Agent.blueprint(**agent_kwargs),
+            McpServer.blueprint(),
+            McpClient.blueprint(**client_kwargs),
             AgentTestRunner.blueprint(messages=messages),
         )
 
