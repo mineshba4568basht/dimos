@@ -68,7 +68,8 @@ class PersonFollowSkillContainer(Module[Config]):
         super().__init__(global_config, **kwargs)
         self._latest_image: Image | None = None
         self._latest_pointcloud: PointCloud2 | None = None
-        self._vl_model = QwenVlModel()
+        # Use VlModel to keep usage in this class generic
+        self._vl_model: VlModel = QwenVlModel()
         self._tracker: EdgeTAMProcessor | None = None
         self._thread: Thread | None = None
         self._should_stop: Event = Event()
