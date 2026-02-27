@@ -165,7 +165,14 @@ class ROSNavConfig(DockerModuleConfig):
                 "/ros2_ws/src/base_autonomy/vehicle_simulator/mesh/unity",
                 "ro",
             ),
+            # X11 socket so Unity can use the host display (same as docker-compose sim service)
+            ("/tmp/.X11-unix", "/tmp/.X11-unix", "rw"),
         ]
+
+        # Mount ~/.Xauthority if it exists
+        xauth = Path.home() / ".Xauthority"
+        if xauth.exists():
+            self.docker_volumes.append((str(xauth), "/root/.Xauthority", "rw"))
 
 
 class ROSNav(
