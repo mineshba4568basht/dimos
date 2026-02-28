@@ -70,8 +70,8 @@ class TeleopIKTaskConfig:
         max_joint_delta_deg: Maximum allowed joint change per tick (safety limit)
         hand: "left" or "right" — which controller's primary button to listen to
         gripper_joint: Optional joint name for the gripper (e.g. "arm_gripper").
-        gripper_open_pos: Gripper position (meters) at trigger value 0.0 (no press).
-        gripper_closed_pos: Gripper position (meters) at trigger value 1.0 (full press).
+        gripper_open_pos: Gripper position (adapter units) at trigger value 0.0 (no press).
+        gripper_closed_pos: Gripper position (adapter units) at trigger value 1.0 (full press).
     """
 
     joint_names: list[str]
@@ -107,6 +107,7 @@ class TeleopIKTask(BaseControlTask):
         ...         ee_joint_id=6,
         ...         priority=10,
         ...         timeout=0.5,
+        ...         hand="right",
         ...     ),
         ... )
         >>> coordinator.add_task(task)
@@ -316,7 +317,7 @@ class TeleopIKTask(BaseControlTask):
 
         if self._config.gripper_joint:
             trigger = msg.left_trigger_analog if is_left else msg.right_trigger_analog
-            self.on_gripper_trigger(trigger, 0.0)
+            self.on_gripper_trigger(trigger)
 
         return True
 
@@ -329,7 +330,7 @@ class TeleopIKTask(BaseControlTask):
 
         return True
 
-    def on_gripper_trigger(self, value: float, _t_now: float) -> bool:
+    def on_gripper_trigger(self, value: float, _t_now: float = 0.0) -> bool:
         """Map analog trigger (0-1) to gripper position"""
         if not self._config.gripper_joint:
             return False
