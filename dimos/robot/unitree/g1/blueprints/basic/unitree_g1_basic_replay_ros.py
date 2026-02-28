@@ -20,10 +20,11 @@ from dimos.navigation.rosnav_docker import ros_nav
 from dimos.robot.unitree.g1.blueprints.primitive.unitree_g1_primitive_no_cam import (
     unitree_g1_primitive_no_cam,
 )
+from dimos.utils.data import LfsPath
 
 unitree_g1_basic_replay_ros = autoconnect(
     unitree_g1_primitive_no_cam,
-    ros_nav(use_rviz=True, bagfile_path="/ros2_ws/bagfiles/basic.db3"),
+    ros_nav(use_rviz=True, bagfile_path=LfsPath("rosbags/rosnav_sim_short.db3")),
 )
 
 __all__ = ["unitree_g1_basic_replay_ros"]

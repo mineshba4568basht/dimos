@@ -136,7 +136,7 @@ class ROSNavConfig(DockerModuleConfig):
     #   "bagfile"     — system_bagfile[_with_route_planner].launch.py + use_sim_time
     # Setting bagfile_path automatically forces mode to "bagfile".
     mode: str = "hardware"
-    bagfile_path: str = ""  # container-side path to bag; plays with --clock
+    bagfile_path: str | Path = ""  # host-side path to bag; remapped into container at runtime
 
     # use_rviz: whether to launch RViz2 inside the container.
     #   None (default) → True for simulation/unity_sim modes, False otherwise
@@ -149,7 +149,17 @@ class ROSNavConfig(DockerModuleConfig):
         effective_mode = "bagfile" if self.bagfile_path else self.mode
         self.docker_env["MODE"] = effective_mode
         if self.bagfile_path:
-            self.docker_env["BAGFILE_PATH"] = self.bagfile_path
+            bag_path = Path(self.bagfile_path).expanduser()
+            if bag_path.exists():
+                bag_path = bag_path.resolve()
+                bag_dir = bag_path.parent
+                bag_name = bag_path.name
+                container_bag_dir = "/ros2_ws/bagfiles"
+
+                self.docker_volumes.append((str(bag_dir), container_bag_dir, "rw"))
+                self.docker_env["BAGFILE_PATH"] = f"{container_bag_dir}/{bag_name}"
+            else:
+                self.docker_env["BAGFILE_PATH"] = self.bagfile_path
 
         self.docker_env["USE_RVIZ"] = "true" if self.use_rviz else "false"
 
@@ -229,11 +239,6 @@ class ROSNavConfig(DockerModuleConfig):
         if xauth_host.exists():
             self.docker_volumes.append((str(xauth_host), "/tmp/.Xauthority", "ro"))
             self.docker_env["XAUTHORITY"] = "/tmp/.Xauthority"
-
-        # Mount bagfiles directory for bagfile mode
-        bagfiles_dir = repo_root / "docker" / "navigation" / "bagfiles"
-        if bagfiles_dir.exists():
-            self.docker_volumes.append((str(bagfiles_dir), "/ros2_ws/bagfiles", "rw"))
 
 
 class ROSNav(
