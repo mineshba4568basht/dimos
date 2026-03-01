@@ -29,7 +29,9 @@ def test_point_inherits_lcm() -> None:
 def test_lcm_encode_decode() -> None:
     """Test encoding and decoding of PointStamped to/from binary LCM format."""
     source = PointStamped(
-        x=1.5, y=-2.5, z=3.5,
+        x=1.5,
+        y=-2.5,
+        z=3.5,
         ts=time.time(),
         frame_id="/world/grid",
     )

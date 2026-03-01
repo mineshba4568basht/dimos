@@ -20,10 +20,8 @@ from typing import TYPE_CHECKING, BinaryIO
 if TYPE_CHECKING:
     from rerun._baseclasses import Archetype
 
-from dimos_lcm.geometry_msgs import Point as LCMPoint
-from dimos_lcm.geometry_msgs import PointStamped as LCMPointStamped
+from dimos_lcm.geometry_msgs import Point as LCMPoint, PointStamped as LCMPointStamped
 
-from dimos.msgs.geometry_msgs.Vector3 import Vector3
 from dimos.types.timestamped import Timestamped
 
 
