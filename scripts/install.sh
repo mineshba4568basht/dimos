@@ -640,7 +640,7 @@ do_install_dev() {
     else
         info "syncing dependencies..."
         if [[ "$DRY_RUN" == "1" ]]; then dim "[dry-run] uv sync --all-extras --no-extra dds"
-        else (cd "$dir" && uv sync --all-extras --no-extra dds); fi
+        else pushd "$dir" >/dev/null && uv sync --all-extras --no-extra dds && popd >/dev/null; fi
     fi
     ok "developer environment ready in ${dir}"
 }
@@ -710,7 +710,7 @@ run_post_install_tests() {
     local venv="${dir}/.venv/bin/activate"
     [[ ! -f "$venv" ]] && { warn "venv not found, skipping tests"; return; }
 
-    # Only offer smoke test if unitree + sim extras installed
+    # Only offer smoke test if unitree extras installed
     if ! { [[ "$EXTRAS" == *"unitree"* ]] || [[ "$EXTRAS" == "all" ]]; }; then
         dim "  no smoke tests available for selected extras"
         return
@@ -723,37 +723,28 @@ run_post_install_tests() {
 
     printf "\n"; info "${BOLD}post-install smoke test${RESET}"; printf "\n"
 
+    local cmd
     if [[ "$EXTRAS" == *"sim"* ]] || [[ "$EXTRAS" == "all" ]]; then
-        info "running: ${DIM}dimos --simulation run unitree-go2${RESET} (smoke test, 60s timeout)"
-        local log; log=$(mktemp /tmp/dimos-sim-XXXXXX.log)
-        local exit_code=0
-        if [[ "$USE_NIX" == "1" ]]; then
-            (cd "$dir" && nix develop --command bash -c "source .venv/bin/activate && timeout 60 dimos --simulation run unitree-go2") >"$log" 2>&1 || exit_code=$?
-        else
-            (cd "$dir" && source "$venv" && timeout 60 dimos --simulation run unitree-go2) >"$log" 2>&1 || exit_code=$?
-        fi
+        cmd="dimos --simulation run unitree-go2"
     else
-        info "running: ${DIM}dimos --replay run unitree-go2${RESET} (smoke test, 60s timeout)"
-        local log; log=$(mktemp /tmp/dimos-replay-XXXXXX.log)
-        local exit_code=0
-        if [[ "$USE_NIX" == "1" ]]; then
-            (cd "$dir" && nix develop --command bash -c "source .venv/bin/activate && timeout 60 dimos --replay run unitree-go2") >"$log" 2>&1 || exit_code=$?
-        else
-            (cd "$dir" && source "$venv" && timeout 60 dimos --replay run unitree-go2) >"$log" 2>&1 || exit_code=$?
-        fi
+        cmd="dimos --replay run unitree-go2"
     fi
+
+    info "running: ${DIM}${cmd}${RESET} (Ctrl+C to stop)"
+
+    local exit_code=0
+    pushd "$dir" >/dev/null
+    source "$venv"
+    timeout 60 $cmd || exit_code=$?
+    popd >/dev/null
 
     printf "\n"
     if [[ $exit_code -eq 124 ]]; then ok "smoke test: ran 60s without crash ✓"
+    elif [[ $exit_code -eq 130 ]] || [[ $exit_code -eq 137 ]]; then
+        ok "smoke test: stopped by user"
     elif [[ $exit_code -eq 0 ]]; then ok "smoke test: completed ✓"
-    else
-        if grep -qi "Traceback\|ModuleNotFoundError\|ImportError" "$log" 2>/dev/null; then
-            warn "smoke test failed (exit ${exit_code})"; tail -5 "$log" | while IFS= read -r l; do dim "    $l"; done
-        else
-            warn "smoke test exited with code ${exit_code} (may be expected headless)"
-        fi
+    else warn "smoke test exited with code ${exit_code} (may be expected headless)"
     fi
-    rm -f "$log"
 }
 
 # ─── quickstart ───────────────────────────────────────────────────────────────
