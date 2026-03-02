@@ -158,6 +158,7 @@ class ROSNavConfig(DockerModuleConfig):
     #   None (default) → True for simulation/unity_sim modes, False otherwise
     #   (mirrors the unconditional RViz launch in run_both.sh for simulation)
     use_rviz: bool = False
+    foxglove_port: int = 8765
 
     # --- Hardware sensor / network settings (used when mode="hardware") ---
     # lidar_interface: host ethernet interface connected to Mid-360 lidar (e.g. "eth0")
@@ -205,6 +206,7 @@ class ROSNavConfig(DockerModuleConfig):
                 self.docker_env["BAGFILE_PATH"] = str(self.bagfile_path)
 
         self.docker_env["USE_RVIZ"] = "true" if self.use_rviz else "false"
+        self.docker_env["FOXGLOVE_PORT"] = str(self.foxglove_port)
         self.docker_env["USE_ROUTE_PLANNER"] = "true" if self.use_route_planner else "false"
         self.docker_env["LOCALIZATION_METHOD"] = self.localization_method
         self.docker_env["ROBOT_CONFIG_PATH"] = self.robot_config_path

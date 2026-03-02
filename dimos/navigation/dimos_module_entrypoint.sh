@@ -4,6 +4,7 @@ MODE="${MODE:-unity_sim}"
 USE_ROUTE_PLANNER="${USE_ROUTE_PLANNER:-true}"
 USE_RVIZ="${USE_RVIZ:-false}"
 ENABLE_FOXGLOVE="${ENABLE_FOXGLOVE:-false}"
+FOXGLOVE_PORT="${FOXGLOVE_PORT:-8765}"
 LOCALIZATION_METHOD="${LOCALIZATION_METHOD:-arise_slam}"
 BAGFILE_PATH="${BAGFILE_PATH:-}"
 
@@ -467,7 +468,7 @@ if [ "$ENABLE_FOXGLOVE" = "true" ]; then
     if [ -f "/usr/local/bin/goal_autonomy_relay.py" ]; then
         python3 /usr/local/bin/goal_autonomy_relay.py &
     fi
-    ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8765 &
+    ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:="${FOXGLOVE_PORT}" &
 elif ! [ "$ENABLE_FOXGLOVE" = "false" ]; then
     echo "ENABLE_FOXGLOVE must be true or false but got: $ENABLE_FOXGLOVE"
     exit 22
