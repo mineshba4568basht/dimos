@@ -13,6 +13,15 @@
 #
 set -euo pipefail
 
+# If piped from curl (stdin is not a TTY), save to temp file and re-execute
+# This ensures interactive prompts work correctly
+if [ ! -t 0 ]; then
+    TMPSCRIPT="$(mktemp /tmp/dimos-install.XXXXXX.sh)"
+    cat > "$TMPSCRIPT"
+    chmod +x "$TMPSCRIPT"
+    exec bash "$TMPSCRIPT" "$@"
+fi
+
 # ─── version ──────────────────────────────────────────────────────────────────
 INSTALLER_VERSION="0.2.0"
 
