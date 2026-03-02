@@ -419,13 +419,27 @@ verify_nix_develop() {
 
 # ─── system dependencies ─────────────────────────────────────────────────────
 install_system_deps() {
-    info "installing system dependencies..."
+    info "checking system dependencies..."
+
     case "$DETECTED_OS" in
         ubuntu|wsl)
+            # Check if all packages are already installed
+            local needed=""
+            local all_pkgs="curl g++ portaudio19-dev git-lfs libturbojpeg python3-dev pre-commit"
+            for pkg in $all_pkgs; do
+                if ! dpkg -s "$pkg" &>/dev/null; then
+                    needed+=" $pkg"
+                fi
+            done
+            if [[ -z "$needed" ]]; then
+                ok "all system dependencies already installed"
+                return
+            fi
+            info "need to install:${needed}"
             prompt_spin "updating package lists..." \
                 "sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update -qq"
-            prompt_spin "installing build tools and libraries..." \
-                "sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y -qq curl g++ portaudio19-dev git-lfs libturbojpeg python3-dev pre-commit"
+            prompt_spin "installing packages..." \
+                "sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y -qq $needed"
             ;;
         macos)
             if ! has_cmd brew; then
