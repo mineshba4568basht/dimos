@@ -284,6 +284,14 @@ if __name__ == "__main__":
 
 # Development
 
+## Interactive Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dimensionalOS/dimos/dev/scripts/install.sh | bash
+```
+
+> See [`scripts/install.sh --help`](scripts/install.sh) for non-interactive and advanced options.
+
 ## Develop on DimOS
 
 ```sh
