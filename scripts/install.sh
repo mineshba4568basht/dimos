@@ -53,6 +53,9 @@ ok()    { printf "%s✓%s %s\n" "$GREEN" "$RESET" "$*"; }
 warn()  { printf "%s⚠%s %s\n" "$YELLOW" "$RESET" "$*" >&2; }
 err()   { printf "%s✗%s %s\n" "$RED" "$RESET" "$*" >&2; }
 die()   { err "$@"; exit 1; }
+# Cancelled exit code — used by prompt functions to signal Ctrl+C
+readonly CANCELLED_EXIT=130
+check_cancel() { [[ $? -eq $CANCELLED_EXIT ]] && { err "cancelled"; exit 1; }; return 0; }
 dim()   { printf "%s%s%s\n" "$DIM" "$*" "$RESET"; }
 
 run_cmd() {
@@ -104,7 +107,7 @@ prompt_select() {
             --cursor "● " --cursor.foreground="44" \
             --header.foreground="255" --header.bold \
             --selected.foreground="44" \
-            "${options[@]}" </dev/tty) || { printf "\n" >/dev/tty; die "cancelled"; }
+            "${options[@]}" </dev/tty) || { printf "\n" >/dev/tty; exit $CANCELLED_EXIT; }
         echo "$result"
     else
         printf "%s%s%s\n" "$BOLD" "$msg" "$RESET" >/dev/tty
@@ -114,7 +117,7 @@ prompt_select() {
             ((i++))
         done
         printf "  choice [1]: " >/dev/tty
-        local choice; read -r choice </dev/tty || { printf "\n" >/dev/tty; die "cancelled"; }
+        local choice; read -r choice </dev/tty || { printf "\n" >/dev/tty; exit $CANCELLED_EXIT; }
         choice="${choice:-1}"
         local idx=$((choice - 1))
         if [[ $idx -ge 0 ]] && [[ $idx -lt ${#options[@]} ]]; then
@@ -131,14 +134,12 @@ prompt_multi() {
     if [[ "$NON_INTERACTIVE" == "1" ]]; then printf '%s\n' "${options[@]}"; return; fi
     printf "\n" >/dev/tty
     if [[ -n "$GUM" ]]; then
-        local selected_csv result
-        selected_csv=$(IFS=,; echo "${options[*]}")
-        result=$("$GUM" choose --no-limit --header "$msg" \
+        local result
+        result=$("$GUM" choose --no-limit --header "$msg  (space to toggle, enter to confirm)" \
             --cursor "❯ " --cursor.foreground="44" \
             --header.foreground="255" --header.bold \
             --selected.foreground="44" \
-            --selected="$selected_csv" \
-            "${options[@]}" </dev/tty) || { printf "\n" >/dev/tty; die "cancelled"; }
+            "${options[@]}" </dev/tty) || { printf "\n" >/dev/tty; exit $CANCELLED_EXIT; }
         echo "$result"
     else
         printf "%s%s%s (comma-separated, enter for all)\n" "$BOLD" "$msg" "$RESET" >/dev/tty
@@ -414,7 +415,7 @@ prompt_setup_method() {
     else
         choice=$(prompt_select "How should we set up system dependencies?" \
             "System packages — apt/brew (recommended)" \
-            "Install Nix — nix develop (reproducible, installs Nix first)")
+            "Install Nix — nix develop (reproducible, installs Nix first)") || die "cancelled"
     fi
 
     case "$choice" in
@@ -499,7 +500,7 @@ prompt_install_mode() {
     local choice
     choice=$(prompt_select "How do you want to use DimOS?" \
         "Library — pip install into your project (recommended)" \
-        "Developer — git clone + editable install (contributors)")
+        "Developer — git clone + editable install (contributors)") || die "cancelled"
     case "$choice" in *Library*) INSTALL_MODE="library";; *) INSTALL_MODE="dev";; esac
 }
 
@@ -508,15 +509,18 @@ prompt_extras() {
     if [[ "$INSTALL_MODE" == "dev" ]]; then EXTRAS="all"; info "developer mode: all extras (except dds)"; return; fi
 
     local -a platform_sel=() feature_sel=()
-    while IFS= read -r line; do [[ -n "$line" ]] && platform_sel+=("$line"); done < <(prompt_multi \
+    local _platforms _features
+    _platforms=$(prompt_multi \
         "Which robot platforms will you use?" \
-        "Unitree (Go2, G1, B1)" "Drone (Mavlink / DJI)" "Manipulators (xArm, Piper, OpenARMs)")
+        "Unitree (Go2, G1, B1)" "Drone (Mavlink / DJI)" "Manipulators (xArm, Piper, OpenARMs)") || die "cancelled"
+    while IFS= read -r line; do [[ -n "$line" ]] && platform_sel+=("$line"); done <<< "$_platforms"
 
-    while IFS= read -r line; do [[ -n "$line" ]] && feature_sel+=("$line"); done < <(prompt_multi \
+    _features=$(prompt_multi \
         "Which features do you need?" \
         "AI Agents (LangChain, voice control)" "Perception (object detection, VLMs)" \
         "Visualization (Rerun 3D viewer)" "Simulation (MuJoCo)" \
-        "Web Interface (FastAPI dashboard)" "Misc (extra ML models)")
+        "Web Interface (FastAPI dashboard)" "Misc (extra ML models)") || die "cancelled"
+    while IFS= read -r line; do [[ -n "$line" ]] && feature_sel+=("$line"); done <<< "$_features"
 
     local -a extras_list=()
     for p in "${platform_sel[@]}"; do
@@ -565,7 +569,7 @@ prompt_install_dir() {
 # ─── installation ─────────────────────────────────────────────────────────────
 do_install_library() {
     local dir="${PROJECT_DIR:-}"
-    if [[ -z "$dir" ]]; then dir=$(prompt_install_dir "$PWD/dimensional-applications" "library"); fi
+    if [[ -z "$dir" ]]; then dir=$(prompt_install_dir "$PWD/dimensional-applications" "library") || die "cancelled"; fi
     INSTALL_DIR="$dir"
     info "library install → ${dir}"
     run_cmd "mkdir -p '$dir'"
@@ -618,7 +622,7 @@ do_install_library() {
 
 do_install_dev() {
     local dir="${PROJECT_DIR:-}"
-    if [[ -z "$dir" ]]; then dir=$(prompt_install_dir "$PWD/dimos" "dev"); fi
+    if [[ -z "$dir" ]]; then dir=$(prompt_install_dir "$PWD/dimos" "dev") || die "cancelled"; fi
     INSTALL_DIR="$dir"
     info "developer install → ${dir}"
     if [[ -d "$dir/.git" ]]; then
@@ -740,27 +744,27 @@ run_post_install_tests() {
     # simulation or replay — only if unitree extras installed
     if [[ "$EXTRAS" == *"unitree"* ]] || [[ "$EXTRAS" == "all" ]]; then
         if [[ "$EXTRAS" == *"sim"* ]] || [[ "$EXTRAS" == "all" ]]; then
-            info "running: ${DIM}dimos --simulation run unitree-go2${RESET} (MuJoCo simulation, 30s)"
+            info "running: ${DIM}dimos --simulation run unitree-go2${RESET} (smoke test, 60s timeout)"
             local log; log=$(mktemp /tmp/dimos-sim-XXXXXX.log)
             local exit_code=0
             if [[ "$USE_NIX" == "1" ]]; then
-                (cd "$dir" && nix develop --command bash -c "source .venv/bin/activate && timeout 30 dimos --simulation run unitree-go2") >"$log" 2>&1 || exit_code=$?
+                (cd "$dir" && nix develop --command bash -c "source .venv/bin/activate && timeout 60 dimos --simulation run unitree-go2") >"$log" 2>&1 || exit_code=$?
             else
-                (cd "$dir" && source "$venv" && timeout 30 dimos --simulation run unitree-go2) >"$log" 2>&1 || exit_code=$?
+                (cd "$dir" && source "$venv" && timeout 60 dimos --simulation run unitree-go2) >"$log" 2>&1 || exit_code=$?
             fi
         else
-            info "running: ${DIM}dimos --replay run unitree-go2${RESET} (replay mode, 30s)"
+            info "running: ${DIM}dimos --replay run unitree-go2${RESET} (smoke test, 60s timeout)"
             local log; log=$(mktemp /tmp/dimos-replay-XXXXXX.log)
             local exit_code=0
             if [[ "$USE_NIX" == "1" ]]; then
-                (cd "$dir" && nix develop --command bash -c "source .venv/bin/activate && timeout 30 dimos --replay run unitree-go2") >"$log" 2>&1 || exit_code=$?
+                (cd "$dir" && nix develop --command bash -c "source .venv/bin/activate && timeout 60 dimos --replay run unitree-go2") >"$log" 2>&1 || exit_code=$?
             else
-                (cd "$dir" && source "$venv" && timeout 30 dimos --replay run unitree-go2) >"$log" 2>&1 || exit_code=$?
+                (cd "$dir" && source "$venv" && timeout 60 dimos --replay run unitree-go2) >"$log" 2>&1 || exit_code=$?
             fi
         fi
 
         ((ran++))
-        if [[ $exit_code -eq 124 ]]; then ok "unitree-go2: ran 30s without crash ✓"
+        if [[ $exit_code -eq 124 ]]; then ok "unitree-go2: ran 60s without crash ✓"
         elif [[ $exit_code -eq 0 ]]; then ok "unitree-go2: completed ✓"
         else
             if grep -qi "Traceback\|ModuleNotFoundError\|ImportError" "$log" 2>/dev/null; then
