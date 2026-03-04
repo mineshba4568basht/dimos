@@ -49,9 +49,11 @@ from typing import TYPE_CHECKING
 from dimos.utils.logging_config import setup_logger
 
 if TYPE_CHECKING:
-    from unitree_sdk2py.core.channel import ChannelSubscriber
-    from unitree_sdk2py.g1.loco.g1_loco_client import LocoClient
-    from unitree_sdk2py.idl.unitree_go.msg.dds_ import SportModeState_
+    from unitree_sdk2py.core.channel import ChannelSubscriber  # type: ignore[import-untyped]
+    from unitree_sdk2py.g1.loco.g1_loco_client import LocoClient  # type: ignore[import-untyped]
+    from unitree_sdk2py.idl.unitree_go.msg.dds_ import (  # type: ignore[import-untyped]
+        SportModeState_,
+    )
 
     from dimos.hardware.drive_trains.registry import TwistBaseAdapterRegistry
 
@@ -326,7 +328,9 @@ class UnitreeG1TwistAdapter:
         """Query the current FSM ID from the robot. Returns None on failure."""
         import json
 
-        from unitree_sdk2py.g1.loco.g1_loco_api import ROBOT_API_ID_LOCO_GET_FSM_ID
+        from unitree_sdk2py.g1.loco.g1_loco_api import (
+            ROBOT_API_ID_LOCO_GET_FSM_ID,  # type: ignore[import-untyped]
+        )
 
         session = self._get_session()
         try:
