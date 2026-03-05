@@ -31,13 +31,8 @@ class DockerWorkerManager:
 
     def __init__(self) -> None:
         self._docker_modules: list[DockerModule] = []
-        self._closed = False
 
     def deploy(self, module_class: type[Module], *args: Any, **kwargs: Any) -> DockerModule:
-        if self._closed:
-            raise RuntimeError("DockerWorkerManager is closed")
-
-        logger.info("Deploying module in Docker.", module=module_class.__name__)
         dm = DockerModule(module_class, *args, **kwargs)
         try:
             dm.start()  # Docker modules must be running before streams/RPC can be wired
@@ -45,20 +40,4 @@ class DockerWorkerManager:
             with suppress(Exception):
                 dm.stop()
             raise
-        self._docker_modules.append(dm)
         return dm
-
-    def close_all(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-
-        logger.info("Stopping all Docker modules...")
-        for dm in reversed(self._docker_modules):
-            try:
-                dm.stop()
-            except Exception:
-                logger.error("Error stopping Docker module", exc_info=True)
-
-        self._docker_modules.clear()
-        logger.info("All Docker modules stopped.")

@@ -77,8 +77,6 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
                 logger.error("Error stopping module", module=module_class.__name__, exc_info=True)
             logger.info("Module stopped.", module=module_class.__name__)
 
-        if self._docker_client is not None:
-            self._docker_client.close_all()
         self._client.close_all()  # type: ignore[union-attr]
 
     def deploy(self, module_class: type[ModuleT], *args, **kwargs) -> ModuleProxy:  # type: ignore[no-untyped-def]
