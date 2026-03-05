@@ -16,20 +16,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import numpy as np
 import pytest
 
 from dimos.memory.impl.sqlite import SqliteSession, SqliteStore
 from dimos.memory.transformer import EmbeddingTransformer
-from dimos.memory.types import _UNSET, EmbeddingObservation
+from dimos.memory.types import _UNSET, EmbeddingObservation, Observation
 from dimos.models.embedding.base import Embedding, EmbeddingModel
 from dimos.msgs.sensor_msgs.Image import Image
 from dimos.utils.testing import TimedSensorReplay
-
-if TYPE_CHECKING:
-    from dimos.memory.types import Observation
 
 
 def _img_close(a: Image, b: Image, max_diff: float = 5.0) -> bool:
@@ -641,6 +636,202 @@ class TestProjectTo:
         results = es.search_embedding([1.0, 0.0, 0.0], k=1).fetch()
         assert len(results) == 1
         assert isinstance(results[0], EmbeddingObservation)
+
+
+class TestObservationSet:
+    def test_fetch_returns_observation_set(
+        self, session: SqliteSession, images: list[Image]
+    ) -> None:
+        from dimos.memory.stream import ObservationSet
+
+        s = session.stream("obs_set", Image)
+        s.append(images[0], ts=1.0)
+        s.append(images[1], ts=2.0)
+
+        result = s.fetch()
+        assert isinstance(result, ObservationSet)
+        assert len(result) == 2
+
+    def test_list_like_access(self, session: SqliteSession, images: list[Image]) -> None:
+        s = session.stream("obs_list", Image)
+        s.append(images[0], ts=1.0)
+        s.append(images[1], ts=2.0)
+        s.append(images[2], ts=3.0)
+
+        result = s.fetch()
+        assert result[0].ts == 1.0
+        assert result[-1].ts == 3.0
+        assert len(result[1:]) == 2
+        assert bool(result) is True
+
+    def test_empty_observation_set(self, session: SqliteSession) -> None:
+        s = session.stream("obs_empty", Image)
+        result = s.fetch()
+        assert len(result) == 0
+        assert bool(result) is False
+
+    def test_iter(self, session: SqliteSession, images: list[Image]) -> None:
+        s = session.stream("obs_iter", Image)
+        for i, img in enumerate(images[:3]):
+            s.append(img, ts=float(i))
+
+        result = s.fetch()
+        timestamps = [obs.ts for obs in result]
+        assert timestamps == [0.0, 1.0, 2.0]
+
+    def test_refilter_in_memory(self, session: SqliteSession, images: list[Image]) -> None:
+        """ObservationSet supports chaining filters that re-evaluate in memory."""
+        s = session.stream("obs_refilter", Image)
+        s.append(images[0], ts=1.0)
+        s.append(images[1], ts=5.0)
+        s.append(images[2], ts=10.0)
+
+        result = s.fetch()
+        assert len(result) == 3
+
+        # Re-filter in memory
+        recent = result.after(3.0).fetch()
+        assert len(recent) == 2
+        assert all(r.ts is not None and r.ts > 3.0 for r in recent)
+
+    def test_transform_on_observation_set(
+        self, session: SqliteSession, images: list[Image]
+    ) -> None:
+        """ObservationSet supports .transform() for fork-and-zip."""
+        s = session.stream("obs_xf", Image)
+        s.append(images[0], ts=1.0)
+        s.append(images[1], ts=2.0)
+
+        result = s.fetch()
+        shapes = result.transform(lambda im: f"{im.width}x{im.height}").fetch()
+        assert len(shapes) == 2
+        assert shapes[0].data == f"{images[0].width}x{images[0].height}"
+
+    def test_read_only(self, session: SqliteSession, images: list[Image]) -> None:
+        from dimos.memory.stream import ObservationSet
+
+        result = ObservationSet([], session=session)
+        with pytest.raises(TypeError, match="read-only"):
+            result.append(images[0])
+
+    def test_ordering_in_memory(self, session: SqliteSession, images: list[Image]) -> None:
+        s = session.stream("obs_order", Image)
+        s.append(images[0], ts=3.0)
+        s.append(images[1], ts=1.0)
+        s.append(images[2], ts=2.0)
+
+        result = s.fetch()
+        ordered = result.order_by("ts").fetch()
+        assert [o.ts for o in ordered] == [1.0, 2.0, 3.0]
+
+        desc = result.order_by("ts", desc=True).fetch()
+        assert [o.ts for o in desc] == [3.0, 2.0, 1.0]
+
+    def test_limit_offset_in_memory(self, session: SqliteSession, images: list[Image]) -> None:
+        s = session.stream("obs_lim", Image)
+        for i, img in enumerate(images):
+            s.append(img, ts=float(i))
+
+        result = s.fetch()
+        page = result.order_by("ts").limit(2).offset(1).fetch()
+        assert len(page) == 2
+        assert [o.ts for o in page] == [1.0, 2.0]
+
+
+class TestMatchesFilters:
+    def test_after_filter(self) -> None:
+        from dimos.memory.types import AfterFilter
+
+        f = AfterFilter(5.0)
+        assert f.matches(Observation(id=1, ts=6.0)) is True
+        assert f.matches(Observation(id=2, ts=5.0)) is False
+        assert f.matches(Observation(id=3, ts=4.0)) is False
+        assert f.matches(Observation(id=4, ts=None)) is False
+
+    def test_before_filter(self) -> None:
+        from dimos.memory.types import BeforeFilter
+
+        f = BeforeFilter(5.0)
+        assert f.matches(Observation(id=1, ts=4.0)) is True
+        assert f.matches(Observation(id=2, ts=5.0)) is False
+        assert f.matches(Observation(id=3, ts=6.0)) is False
+
+    def test_time_range_filter(self) -> None:
+        from dimos.memory.types import TimeRangeFilter
+
+        f = TimeRangeFilter(2.0, 8.0)
+        assert f.matches(Observation(id=1, ts=5.0)) is True
+        assert f.matches(Observation(id=2, ts=2.0)) is True
+        assert f.matches(Observation(id=3, ts=8.0)) is True
+        assert f.matches(Observation(id=4, ts=1.0)) is False
+        assert f.matches(Observation(id=5, ts=9.0)) is False
+
+    def test_at_filter(self) -> None:
+        from dimos.memory.types import AtFilter
+
+        f = AtFilter(5.0, tolerance=1.0)
+        assert f.matches(Observation(id=1, ts=5.0)) is True
+        assert f.matches(Observation(id=2, ts=5.5)) is True
+        assert f.matches(Observation(id=3, ts=6.0)) is True
+        assert f.matches(Observation(id=4, ts=6.5)) is False
+
+    def test_tags_filter(self) -> None:
+        from dimos.memory.types import TagsFilter
+
+        f = TagsFilter({"cam": "front"})
+        assert f.matches(Observation(id=1, tags={"cam": "front", "quality": "high"})) is True
+        assert f.matches(Observation(id=2, tags={"cam": "rear"})) is False
+        assert f.matches(Observation(id=3, tags={})) is False
+
+    def test_text_search_filter(self) -> None:
+        from dimos.memory.types import TextSearchFilter
+
+        f = TextSearchFilter("motor", k=None)
+        assert f.matches(Observation(id=1, _data="Motor fault on joint 3")) is True
+        assert f.matches(Observation(id=2, _data="Battery low")) is False
+
+    def test_embedding_search_filter_always_true(self) -> None:
+        from dimos.memory.types import EmbeddingSearchFilter
+
+        f = EmbeddingSearchFilter([1.0, 0.0], k=5)
+        assert f.matches(Observation(id=1)) is True
+
+    def test_lineage_filter_raises(self) -> None:
+        from dimos.memory.types import LineageFilter, StreamQuery
+
+        f = LineageFilter("src", StreamQuery(), ())
+        with pytest.raises(NotImplementedError):
+            f.matches(Observation(id=1))
+
+
+class TestFilteredAppended:
+    def test_unfiltered_appended(self, session: SqliteSession, images: list[Image]) -> None:
+        s = session.stream("fa_unfilt", Image)
+        received: list[Observation] = []
+        s.appended.subscribe(on_next=received.append)
+
+        s.append(images[0], ts=1.0)
+        s.append(images[1], ts=5.0)
+        assert len(received) == 2
+
+    def test_filtered_appended(self, session: SqliteSession, images: list[Image]) -> None:
+        s = session.stream("fa_filt", Image)
+        received: list[Observation] = []
+        s.after(3.0).appended.subscribe(on_next=received.append)
+
+        s.append(images[0], ts=1.0)  # filtered out
+        s.append(images[1], ts=5.0)  # passes
+        assert len(received) == 1
+        assert received[0].ts == 5.0
+
+    def test_tag_filtered_appended(self, session: SqliteSession, images: list[Image]) -> None:
+        s = session.stream("fa_tag", Image)
+        received: list[Observation] = []
+        s.filter_tags(cam="front").appended.subscribe(on_next=received.append)
+
+        s.append(images[0], tags={"cam": "front"})
+        s.append(images[1], tags={"cam": "rear"})
+        assert len(received) == 1
 
 
 class TestStoreReopen:

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+import math
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 if TYPE_CHECKING:
@@ -94,10 +95,16 @@ class StreamInfo:
 class AfterFilter:
     t: float
 
+    def matches(self, obs: Observation) -> bool:
+        return obs.ts is not None and obs.ts > self.t
+
 
 @dataclass(frozen=True)
 class BeforeFilter:
     t: float
+
+    def matches(self, obs: Observation) -> bool:
+        return obs.ts is not None and obs.ts < self.t
 
 
 @dataclass(frozen=True)
@@ -105,11 +112,17 @@ class TimeRangeFilter:
     t1: float
     t2: float
 
+    def matches(self, obs: Observation) -> bool:
+        return obs.ts is not None and self.t1 <= obs.ts <= self.t2
+
 
 @dataclass(frozen=True)
 class AtFilter:
     t: float
     tolerance: float
+
+    def matches(self, obs: Observation) -> bool:
+        return obs.ts is not None and abs(obs.ts - self.t) <= self.tolerance
 
 
 @dataclass(frozen=True)
@@ -117,10 +130,21 @@ class NearFilter:
     pose: Any  # PoseLike
     radius: float
 
+    def matches(self, obs: Observation) -> bool:
+        if obs.pose is None:
+            return False
+        p1 = obs.pose.pose.position
+        p2 = self.pose.pose.position
+        dist = math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2 + (p1.z - p2.z) ** 2)
+        return dist <= self.radius
+
 
 @dataclass(frozen=True)
 class TagsFilter:
     tags: dict[str, Any]
+
+    def matches(self, obs: Observation) -> bool:
+        return all(obs.tags.get(k) == v for k, v in self.tags.items())
 
 
 @dataclass(frozen=True)
@@ -128,11 +152,17 @@ class EmbeddingSearchFilter:
     query: list[float]
     k: int
 
+    def matches(self, obs: Observation) -> bool:
+        return True  # top-k handled as special pass in ListBackend
+
 
 @dataclass(frozen=True)
 class TextSearchFilter:
     text: str
     k: int | None
+
+    def matches(self, obs: Observation) -> bool:
+        return self.text.lower() in str(obs.data).lower()
 
 
 @dataclass(frozen=True)
@@ -146,6 +176,9 @@ class LineageFilter:
     source_table: str
     source_query: StreamQuery
     hops: tuple[str, ...]  # intermediate tables between source and target
+
+    def matches(self, obs: Observation) -> bool:
+        raise NotImplementedError("LineageFilter requires a database backend")
 
 
 Filter: TypeAlias = (

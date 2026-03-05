@@ -96,13 +96,13 @@ caption_xf = CaptionTransformer(captioner)
 for query_text in queries:
     print(f"\nQuery: '{query_text}'")
     query_emb = clip.embed_text(query_text)
-    search = embeddings.search_embedding(query_emb, k=5)
 
-    captions = search.transform(caption_xf).fetch()
-    images = search.fetch()
+    # Fork-and-zip: one DB query, two uses via ObservationSet
+    results = embeddings.search_embedding(query_emb, k=5).fetch()
+    captions = results.transform(caption_xf).fetch()
 
     slug = query_text.replace(" ", "_")[:30]
-    for rank, (cap, img) in enumerate(zip(captions, images, strict=False)):
+    for rank, (cap, img) in enumerate(zip(captions, results, strict=False)):
         fname = OUT_DIR / f"{slug}_{rank + 1}_id{img.id}_ts{img.ts:.0f}.jpg"
         img.data.save(str(fname))
         print(f"  [{rank + 1}] id={img.id} ts={img.ts:.2f} — {cap.data}")

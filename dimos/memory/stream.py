@@ -23,6 +23,9 @@ from typing import (
     overload,
 )
 
+import numpy as np
+import reactivex.operators as ops
+
 from .types import (
     AfterFilter,
     AtFilter,
@@ -258,9 +261,10 @@ class Stream(Generic[T]):
 
     # ── Terminals ─────────────────────────────────────────────────────
 
-    def fetch(self) -> list[Observation]:
+    def fetch(self) -> ObservationSet[T]:
         backend = self._require_backend()
-        return backend.execute_fetch(self._query)
+        results = backend.execute_fetch(self._query)
+        return ObservationSet(results, session=self._session)
 
     def fetch_pages(self, batch_size: int = 128) -> Iterator[list[Observation]]:
         offset = self._query.offset_val or 0
@@ -302,7 +306,19 @@ class Stream(Generic[T]):
     @property
     def appended(self) -> Observable[Observation]:  # type: ignore[type-arg]
         backend = self._require_backend()
-        return backend.appended_subject  # type: ignore[return-value]
+        raw: Observable[Observation] = backend.appended_subject  # type: ignore[assignment]
+        if not self._query.filters:
+            return raw
+        active = [
+            f
+            for f in self._query.filters
+            if not isinstance(f, (EmbeddingSearchFilter, LineageFilter))
+        ]
+
+        def _check(o: Observation) -> bool:
+            return all(f.matches(o) for f in active)
+
+        return raw.pipe(ops.filter(_check))
 
 
 class EmbeddingStream(Stream[T]):
@@ -341,34 +357,19 @@ class EmbeddingStream(Stream[T]):
 
         return filtered
 
-    def fetch(self) -> list[EmbeddingObservation]:  # type: ignore[override]
+    def fetch(self) -> ObservationSet[T]:  # type: ignore[override]
         backend = self._require_backend()
-        return backend.execute_fetch(self._query)  # type: ignore[return-value]
+        results = backend.execute_fetch(self._query)
+        return ObservationSet(results, session=self._session)
 
     def one(self) -> EmbeddingObservation:  # type: ignore[override]
-        q = StreamQuery(
-            filters=self._query.filters,
-            order_field=self._query.order_field,
-            order_desc=self._query.order_desc,
-            limit_val=1,
-            offset_val=self._query.offset_val,
-        )
-        backend = self._require_backend()
-        results = backend.execute_fetch(q)
+        results = self.limit(1).fetch()
         if not results:
             raise LookupError("No matching observation")
         return results[0]  # type: ignore[return-value]
 
     def last(self) -> EmbeddingObservation:  # type: ignore[override]
-        q = StreamQuery(
-            filters=self._query.filters,
-            order_field="ts",
-            order_desc=True,
-            limit_val=1,
-            offset_val=self._query.offset_val,
-        )
-        backend = self._require_backend()
-        results = backend.execute_fetch(q)
+        results = self.order_by("ts", desc=True).limit(1).fetch()
         if not results:
             raise LookupError("No matching observation")
         return results[0]  # type: ignore[return-value]
@@ -402,12 +403,12 @@ class TransformStream(Stream[R]):
         self._live = live
         self._backfill_only = backfill_only
 
-    def fetch(self) -> list[Observation]:
+    def fetch(self) -> ObservationSet[R]:
         """Execute transform in memory, collecting results."""
         collector = _CollectorStream[R]()
         if self._transformer.supports_backfill and not self._live:
             self._transformer.process(self._source, collector)
-        return collector.results
+        return ObservationSet(collector.results, session=self._source._session)
 
     def store(
         self,
@@ -462,3 +463,147 @@ class _CollectorStream(Stream[R]):
         self._next_id += 1
         self.results.append(obs)
         return obs
+
+
+class ListBackend:
+    """In-memory backend that evaluates StreamQuery filters in Python."""
+
+    def __init__(self, observations: list[Observation], name: str = "<memory>") -> None:
+        self._observations = observations
+        self._name = name
+        from reactivex.subject import Subject
+
+        self._subject: Subject[Observation] = Subject()  # type: ignore[type-arg]
+
+    def execute_fetch(self, query: StreamQuery) -> list[Observation]:
+        results = list(self._observations)
+
+        # Apply non-embedding filters
+        for f in query.filters:
+            if isinstance(f, (EmbeddingSearchFilter, LineageFilter)):
+                continue
+            results = [obs for obs in results if f.matches(obs)]
+
+        # Embedding top-k pass (cosine similarity)
+        emb_filters = [f for f in query.filters if isinstance(f, EmbeddingSearchFilter)]
+        if emb_filters:
+            ef = emb_filters[0]
+            query_vec = np.array(ef.query, dtype=np.float32)
+            query_norm = np.linalg.norm(query_vec)
+            if query_norm > 0:
+                scored = []
+                for obs in results:
+                    if isinstance(obs, EmbeddingObservation):
+                        obs_vec = obs.embedding.to_numpy()
+                    else:
+                        continue
+                    obs_norm = np.linalg.norm(obs_vec)
+                    if obs_norm > 0:
+                        sim = float(np.dot(query_vec, obs_vec) / (query_norm * obs_norm))
+                    else:
+                        sim = 0.0
+                    scored.append((sim, obs))
+                scored.sort(key=lambda x: x[0], reverse=True)
+                results = [obs for _, obs in scored[: ef.k]]
+
+        # Ordering
+        if query.order_field:
+            key = query.order_field
+            results.sort(
+                key=lambda obs: getattr(obs, key) if getattr(obs, key, None) is not None else 0,
+                reverse=query.order_desc,
+            )
+
+        # Offset / limit
+        if query.offset_val:
+            results = results[query.offset_val :]
+        if query.limit_val is not None:
+            results = results[: query.limit_val]
+
+        return results
+
+    def execute_count(self, query: StreamQuery) -> int:
+        return len(self.execute_fetch(query))
+
+    def do_append(
+        self,
+        payload: Any,
+        ts: float | None,
+        pose: Any | None,
+        tags: dict[str, Any] | None,
+        parent_id: int | None = None,
+    ) -> Observation:
+        raise TypeError("ObservationSet is read-only")
+
+    @property
+    def appended_subject(self) -> Subject[Observation]:  # type: ignore[type-arg]
+        return self._subject
+
+    @property
+    def stream_name(self) -> str:
+        return self._name
+
+
+class ObservationSet(Stream[T]):
+    """Materialized result set — list-like + stream-like.
+
+    Holds Observation objects with lazy _data_loader closures.
+    Metadata is in memory, payload BLOBs stay in DB until .data access.
+    """
+
+    def __init__(
+        self,
+        observations: list[Observation],
+        *,
+        session: Session | None = None,
+    ) -> None:
+        self._observations = observations
+        backend = ListBackend(observations)
+        super().__init__(backend=backend, session=session)
+
+    def _clone(self, **overrides: Any) -> Stream[T]:
+        """Return a plain Stream backed by same ListBackend (preserves lazy filter chaining)."""
+        q = self._query
+        new_query = StreamQuery(
+            filters=overrides.get("filters", q.filters),
+            order_field=overrides.get("order_field", q.order_field),
+            order_desc=overrides.get("order_desc", q.order_desc),
+            limit_val=overrides.get("limit_val", q.limit_val),
+            offset_val=overrides.get("offset_val", q.offset_val),
+        )
+        clone: Stream[T] = Stream.__new__(Stream)
+        clone._backend = self._backend
+        clone._query = new_query
+        clone._session = self._session
+        return clone
+
+    def append(
+        self,
+        payload: T,
+        *,
+        ts: float | None = None,
+        pose: PoseLike | None = None,
+        tags: dict[str, Any] | None = None,
+        parent_id: int | None = None,
+    ) -> Observation:
+        raise TypeError("ObservationSet is read-only")
+
+    # ── List-like interface ──────────────────────────────────────────
+
+    def __len__(self) -> int:
+        return len(self._observations)
+
+    @overload
+    def __getitem__(self, index: int) -> Observation: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list[Observation]: ...
+
+    def __getitem__(self, index: int | slice) -> Observation | list[Observation]:
+        return self._observations[index]
+
+    def __iter__(self) -> Iterator[Observation]:
+        return iter(self._observations)
+
+    def __bool__(self) -> bool:
+        return len(self._observations) > 0

@@ -1,6 +1,6 @@
 from dimos.memory.codec import Codec, JpegCodec, LcmCodec, PickleCodec, codec_for_type
 from dimos.memory.store import Session, Store
-from dimos.memory.stream import EmbeddingStream, Stream, TextStream
+from dimos.memory.stream import EmbeddingStream, ObservationSet, Stream, TextStream
 from dimos.memory.transformer import (
     CaptionTransformer,
     EmbeddingTransformer,
@@ -22,6 +22,7 @@ __all__ = [
     "JpegCodec",
     "LcmCodec",
     "Observation",
+    "ObservationSet",
     "PerItemTransformer",
     "PickleCodec",
     "Session",
