@@ -116,6 +116,8 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
 
     def start_all_modules(self) -> None:
         modules = list(self._deployed_modules.values())
+        if not modules:
+            raise ValueError("No modules deployed. Call deploy() before start_all_modules().")
         with ThreadPoolExecutor(max_workers=len(modules)) as executor:
             list(executor.map(lambda m: m.start(), modules))
 
