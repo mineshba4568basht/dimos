@@ -18,7 +18,6 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 import importlib
 import json
-import os
 import signal
 import subprocess
 import threading
@@ -181,9 +180,8 @@ class DockerModule:
         self._kwargs = kwargs
         self._running = False
         self.remote_name = module_class.__name__
-        self._container_name = (
-            config.docker_container_name
-            or f"dimos_{module_class.__name__.lower()}_{os.getpid()}_{int(time.time())}"
+        self._container_name = config.docker_container_name or self._default_container_name(
+            module_class, config
         )
 
         # RPC setup (lazy import to keep container-side imports light)
@@ -201,6 +199,16 @@ class DockerModule:
         if not image_exists(config):
             logger.info(f"Building {config.docker_image}")
             build_image(config)
+
+    @staticmethod
+    def _default_container_name(module_class: type[Module], config: DockerModuleConfig) -> str:
+        import hashlib
+
+        name = module_class.__name__.lower()
+        path_hash = hashlib.sha256(
+            str(config.docker_file.resolve()).encode()  # type: ignore[union-attr]
+        ).hexdigest()[:12]
+        return f"dimos_{name}_{path_hash}"
 
     def set_rpc_method(self, method: str, callable: RpcCall) -> None:
         callable.set_rpc(self.rpc)
