@@ -84,6 +84,7 @@ from dimos.msgs.nav_msgs import Path as NavPath
 from dimos.msgs.sensor_msgs import Image, ImageFormat, PointCloud2
 from dimos.msgs.tf2_msgs.TFMessage import TFMessage
 from dimos.navigation.base import NavigationInterface, NavigationState
+from dimos.utils.data import get_data
 from dimos.utils.logging_config import setup_logger
 from dimos.utils.transform_utils import euler_to_quaternion
 
@@ -216,7 +217,8 @@ class ROSNavConfig(DockerModuleConfig):
         self.docker_env["QT_X11_NO_MITSHM"] = "1"
 
         repo_root = Path(__file__).parent.parent.parent.parent
-        sim_data_dir = str(repo_root / "docker" / "navigation" / "unity_models")
+        # Ensure the Unity sim environment is downloaded from LFS before Docker build.
+        sim_data_dir = str(get_data("office_building_1"))
         self.docker_volumes += [
             # X11 socket for display forwarding (RViz, Unity)
             ("/tmp/.X11-unix", "/tmp/.X11-unix", "rw"),
@@ -231,7 +233,7 @@ class ROSNavConfig(DockerModuleConfig):
                 "/usr/local/bin/entrypoint.sh",
                 "ro",
             ),
-            # Mount CMU VLA Challenge Unity sim (office_2) — downloaded via get_data / LFS
+            # Mount Unity sim (office_building_1) — downloaded via get_data / LFS
             # Provides map.ply, traversable_area.ply and environment/Model.x86_64
             (
                 sim_data_dir,
@@ -256,24 +258,6 @@ class ROSNavConfig(DockerModuleConfig):
                 sim_data_dir,
                 "/ros2_ws/src/base_autonomy/vehicle_simulator/mesh/real_world/",
                 "rw",
-            ),
-            # Patch ros_tcp_endpoint server.py: fixes JSON null-terminator stripping bug
-            # that crashes every Unity TCP connection. The installed copy is pre-built into
-            # the image; mounting the fixed source over it avoids a full rebuild.
-            (
-                str(
-                    repo_root
-                    / "docker"
-                    / "navigation"
-                    / "ros-navigation-autonomy-stack"
-                    / "src"
-                    / "utilities"
-                    / "ROS-TCP-Endpoint"
-                    / "ros_tcp_endpoint"
-                    / "server.py"
-                ),
-                "/ros2_ws/install/ros_tcp_endpoint/lib/python3.10/site-packages/ros_tcp_endpoint/server.py",
-                "ro",
             ),
         ]
 
