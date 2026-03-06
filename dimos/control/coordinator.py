@@ -39,7 +39,11 @@ from dimos.control.components import (
     JointName,
     TaskName,
 )
-from dimos.control.hardware_interface import ConnectedHardware, ConnectedQuadruped, ConnectedTwistBase
+from dimos.control.hardware_interface import (
+    ConnectedHardware,
+    ConnectedTwistBase,
+    ConnectedWholeBody,
+)
 from dimos.control.task import ControlTask
 from dimos.control.tick_loop import TickLoop
 from dimos.core.core import rpc
@@ -181,7 +185,7 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
         super().__init__(*args, **kwargs)
 
         # Connected hardware (keyed by hardware_id)
-        self._hardware: dict[HardwareId, ConnectedHardware | ConnectedQuadruped] = {}
+        self._hardware: dict[HardwareId, ConnectedHardware | ConnectedWholeBody] = {}
         self._hardware_lock = threading.Lock()
 
         # Joint -> hardware mapping (built when hardware added)
@@ -231,8 +235,8 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
     def _setup_hardware(self, component: HardwareComponent) -> None:
         """Connect and add a single hardware adapter."""
         adapter: ManipulatorAdapter | TwistBaseAdapter
-        if component.hardware_type == HardwareType.QUADRUPED:
-            adapter = self._create_quadruped_adapter(component)
+        if component.hardware_type == HardwareType.WHOLE_BODY:
+            adapter = self._create_whole_body_adapter(component)
         elif component.hardware_type == HardwareType.BASE:
             adapter = self._create_twist_base_adapter(component)
         else:
@@ -270,11 +274,11 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
             address=component.address,
         )
 
-    def _create_quadruped_adapter(self, component: HardwareComponent) -> object:
-        """Create a quadruped adapter from component config."""
-        from dimos.hardware.quadrupeds.registry import quadruped_adapter_registry
+    def _create_whole_body_adapter(self, component: HardwareComponent) -> object:
+        """Create a whole-body adapter from component config."""
+        from dimos.hardware.whole_body.registry import whole_body_adapter_registry
 
-        return quadruped_adapter_registry.create(
+        return whole_body_adapter_registry.create(
             component.adapter_type,
             network_interface=int(component.address) if component.address else 0,
         )
@@ -366,10 +370,10 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
         component: HardwareComponent,
     ) -> bool:
         """Register a hardware adapter with the coordinator."""
-        from dimos.hardware.quadrupeds.spec import QuadrupedAdapter
+        from dimos.hardware.whole_body.spec import WholeBodyAdapter
 
         is_base = component.hardware_type == HardwareType.BASE
-        is_quadruped = component.hardware_type == HardwareType.QUADRUPED
+        is_whole_body = component.hardware_type == HardwareType.WHOLE_BODY
 
         if is_base and not isinstance(adapter, TwistBaseAdapter):
             raise TypeError(
@@ -378,7 +382,7 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
                 f"{type(adapter).__name__}"
             )
 
-        if is_quadruped and not isinstance(adapter, QuadrupedAdapter):
+        if is_whole_body and not isinstance(adapter, WholeBodyAdapter):
             raise TypeError(
                 f"Hardware type / adapter mismatch for '{component.hardware_id}': "
                 f"hardware_type={component.hardware_type.value} but got "
@@ -390,8 +394,8 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
                 logger.warning(f"Hardware {component.hardware_id} already registered")
                 return False
 
-            if isinstance(adapter, QuadrupedAdapter):
-                connected: ConnectedHardware | ConnectedQuadruped = ConnectedQuadruped(
+            if isinstance(adapter, WholeBodyAdapter):
+                connected: ConnectedHardware | ConnectedWholeBody = ConnectedWholeBody(
                     adapter=adapter,
                     component=component,
                 )
