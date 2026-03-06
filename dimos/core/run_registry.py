@@ -126,3 +126,9 @@ def check_port_conflicts(mcp_port: int = 9990, grpc_port: int = 9877) -> RunEntr
         if entry.mcp_port == mcp_port or entry.grpc_port == grpc_port:
             return entry
     return None
+
+
+def get_most_recent(alive_only: bool = True) -> RunEntry | None:
+    """Return the most recently created run entry, or None."""
+    runs = list_runs(alive_only=alive_only)
+    return runs[-1] if runs else None

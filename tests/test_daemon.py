@@ -17,10 +17,11 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import re
 import signal
+import sys
 import time
-from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
@@ -28,15 +29,14 @@ import pytest
 # ---------------------------------------------------------------------------
 # Registry tests
 # ---------------------------------------------------------------------------
+from dimos.core import run_registry
 from dimos.core.run_registry import (
     RunEntry,
     check_port_conflicts,
     cleanup_stale,
     generate_run_id,
+    list_runs,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture()
@@ -336,3 +336,237 @@ class TestSignalHandler:
 
         # Entry still removed even if stop() throws
         assert not entry.registry_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# dimos status tests
+# ---------------------------------------------------------------------------
+
+
+class TestStatusCommand:
+    """Tests for `dimos status` CLI command."""
+
+    def test_status_no_instances(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(run_registry, "REGISTRY_DIR", tmp_path / "runs")
+        entries = list_runs(alive_only=True)
+        assert entries == []
+
+    def test_status_shows_alive_instance(self, tmp_path, monkeypatch):
+        reg_dir = tmp_path / "runs"
+        monkeypatch.setattr(run_registry, "REGISTRY_DIR", reg_dir)
+
+        entry = RunEntry(
+            run_id="20260306-120000-test",
+            pid=os.getpid(),  # our own PID — alive
+            blueprint="test",
+            started_at="2026-03-06T12:00:00Z",
+            log_dir=str(tmp_path / "logs"),
+            cli_args=["test"],
+            config_overrides={},
+        )
+        entry.save()
+
+        entries = list_runs(alive_only=True)
+        assert len(entries) == 1
+        assert entries[0].run_id == "20260306-120000-test"
+        assert entries[0].pid == os.getpid()
+
+    def test_status_filters_dead(self, tmp_path, monkeypatch):
+        reg_dir = tmp_path / "runs"
+        monkeypatch.setattr(run_registry, "REGISTRY_DIR", reg_dir)
+
+        entry = RunEntry(
+            run_id="20260306-120000-dead",
+            pid=99999999,  # fake PID, not alive
+            blueprint="dead",
+            started_at="2026-03-06T12:00:00Z",
+            log_dir=str(tmp_path / "logs"),
+            cli_args=["dead"],
+            config_overrides={},
+        )
+        entry.save()
+
+        entries = list_runs(alive_only=True)
+        assert len(entries) == 0
+
+
+# ---------------------------------------------------------------------------
+# dimos stop tests
+# ---------------------------------------------------------------------------
+
+
+class TestStopCommand:
+    """Tests for `dimos stop` CLI command."""
+
+    def test_stop_sends_sigterm(self, tmp_path, monkeypatch):
+        """Verify stop sends SIGTERM to the correct PID."""
+        reg_dir = tmp_path / "runs"
+        monkeypatch.setattr(run_registry, "REGISTRY_DIR", reg_dir)
+
+        killed_pids = []
+        killed_signals = []
+
+        def mock_kill(pid, sig):
+            killed_pids.append(pid)
+            killed_signals.append(sig)
+            raise ProcessLookupError  # pretend it died immediately
+
+        monkeypatch.setattr(os, "kill", mock_kill)
+
+        entry = RunEntry(
+            run_id="20260306-120000-test",
+            pid=12345,
+            blueprint="test",
+            started_at="2026-03-06T12:00:00Z",
+            log_dir=str(tmp_path / "logs"),
+            cli_args=["test"],
+            config_overrides={},
+        )
+        entry.save()
+
+        # Import the stop helper
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from dimos.robot.cli.dimos import _stop_entry
+
+        _stop_entry(entry, force=False)
+
+        assert 12345 in killed_pids
+        import signal
+
+        assert signal.SIGTERM in killed_signals
+        # Registry entry should be removed
+        assert not entry.registry_path.exists()
+
+    def test_stop_force_sends_sigkill(self, tmp_path, monkeypatch):
+        """Verify --force sends SIGKILL."""
+        reg_dir = tmp_path / "runs"
+        monkeypatch.setattr(run_registry, "REGISTRY_DIR", reg_dir)
+
+        killed_signals = []
+
+        def mock_kill(pid, sig):
+            killed_signals.append(sig)
+            raise ProcessLookupError
+
+        monkeypatch.setattr(os, "kill", mock_kill)
+
+        entry = RunEntry(
+            run_id="20260306-120000-test",
+            pid=12345,
+            blueprint="test",
+            started_at="2026-03-06T12:00:00Z",
+            log_dir=str(tmp_path / "logs"),
+            cli_args=["test"],
+            config_overrides={},
+        )
+        entry.save()
+
+        from dimos.robot.cli.dimos import _stop_entry
+
+        _stop_entry(entry, force=True)
+
+        import signal
+
+        assert signal.SIGKILL in killed_signals
+        assert not entry.registry_path.exists()
+
+    def test_stop_cleans_registry_on_already_dead(self, tmp_path, monkeypatch):
+        """If process is already dead, just clean registry."""
+        reg_dir = tmp_path / "runs"
+        monkeypatch.setattr(run_registry, "REGISTRY_DIR", reg_dir)
+
+        def mock_kill(pid, sig):
+            raise ProcessLookupError
+
+        monkeypatch.setattr(os, "kill", mock_kill)
+
+        entry = RunEntry(
+            run_id="20260306-120000-dead",
+            pid=99999999,
+            blueprint="dead",
+            started_at="2026-03-06T12:00:00Z",
+            log_dir=str(tmp_path / "logs"),
+            cli_args=["dead"],
+            config_overrides={},
+        )
+        entry.save()
+        assert entry.registry_path.exists()
+
+        from dimos.robot.cli.dimos import _stop_entry
+
+        _stop_entry(entry, force=False)
+        assert not entry.registry_path.exists()
+
+    def test_stop_escalates_to_sigkill_after_timeout(self, tmp_path, monkeypatch):
+        """If SIGTERM doesn't kill within 5s, escalates to SIGKILL."""
+        reg_dir = tmp_path / "runs"
+        monkeypatch.setattr(run_registry, "REGISTRY_DIR", reg_dir)
+
+        signals_sent = []
+
+        def mock_kill(pid, sig):
+            signals_sent.append(sig)
+            # Don't raise — process "survives"
+
+        monkeypatch.setattr(os, "kill", mock_kill)
+
+        # Make is_pid_alive always return True (process won't die)
+        monkeypatch.setattr(run_registry, "is_pid_alive", lambda pid: True)
+
+        # Speed up the wait loop
+        monkeypatch.setattr("time.sleep", lambda x: None)
+
+        entry = RunEntry(
+            run_id="20260306-120000-stubborn",
+            pid=12345,
+            blueprint="stubborn",
+            started_at="2026-03-06T12:00:00Z",
+            log_dir=str(tmp_path / "logs"),
+            cli_args=["stubborn"],
+            config_overrides={},
+        )
+        entry.save()
+
+        from dimos.robot.cli.dimos import _stop_entry
+
+        _stop_entry(entry, force=False)
+
+        import signal
+
+        assert signal.SIGTERM in signals_sent
+        assert signal.SIGKILL in signals_sent
+        assert not entry.registry_path.exists()
+
+    def test_get_most_recent_returns_latest(self, tmp_path, monkeypatch):
+        """Verify get_most_recent returns the most recently created entry."""
+        reg_dir = tmp_path / "runs"
+        monkeypatch.setattr(run_registry, "REGISTRY_DIR", reg_dir)
+        monkeypatch.setattr(run_registry, "is_pid_alive", lambda pid: True)
+
+        entry1 = RunEntry(
+            run_id="20260306-100000-first",
+            pid=os.getpid(),
+            blueprint="first",
+            started_at="2026-03-06T10:00:00Z",
+            log_dir=str(tmp_path / "logs1"),
+            cli_args=["first"],
+            config_overrides={},
+        )
+        entry1.save()
+
+        entry2 = RunEntry(
+            run_id="20260306-110000-second",
+            pid=os.getpid(),
+            blueprint="second",
+            started_at="2026-03-06T11:00:00Z",
+            log_dir=str(tmp_path / "logs2"),
+            cli_args=["second"],
+            config_overrides={},
+        )
+        entry2.save()
+
+        from dimos.core.run_registry import get_most_recent
+
+        latest = get_most_recent(alive_only=True)
+        assert latest is not None
+        assert latest.run_id == "20260306-110000-second"
