@@ -110,6 +110,7 @@ def _clean_registry():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.slow
 class TestDaemonE2E:
     """End-to-end daemon lifecycle with real workers."""
 
