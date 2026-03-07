@@ -71,25 +71,26 @@ def _convert_dockerfile(dockerfile: Path) -> Path:
 
 
 def _compute_build_hash(cfg: DockerModuleConfig) -> str:
-    """Hash Dockerfile contents, build args, and build context path."""
+    """Hash Dockerfile contents, build args, and SSH flag."""
     assert cfg.docker_file is not None
     digest = hashlib.sha256()
     digest.update(cfg.docker_file.read_bytes())
     for key, val in sorted(cfg.docker_build_args.items()):
         digest.update(f"{key}={val}".encode())
+    digest.update(f"ssh={cfg.docker_build_ssh}".encode())
     return digest.hexdigest()
 
 
-def _get_image_build_hash(docker_bin: str, image_name: str) -> str | None:
+def _get_image_build_hash(cfg: DockerModuleConfig) -> str | None:
     """Read the build hash label from an existing Docker image."""
     r = subprocess.run(
         [
-            docker_bin,
+            cfg.docker_bin,
             "image",
             "inspect",
             "-f",
             '{{index .Config.Labels "' + _BUILD_HASH_LABEL + '"}}',
-            image_name,
+            cfg.docker_image,
         ],
         capture_output=True,
         text=True,
@@ -121,9 +122,13 @@ def build_image(cfg: DockerModuleConfig) -> None:
     cmd.append(str(context))
 
     logger.info(f"Building Docker image: {cfg.docker_image}")
-    result = subprocess.run(cmd, text=True)
+    # Stream stdout to terminal so the user sees build progress, but capture
+    # stderr separately so we can include it in the error message on failure.
+    result = subprocess.run(cmd, text=True, stderr=subprocess.PIPE)
     if result.returncode != 0:
-        raise RuntimeError(f"Docker build failed with exit code {result.returncode}")
+        raise RuntimeError(
+            f"Docker build failed with exit code {result.returncode}\nSTDERR:\n{result.stderr}"
+        )
 
 
 def image_exists(cfg: DockerModuleConfig) -> bool:
@@ -140,8 +145,6 @@ def image_exists(cfg: DockerModuleConfig) -> bool:
 
 __all__ = [
     "DIMOS_FOOTER",
-    "_compute_build_hash",
-    "_get_image_build_hash",
     "build_image",
     "image_exists",
 ]

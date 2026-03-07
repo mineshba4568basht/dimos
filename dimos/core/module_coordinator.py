@@ -113,19 +113,24 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
                 worker_indices.append(i)
                 worker_specs.append(spec)
 
+        # Intentionally sequential: worker deploys first, then docker.
+        # Both internally parallelize across their own items. Running them
+        # concurrently would add complexity for minimal gain since they use
+        # different resource pools (processes vs containers).
         worker_results: list[Any] = []
         docker_results: list[Any] = []
         try:
             worker_results = self._client.deploy_parallel(worker_specs)
             docker_results = DockerWorkerManager.deploy_parallel(docker_specs)  # type: ignore[arg-type]
         finally:
-            # Reassemble results in original input order
+            # Reassemble whatever succeeded into original input order so
+            # stop() can clean them up even if a later deploy raised.
+            # zip(strict=False) safely handles partial results (empty lists).
             results: list[Any] = [None] * len(module_specs)
             for idx, mod in zip(worker_indices, worker_results, strict=False):
                 results[idx] = mod
             for idx, mod in zip(docker_indices, docker_results, strict=False):  # type: ignore[assignment]
                 results[idx] = mod
-            # Register whatever succeeded so stop() can clean them up
             for (module_class, _, _), module in zip(module_specs, results, strict=False):
                 if module is not None:
                     self._deployed_modules[module_class] = module

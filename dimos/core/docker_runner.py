@@ -216,7 +216,7 @@ class DockerModule(ModuleProxyProtocol):
         try:
             if config.docker_file is not None:
                 current_hash = _compute_build_hash(config)
-                stored_hash = _get_image_build_hash(config.docker_bin, config.docker_image)
+                stored_hash = _get_image_build_hash(config)
                 if current_hash != stored_hash:
                     logger.info(f"Building {config.docker_image}")
                     build_image(config)
