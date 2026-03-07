@@ -164,35 +164,47 @@ class WebsocketVisModule(Module):
             global _browser_opened
             with _browser_open_lock:
                 if not _browser_opened:
-                    try:
-                        webbrowser.open_new_tab(url)
-                        _browser_opened = True
-                    except Exception as e:
-                        logger.debug(f"Failed to open browser: {e}")
+                    _browser_opened = True
+
+                    def _open_browser() -> None:
+                        try:
+                            webbrowser.open_new_tab(url)
+                        except Exception as e:
+                            logger.debug(f"Failed to open browser: {e}")
+
+                    threading.Thread(target=_open_browser, daemon=True).start()
 
         try:
             unsub = self.odom.subscribe(self._on_robot_pose)
             self._disposables.add(Disposable(unsub))
-        except Exception:
-            ...
+            logger.info("Subscribed to odom")
+        except Exception as e:
+            logger.warning(f"Failed to subscribe to odom: {e}")
 
         try:
             unsub = self.gps_location.subscribe(self._on_gps_location)
             self._disposables.add(Disposable(unsub))
-        except Exception:
-            ...
+            logger.info("Subscribed to gps_location")
+        except Exception as e:
+            logger.warning(f"Failed to subscribe to gps_location: {e}")
 
         try:
             unsub = self.path.subscribe(self._on_path)
             self._disposables.add(Disposable(unsub))
-        except Exception:
-            ...
+            logger.info("Subscribed to path")
+        except Exception as e:
+            logger.warning(f"Failed to subscribe to path: {e}")
 
+        transport = getattr(self.global_costmap, "_transport", "MISSING")
+        logger.info(f"[DEBUG] global_costmap transport before subscribe: {transport}")
         try:
             unsub = self.global_costmap.subscribe(self._on_global_costmap)
             self._disposables.add(Disposable(unsub))
-        except Exception:
-            ...
+            logger.info(f"[DEBUG] Subscribed to global_costmap OK, transport={transport}")
+        except Exception as e:
+            logger.warning(f"Failed to subscribe to global_costmap: {e}", exc_info=True)
+
+        logger.info("WebsocketVisModule.start() complete")
 
     @rpc
     def stop(self) -> None:
