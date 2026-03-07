@@ -75,6 +75,8 @@ def safe_thread_map(
             except Exception as e:
                 outcomes[idx] = e
 
+    # Note: successes/errors are in completion order, not input order.
+    # This is fine — on_errors only needs them for cleanup, not ordering.
     successes: list[R] = []
     errors: list[Exception] = []
     for v in outcomes.values():

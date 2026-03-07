@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import threading
 from typing import TYPE_CHECKING, Any
 
@@ -28,6 +27,7 @@ if TYPE_CHECKING:
     from dimos.core.module import Module, ModuleT
     from dimos.core.resource_monitor.monitor import StatsMonitor
     from dimos.core.rpc_client import ModuleProxy, ModuleProxyProtocol
+    from dimos.core.worker import Worker
 
 logger = setup_logger()
 
@@ -49,6 +49,40 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
         self._memory_limit = cfg.memory_limit
         self._global_config = cfg
         self._deployed_modules = {}
+
+    @property
+    def workers(self) -> list[Worker]:
+        """Active worker processes."""
+        if self._client is None:
+            return []
+        return self._client.workers
+
+    @property
+    def n_workers(self) -> int:
+        """Number of active workers."""
+        return len(self.workers)
+
+    def health_check(self) -> bool:
+        """Verify all workers are alive after build.
+
+        Since ``blueprint.build()`` is synchronous, every module should be
+        started by the time this runs.  We just confirm no worker has died.
+        """
+        if self.n_workers == 0:
+            logger.error("health_check: no workers found")
+            return False
+
+        for w in self.workers:
+            if w.pid is None:
+                logger.error("health_check: worker died", worker_id=w.worker_id)
+                return False
+
+        return True
+
+    @property
+    def n_modules(self) -> int:
+        """Number of deployed modules."""
+        return len(self._deployed_modules)
 
     def start(self) -> None:
         n = self._n if self._n is not None else 2
@@ -113,19 +147,24 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
                 worker_indices.append(i)
                 worker_specs.append(spec)
 
+        # Intentionally sequential: worker deploys first, then docker.
+        # Both internally parallelize across their own items. Running them
+        # concurrently would add complexity for minimal gain since they use
+        # different resource pools (processes vs containers).
         worker_results: list[Any] = []
         docker_results: list[Any] = []
         try:
             worker_results = self._client.deploy_parallel(worker_specs)
             docker_results = DockerWorkerManager.deploy_parallel(docker_specs)  # type: ignore[arg-type]
         finally:
-            # Reassemble results in original input order
+            # Reassemble whatever succeeded into original input order so
+            # stop() can clean them up even if a later deploy raised.
+            # zip(strict=False) safely handles partial results (empty lists).
             results: list[Any] = [None] * len(module_specs)
             for idx, mod in zip(worker_indices, worker_results, strict=False):
                 results[idx] = mod
             for idx, mod in zip(docker_indices, docker_results, strict=False):  # type: ignore[assignment]
                 results[idx] = mod
-            # Register whatever succeeded so stop() can clean them up
             for (module_class, _, _), module in zip(module_specs, results, strict=False):
                 if module is not None:
                     self._deployed_modules[module_class] = module
@@ -133,11 +172,18 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
         return results
 
     def start_all_modules(self) -> None:
+        from dimos.utils.safe_thread_map import safe_thread_map
+
         modules = list(self._deployed_modules.values())
         if not modules:
             raise ValueError("No modules deployed. Call deploy() before start_all_modules().")
-        with ThreadPoolExecutor(max_workers=len(modules)) as executor:
-            list(executor.map(lambda m: m.start(), modules))
+
+        def _on_start_errors(
+            _outcomes: list[Any], _successes: list[Any], errors: list[Exception]
+        ) -> None:
+            raise ExceptionGroup("start_all_modules failed", errors)
+
+        safe_thread_map(modules, lambda m: m.start(), _on_start_errors)
 
         for module in modules:
             if hasattr(module, "on_system_modules"):
