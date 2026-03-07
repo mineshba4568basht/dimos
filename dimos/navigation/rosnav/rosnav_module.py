@@ -284,7 +284,7 @@ class ROSNav(Module, NavigationInterface, spec.Nav, spec.LocalPlanner):
 
     goal_request: In[PoseStamped]
 
-    image: Out[Image]
+    color_image: Out[Image]
     lidar: Out[PointCloud2]
     global_pointcloud: Out[PointCloud2]
     overall_map: Out[PointCloud2]
@@ -420,7 +420,7 @@ class ROSNav(Module, NavigationInterface, spec.Nav, spec.LocalPlanner):
         pass
 
     def _on_ros_image(self, msg: "ROSCompressedImage") -> None:
-        self.image.publish(_image_from_ros_compressed(msg))
+        self.color_image.publish(_image_from_ros_compressed(msg))
 
     def _on_ros_path(self, msg: ROSPath) -> None:
         dimos_path = _path_from_ros(msg)

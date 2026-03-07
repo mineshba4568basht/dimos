@@ -48,7 +48,7 @@ from dimos.navigation.rosnav.rosnav_module import ROSNav
 EXPECTED_STREAMS = {
     "odom",
     "lidar",
-    "image",
+    "color_image",
     "cmd_vel",
     "path",
 }
@@ -86,7 +86,7 @@ class StreamCollector(Module):
     @rpc
     def start(self) -> None:
         for stream_name in (
-            "image",
+            "color_image",
             "lidar",
             "global_pointcloud",
             "odom",
