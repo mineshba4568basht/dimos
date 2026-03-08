@@ -61,7 +61,7 @@ class TestFilterStr:
         assert str(f) == "tags(cam='front', quality=1)"
 
     def test_embedding_search(self) -> None:
-        assert str(EmbeddingSearchFilter([0.1, 0.2], k=5)) == "search(k=5)"
+        assert str(EmbeddingSearchFilter([0.1, 0.2], k=5)) == "search_embedding(k=5)"
 
     def test_text_search(self) -> None:
         assert str(TextSearchFilter("error", k=None)) == "text('error')"

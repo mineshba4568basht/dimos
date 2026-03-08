@@ -739,7 +739,7 @@ class TestProjectTo:
         es = session.embedding_stream("pt_nomodel", vec_dimensions=3)
         es.append(Embedding(np.array([1.0, 0.0, 0.0], dtype=np.float32)), ts=1.0)
 
-        with pytest.raises(TypeError, match="no model reference"):
+        with pytest.raises(TypeError, match="No embedding model available"):
             es.search_embedding("hello", k=1)
 
     def test_no_lineage_fallback(self, session: SqliteSession) -> None:

@@ -20,11 +20,10 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from dimos.core.resource import Resource
 
 if TYPE_CHECKING:
+    from dimos.memory.stream import EmbeddingStream, Stream, TextStream
+    from dimos.memory.transformer import Transformer
+    from dimos.memory.type import PoseProvider
     from dimos.models.embedding.base import Embedding, EmbeddingModel
-
-    from .stream import EmbeddingStream, Stream, TextStream
-    from .transformer import Transformer
-    from .type import PoseProvider
 
 T = TypeVar("T")
 

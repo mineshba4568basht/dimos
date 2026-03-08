@@ -20,11 +20,10 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from dimos.memory.stream import Stream
+    from dimos.memory.type import Observation
     from dimos.models.embedding.base import Embedding, EmbeddingModel
     from dimos.models.vl.base import Captioner
-
-    from .stream import Stream
-    from .type import Observation
 
 T = TypeVar("T")
 R = TypeVar("R")

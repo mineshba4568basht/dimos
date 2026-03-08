@@ -30,10 +30,8 @@ from typing import (
 import numpy as np
 import reactivex.operators as ops
 
-from dimos.types.timestamped import Timestamped
-
-from .formatting import render_text, rich_text
-from .type import (
+from dimos.memory.formatting import render_text, rich_text
+from dimos.memory.type import (
     AfterFilter,
     AtFilter,
     BeforeFilter,
@@ -48,6 +46,7 @@ from .type import (
     TextSearchFilter,
     TimeRangeFilter,
 )
+from dimos.types.timestamped import Timestamped
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -56,11 +55,10 @@ if TYPE_CHECKING:
     from reactivex.abc import DisposableBase as Disposable
     from reactivex.subject import Subject
 
+    from dimos.memory.store import Session
+    from dimos.memory.transformer import Transformer
     from dimos.models.embedding.base import Embedding, EmbeddingModel
     from dimos.msgs.geometry_msgs.Pose import PoseLike
-
-    from .store import Session
-    from .transformer import Transformer
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -79,7 +77,9 @@ class StreamBackend(Protocol):
         tags: dict[str, Any] | None,
         parent_id: int | None = None,
     ) -> Observation[Any]: ...
+
     def load_data(self, row_id: int) -> Any: ...
+
     @property
     def appended_subject(self) -> Subject[Observation[Any]]: ...  # type: ignore[type-arg]
     @property
@@ -105,6 +105,11 @@ class Stream(Generic[T]):
         self._query = query or StreamQuery()
         self._session: Session | None = session
         self._payload_type: type | None = payload_type
+
+    @property
+    def name(self) -> str:
+        """The stream name in the backing store."""
+        return self._require_backend().stream_name
 
     def _clone(self, **overrides: Any) -> Self:
         """Return a shallow copy with updated query fields."""
@@ -220,7 +225,7 @@ class Stream(Generic[T]):
         live: bool = False,
         backfill_only: bool = False,
     ) -> Stream[Any]:
-        from .transformer import PerItemTransformer, Transformer as TransformerABC
+        from dimos.memory.transformer import PerItemTransformer, Transformer as TransformerABC
 
         transformer: TransformerABC[Any, Any]
         if not isinstance(xf, TransformerABC):

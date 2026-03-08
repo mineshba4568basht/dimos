@@ -114,7 +114,7 @@ def _get_dispatch() -> dict[type, Callable[..., Text]]:
     global _FILTER_DISPATCH
     if _FILTER_DISPATCH is not None:
         return _FILTER_DISPATCH
-    from .type import (
+    from dimos.memory.type import (
         AfterFilter,
         AtFilter,
         BeforeFilter,
