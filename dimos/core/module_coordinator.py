@@ -109,7 +109,8 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
                 logger.error("Error stopping module", module=module_class.__name__, exc_info=True)
             logger.info("Module stopped.", module=module_class.__name__)
 
-        self._client.close_all()  # type: ignore[union-attr]
+        if self._client is not None:
+            self._client.close_all()
 
     def deploy(self, module_class: type[ModuleT], *args, **kwargs) -> ModuleProxy:  # type: ignore[no-untyped-def]
         # Inline to avoid circular import: module_coordinator → docker_runner → module → blueprints → module_coordinator
@@ -154,7 +155,7 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
         def _deploy_workers() -> None:
             if not worker_specs:
                 return
-            for (index, _), module in zip(
+            for index, module in zip(
                 worker_indices, self._client.deploy_parallel(worker_specs), strict=False
             ):  # type: ignore[union-attr]
                 results[index] = module
@@ -162,7 +163,7 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
         def _deploy_docker() -> None:
             if not docker_specs:
                 return
-            for (index, _), module in zip(
+            for index, module in zip(
                 docker_indices, DockerWorkerManager.deploy_parallel(docker_specs), strict=False
             ):  # type: ignore[arg-type]
                 results[index] = module
