@@ -185,19 +185,16 @@ class McpServer(Module):
         assert self.rpc is not None
         app.state.skills = [skill for module in modules for skill in (module.get_skills() or [])]
         app.state.rpc_calls = {
-            skill.func_name: RpcCall(
-                None,
-                self.rpc,
-                skill.func_name,
-                skill.class_name,
-                [],
-                timeout=RPCClient.default_rpc_timeout,
-            )
+            skill.func_name: RpcCall(None, self.rpc, skill.func_name, skill.class_name, [], timeout=RPCClient.default_rpc_timeout)
             for skill in app.state.skills
         }
 
-    def _start_server(self, port: int = 9990) -> None:
-        config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+    def _start_server(self, port: int | None = None) -> None:
+        from dimos.core.global_config import global_config
+
+        _port = port if port is not None else global_config.mcp_port
+        _host = global_config.mcp_host
+        config = uvicorn.Config(app, host=_host, port=_port, log_level="info")
         server = uvicorn.Server(config)
         self._uvicorn_server = server
         loop = self._loop
