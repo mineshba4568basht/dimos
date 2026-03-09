@@ -18,26 +18,18 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, runtime_checkable
 
+from reactivex.disposable import Disposable
+
 from dimos.memory2.type import Observation, StreamQuery
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Iterator
+
+    from reactivex.abc import DisposableBase
 
     from dimos.memory2.buffer import BackpressureBuffer
 
 T = TypeVar("T")
-
-
-class Disposable:
-    """Simple disposable that calls a function on dispose()."""
-
-    def __init__(self, fn: Callable[[], None]) -> None:
-        self._fn: Callable[[], None] | None = fn
-
-    def dispose(self) -> None:
-        if self._fn is not None:
-            self._fn()
-            self._fn = None
 
 
 @runtime_checkable
@@ -64,7 +56,7 @@ class Backend(Protocol[T]):
 
     def count(self, query: StreamQuery) -> int: ...
 
-    def subscribe(self, buf: BackpressureBuffer[Observation[T]]) -> Disposable: ...
+    def subscribe(self, buf: BackpressureBuffer[Observation[T]]) -> DisposableBase: ...
 
 
 class ListBackend(Generic[T]):
@@ -137,7 +129,7 @@ class ListBackend(Generic[T]):
     def count(self, query: StreamQuery) -> int:
         return sum(1 for _ in self.iterate(query))
 
-    def subscribe(self, buf: BackpressureBuffer[Observation[T]]) -> Disposable:
+    def subscribe(self, buf: BackpressureBuffer[Observation[T]]) -> DisposableBase:
         with self._lock:
             self._subscribers.append(buf)
 
@@ -148,4 +140,4 @@ class ListBackend(Generic[T]):
                 except ValueError:
                     pass
 
-        return Disposable(_unsubscribe)
+        return Disposable(action=_unsubscribe)

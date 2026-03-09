@@ -1,4 +1,4 @@
-from dimos.memory2.backend import Backend, Disposable, ListBackend
+from dimos.memory2.backend import Backend, ListBackend
 from dimos.memory2.buffer import (
     BackpressureBuffer,
     Bounded,
@@ -31,7 +31,6 @@ __all__ = [
     "BeforeFilter",
     "Bounded",
     "ClosedError",
-    "Disposable",
     "DropNew",
     "Filter",
     "FnTransformer",

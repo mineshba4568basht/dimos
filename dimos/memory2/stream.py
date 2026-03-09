@@ -17,7 +17,7 @@ from __future__ import annotations
 from itertools import islice
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from dimos.memory2.backend import Backend, Disposable
+from dimos.memory2.backend import Backend
 from dimos.memory2.buffer import BackpressureBuffer, ClosedError, KeepLast
 from dimos.memory2.transform import FnTransformer, Transformer
 from dimos.memory2.type import (
@@ -35,6 +35,8 @@ from dimos.memory2.type import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
+
+    from reactivex.abc import DisposableBase
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -57,12 +59,12 @@ class Stream(Generic[T]):
         *,
         query: StreamQuery = StreamQuery(),
         _live_buf: BackpressureBuffer[Observation[Any]] | None = None,
-        _live_sub: Disposable | None = None,
+        _live_sub: DisposableBase | None = None,
     ) -> None:
         self._source = source
         self._query = query
         self._live_buf = _live_buf
-        self._live_sub = _live_sub  # Disposable, kept alive for lifetime of stream
+        self._live_sub = _live_sub  # kept alive for lifetime of stream
 
     # ── Iteration ───────────────────────────────────────────────────
 
