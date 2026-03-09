@@ -126,23 +126,22 @@ Key fields: `robot_ip`, `simulation`, `replay`, `viewer` (`rerun`|`rerun-web`|`f
 ## Testing
 
 ```bash
-# Fast tests (run often during development)
-pytest -m 'not slow' dimos/core/
+# Fast tests (default — pytest.ini excludes slow, tool, mujoco)
+pytest
 
-# Slow tests (before pushing)
-pytest -m slow dimos/core/
+# Include slow tests (what CI runs)
+./bin/pytest-slow
 
 # Single file
 pytest dimos/core/test_blueprints.py -v
-
-# What CI runs (excludes tool + mujoco markers)
-coverage run -m pytest --durations=0 -m 'not (tool or mujoco)'
 
 # Mypy
 python -m mypy dimos/
 ```
 
-**CI runs slow tests.** The command is `-m 'not (tool or mujoco)'`, which does NOT exclude `slow`.
+**`pytest` alone runs fast tests only** — `addopts` in `pyproject.toml` includes `-m 'not (tool or slow or mujoco)'`.
+
+**CI runs `./bin/pytest-slow`** which uses `-m 'not (tool or mujoco)'` — includes slow tests but excludes tool and mujoco.
 
 ## Pre-commit & Code Quality
 
