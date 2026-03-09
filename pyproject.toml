@@ -150,7 +150,7 @@ misc = [
 
 visualization = [
     "rerun-sdk>=0.20.0",
-    "dimos-viewer>=0.30.0a2",
+    "dimos-viewer>=0.30.0a4",
 ]
 
 agents = [
@@ -316,6 +316,7 @@ docker = [
     "pydantic",
     "pydantic-settings>=2.11.0,<3",
     "typer>=0.19.2,<1",
+    "requests>=2.28",
     "opencv-python-headless",
     "lcm",
     "sortedcontainers",
