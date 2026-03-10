@@ -24,9 +24,8 @@ import time
 
 import pytest
 
-from dimos.memory2.backend import ListBackend
 from dimos.memory2.buffer import Bounded, ClosedError, DropNew, KeepLast, Unbounded
-from dimos.memory2.store import ListStore
+from dimos.memory2.impl.memory import ListBackend, MemoryStore
 from dimos.memory2.stream import Stream
 from dimos.memory2.transform import FnTransformer, QualityWindow, Transformer
 from dimos.memory2.type import Observation
@@ -331,7 +330,7 @@ class TestStoreSession:
     """Store -> Session -> Stream hierarchy for named streams."""
 
     def test_basic_session(self):
-        store = ListStore()
+        store = MemoryStore()
         with store.session() as session:
             images = session.stream("images")
             images.append("frame1", ts=0.0)
@@ -339,14 +338,14 @@ class TestStoreSession:
             assert images.count() == 2
 
     def test_same_stream_on_repeated_calls(self):
-        store = ListStore()
+        store = MemoryStore()
         with store.session() as session:
             s1 = session.stream("images")
             s2 = session.stream("images")
             assert s1 is s2
 
     def test_stream_namespace(self):
-        store = ListStore()
+        store = MemoryStore()
         with store.session() as session:
             session.stream("images")
             session.stream("lidar")
@@ -356,13 +355,13 @@ class TestStoreSession:
             assert session.streams["lidar"] is session.stream("lidar")
 
     def test_namespace_missing_raises(self):
-        store = ListStore()
+        store = MemoryStore()
         with store.session() as session:
             with pytest.raises(AttributeError, match="No stream named"):
                 _ = session.streams.nonexistent
 
     def test_delete_stream(self):
-        store = ListStore()
+        store = MemoryStore()
         with store.session() as session:
             session.stream("temp")
             session.delete_stream("temp")

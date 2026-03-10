@@ -17,7 +17,7 @@ from __future__ import annotations
 from itertools import islice
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from dimos.memory2.backend import Backend
+from dimos.memory2.backend import Backend, LiveBackend
 from dimos.memory2.buffer import BackpressureBuffer, KeepLast
 from dimos.memory2.filter import (
     AfterFilter,
@@ -168,8 +168,8 @@ class Stream(Generic[T]):
     def live(self, buffer: BackpressureBuffer[Observation[Any]] | None = None) -> Stream[T]:
         """Return a stream whose iteration never ends — backfill then live tail.
 
-        Only valid on backend-backed streams. Transforms downstream just see
-        an infinite iterator. Call .live() before .transform(), not after.
+        Only valid on backend-backed streams whose backend implements
+        LiveBackend. Call .live() before .transform(), not after.
 
         Default buffer: KeepLast(). The backend handles subscription, dedup,
         and backpressure — how it does so is its business.
@@ -179,8 +179,24 @@ class Stream(Generic[T]):
                 "Cannot call .live() on a transform stream. "
                 "Call .live() on the source stream, then .transform()."
             )
+        if not isinstance(self._source, LiveBackend):
+            raise TypeError(f"Backend {self._source.name!r} does not support live mode.")
         buf = buffer if buffer is not None else KeepLast()
         return self._replace_query(live_buffer=buf)
+
+    # ── Save ─────────────────────────────────────────────────────────
+
+    def save(self, target: Stream[T]) -> Stream[T]:
+        """Sync terminal: iterate self, append each obs to target's backend.
+
+        Returns the target stream for continued querying.
+        """
+        if isinstance(target._source, Stream):
+            raise TypeError("Cannot save to a transform stream. Target must be backend-backed.")
+        backend = target._source
+        for obs in self:
+            backend.append(obs.data, ts=obs.ts, pose=obs.pose, tags=obs.tags)
+        return target
 
     # ── Terminals ───────────────────────────────────────────────────
 

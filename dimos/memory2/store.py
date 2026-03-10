@@ -14,14 +14,15 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from dimos.core.resource import Resource
-from dimos.memory2.backend import Backend, ListBackend
 from dimos.memory2.stream import Stream
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Iterator
+
+    from dimos.memory2.backend import Backend
 
 T = TypeVar("T")
 
@@ -68,24 +69,32 @@ class StreamNamespace:
         return f"StreamNamespace({list(self._session._streams.keys())})"
 
 
-class Session(Resource):
-    """A session against a store. Creates and manages named streams."""
+class Session(ABC):
+    """A session against a store. Manages named streams over a shared connection.
 
-    def __init__(self, backend_factory: Callable[[str], Backend[Any]]) -> None:
-        self._backend_factory = backend_factory
+    Subclasses implement ``_create_backend`` to provide storage-specific backends.
+    """
+
+    def __init__(self) -> None:
         self._streams: dict[str, Stream[Any]] = {}
         self._backends: dict[str, Backend[Any]] = {}
+
+    @abstractmethod
+    def _create_backend(self, name: str) -> Backend[Any]:
+        """Create a backend for the named stream. Called once per stream name."""
+        ...
 
     def stream(self, name: str, payload_type: type[T] | None = None) -> Stream[T]:
         """Get or create a named stream. Returns the same Stream on repeated calls."""
         if name not in self._streams:
-            backend = self._backend_factory(name)
+            backend = self._create_backend(name)
             self._backends[name] = backend
             self._streams[name] = Stream(source=backend)
         return cast("Stream[T]", self._streams[name])
 
-    def list_streams(self) -> list[Stream[Any]]:
-        return list(self._streams.values())
+    def list_streams(self) -> list[str]:
+        """Return names of all streams in this session."""
+        return list(self._streams.keys())
 
     def delete_stream(self, name: str) -> None:
         self._streams.pop(name, None)
@@ -95,40 +104,27 @@ class Session(Resource):
     def streams(self) -> StreamNamespace:
         return StreamNamespace(self)
 
-    def start(self) -> None:
-        pass
-
-    def stop(self) -> None:
-        pass
+    def close(self) -> None:  # noqa: B027
+        """Release resources. Override in subclasses for cleanup."""
 
     def __enter__(self) -> Session:
         return self
 
     def __exit__(self, *args: object) -> None:
-        self.stop()
+        self.close()
 
 
-class Store(Resource):
-    """Top-level entry point — wraps a storage location."""
+class Store(ABC):
+    """Top-level entry point — wraps a storage location (file, URL, etc.)."""
 
-    def session(self) -> Session:
-        raise NotImplementedError
+    @abstractmethod
+    def session(self) -> Session: ...
 
-    def start(self) -> None:
-        pass
-
-    def stop(self) -> None:
-        pass
+    def close(self) -> None:  # noqa: B027
+        """Release resources. Override in subclasses for cleanup."""
 
     def __enter__(self) -> Store:
         return self
 
     def __exit__(self, *args: object) -> None:
-        self.stop()
-
-
-class ListStore(Store):
-    """In-memory store for experimentation."""
-
-    def session(self) -> Session:
-        return Session(backend_factory=lambda name: ListBackend(name))
+        self.close()
