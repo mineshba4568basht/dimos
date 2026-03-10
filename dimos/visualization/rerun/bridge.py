@@ -163,9 +163,7 @@ def _resolve_viewer_mode() -> ViewerMode:
 class Config(ModuleConfig):
     """Configuration for RerunBridgeModule."""
 
-    pubsubs: list[SubscribeAllCapable[Any, Any]] = field(
-        default_factory=lambda: [LCM()]
-    )
+    pubsubs: list[SubscribeAllCapable[Any, Any]] = field(default_factory=lambda: [LCM()])
 
     visual_override: dict[Glob | str, Callable[[Any], Archetype]] = field(default_factory=dict)
 
