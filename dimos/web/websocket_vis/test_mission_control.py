@@ -23,15 +23,12 @@ Run with:
     uv run pytest dimos/web/websocket_vis/test_mission_control.py -v
 """
 
-import asyncio
-import time
-from collections import deque
 from pathlib import Path
+import time
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -406,7 +403,6 @@ class TestAgentMessageMonitor:
 
     def test_handle_message_callback_receives_entry(self) -> None:
         from dimos.protocol.pubsub.impl.lcmpubsub import Topic as LCMTopic
-
         from dimos.utils.cli.agentspy.agentspy import MessageEntry
 
         monitor = self._make_monitor()
@@ -646,7 +642,7 @@ class TestSpyToolLifecycle:
         proc = self._make_mock_proc()
         procs = {"lcmspy": proc}
 
-        for name, p in procs.items():
+        for _name, p in procs.items():
             p.terminate()
             p.wait(timeout=3)
 

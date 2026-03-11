@@ -15,6 +15,7 @@
 
 from dimos.agents.mcp.mcp_client import mcp_client
 from dimos.agents.mcp.mcp_server import McpServer
+from dimos.agents.skills.light_skill import LightSkill
 from dimos.core.blueprints import autoconnect
 from dimos.robot.unitree.go2.blueprints.agentic._common_agentic import _common_agentic
 from dimos.robot.unitree.go2.blueprints.smart.unitree_go2_spatial import unitree_go2_spatial
@@ -23,6 +24,7 @@ unitree_go2_agentic_mcp = autoconnect(
     unitree_go2_spatial,
     McpServer.blueprint(),
     mcp_client(),
+    LightSkill.blueprint(),
     _common_agentic,
 )
 
