@@ -41,7 +41,7 @@ _THEME_OPTIONS = theme.THEME_NAMES
 class _FormNavigationMixin:
     """Mixin that intercepts Up/Down to move focus between config fields."""
 
-    _FIELD_ORDER = ("cfg-theme", "cfg-viewer", "cfg-n-workers", "cfg-robot-ip", "cfg-dtop")
+    _FIELD_ORDER = ("cfg-viewer", "cfg-n-workers", "cfg-robot-ip", "cfg-dtop", "cfg-theme")
 
     def _navigate_field(self, delta: int) -> None:
         my_id = getattr(self, "id", None)
@@ -205,6 +205,17 @@ class ConfigSubApp(SubApp):
         color: $dio-yellow;
         display: none;
     }
+    ConfigSubApp .section-header {
+        color: $dio-accent2;
+        margin-top: 2;
+        padding: 0;
+        text-style: bold;
+    }
+    ConfigSubApp .section-rule {
+        color: $dio-dim;
+        margin-top: 1;
+        margin-bottom: 0;
+    }
     """
 
     def __init__(self) -> None:
@@ -214,13 +225,6 @@ class ConfigSubApp(SubApp):
     def compose(self) -> ComposeResult:
         v = self.config_values
         yield Static("GlobalConfig Editor", classes="subapp-header")
-
-        yield Label("theme", classes="field-label")
-        yield CycleSelect(
-            _THEME_OPTIONS,
-            value=str(v.get("theme", theme.DEFAULT_THEME)),
-            id="cfg-theme",
-        )
 
         yield Label("viewer", classes="field-label")
         yield CycleSelect(
@@ -247,6 +251,16 @@ class ConfigSubApp(SubApp):
             yield state
 
         yield Static("edits only take effect on new blueprint launch", id="cfg-dirty-notice")
+
+        # ── Dio Settings ──────────────────────────────────────────
+        yield Static("Dio Settings", classes="section-header")
+
+        yield Label("theme", classes="field-label")
+        yield CycleSelect(
+            _THEME_OPTIONS,
+            value=str(v.get("theme", theme.DEFAULT_THEME)),
+            id="cfg-theme",
+        )
 
     def _mark_dirty(self) -> None:
         self.query_one("#cfg-dirty-notice").styles.display = "block"

@@ -104,7 +104,7 @@ class DIOApp(App[None]):
             data = json.loads(config_path.read_text())
             name = data.get("theme", theme.DEFAULT_THEME)
             # Migrate old theme names
-            _MIGRATION = {"dark": "dark-one", "midnight": "dark-two"}
+            _MIGRATION = {"dark": "dark-one"}
             name = _MIGRATION.get(name, name)
             if name in theme.THEME_NAMES:
                 return name
