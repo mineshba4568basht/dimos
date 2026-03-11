@@ -370,3 +370,86 @@ class TestEmbedTransformers:
             list(s.transform(EmbedText(model, batch_size=2)))
             # 5 items with batch_size=2 → 3 calls (2, 2, 1)
             assert call_sizes == [2, 2, 1]
+
+
+# ── Pluggable VectorStore ────────────────────────────────────────
+
+
+class TestPluggableVectorStore:
+    """Verify that injecting a VectorStore via session config actually delegates search."""
+
+    def test_append_stores_in_vector_store(self) -> None:
+        from dimos.memory2.vectorstore import MemoryVectorStore
+
+        vs = MemoryVectorStore()
+        store = MemoryStore()
+        with store.session(vector_store=vs) as session:
+            s = session.stream("vecs", str)
+            s.append("hello", embedding=_emb([1, 0, 0]))
+            s.append("world", embedding=_emb([0, 1, 0]))
+
+        assert len(vs._vectors["vecs"]) == 2
+
+    def test_append_without_embedding_skips_vector_store(self) -> None:
+        from dimos.memory2.vectorstore import MemoryVectorStore
+
+        vs = MemoryVectorStore()
+        store = MemoryStore()
+        with store.session(vector_store=vs) as session:
+            s = session.stream("plain", str)
+            s.append("no embedding")
+
+        assert "plain" not in vs._vectors
+
+    def test_search_uses_vector_store(self) -> None:
+        from dimos.memory2.vectorstore import MemoryVectorStore
+
+        vs = MemoryVectorStore()
+        store = MemoryStore()
+        with store.session(vector_store=vs) as session:
+            s = session.stream("vecs", str)
+            s.append("north", embedding=_emb([0, 1, 0]))
+            s.append("east", embedding=_emb([1, 0, 0]))
+            s.append("south", embedding=_emb([0, -1, 0]))
+            s.append("west", embedding=_emb([-1, 0, 0]))
+
+            results = s.search(_emb([0, 1, 0]), k=2).fetch()
+            assert len(results) == 2
+            assert results[0].data == "north"
+            assert results[0].similarity is not None
+            assert results[0].similarity > 0.99
+
+    def test_search_with_filters_via_vector_store(self) -> None:
+        from dimos.memory2.vectorstore import MemoryVectorStore
+
+        vs = MemoryVectorStore()
+        store = MemoryStore()
+        with store.session(vector_store=vs) as session:
+            s = session.stream("vecs", str)
+            s.append("early", ts=10.0, embedding=_emb([1, 0, 0]))
+            s.append("late", ts=20.0, embedding=_emb([1, 0, 0]))
+
+            # Filter + search: only "late" passes the after filter
+            results = s.after(15.0).search(_emb([1, 0, 0]), k=10).fetch()
+            assert len(results) == 1
+            assert results[0].data == "late"
+
+    def test_per_stream_vector_store_override(self) -> None:
+        from dimos.memory2.vectorstore import MemoryVectorStore
+
+        vs_default = MemoryVectorStore()
+        vs_override = MemoryVectorStore()
+        store = MemoryStore()
+        with store.session(vector_store=vs_default) as session:
+            # Stream with default vector store
+            s1 = session.stream("s1", str)
+            s1.append("a", embedding=_emb([1, 0, 0]))
+
+            # Stream with overridden vector store
+            s2 = session.stream("s2", str, vector_store=vs_override)
+            s2.append("b", embedding=_emb([0, 1, 0]))
+
+        assert "s1" in vs_default._vectors
+        assert "s1" not in vs_override._vectors
+        assert "s2" in vs_override._vectors
+        assert "s2" not in vs_default._vectors

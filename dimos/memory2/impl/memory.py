@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import threading
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
@@ -62,6 +63,13 @@ class ListBackend(Configurable[BackendConfig], Generic[T]):
             self._next_id += 1
             self._observations.append(obs)
 
+        # Delegate embedding to pluggable vector store
+        vs = self.config.vector_store
+        if vs is not None:
+            emb = getattr(obs, "embedding", None)
+            if emb is not None:
+                vs.put(self._name, obs.id, emb)
+
         self._channel.notify(obs)
         return obs
 
@@ -83,7 +91,32 @@ class ListBackend(Configurable[BackendConfig], Generic[T]):
     def _iterate_snapshot(self, query: StreamQuery) -> Iterator[Observation[T]]:
         with self._lock:
             snapshot = list(self._observations)
-        yield from query.apply(iter(snapshot))
+
+        if query.search_vec is not None and self.config.vector_store is not None:
+            yield from self._vector_search(snapshot, query)
+        else:
+            yield from query.apply(iter(snapshot))
+
+    def _vector_search(
+        self, snapshot: list[Observation[T]], query: StreamQuery
+    ) -> Iterator[Observation[T]]:
+        """Use pluggable VectorStore for ANN search, then apply remaining query ops."""
+        vs = self.config.vector_store
+        assert vs is not None  # caller checks
+
+        hits = vs.search(self._name, query.search_vec, query.search_k or len(snapshot))
+
+        # Build results with similarity attached, preserving VectorStore ranking
+        ranked: list[Observation[T]] = []
+        obs_by_id = {obs.id: obs for obs in snapshot}
+        for obs_id, sim in hits:
+            obs = obs_by_id.get(obs_id)
+            if obs is not None:
+                ranked.append(obs.derive(data=obs.data, similarity=sim))
+
+        # Apply remaining query ops (filters, ordering, offset, limit) — skip vector search
+        rest = replace(query, search_vec=None, search_k=None)
+        yield from rest.apply(iter(ranked))
 
     def _iterate_live(
         self,
