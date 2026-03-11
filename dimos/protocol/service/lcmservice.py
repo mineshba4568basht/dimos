@@ -78,12 +78,13 @@ class LCMService(Service[LCMConfig]):
     def __init__(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(**kwargs)
 
-
-        self._l: lcm.LCM | None = None
+        # Create LCM instance now (not in start()) because subscriptions
+        # are wired during blueprint connect_streams, before start() is called
+        self._l = self.config.lcm or (lcm.LCM(self.config.url) if self.config.url else lcm.LCM())
+        self._owns_lcm_obj = not isinstance(self.config.lcm, lcm.LCM)
         self._l_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread = None
-        self._owns_lcm_obj = False
 
     @property
     def l(self) -> lcm.LCM:  # noqa: E743
@@ -124,12 +125,12 @@ class LCMService(Service[LCMConfig]):
         if self._thread is not None and self._thread.is_alive():
             return
         self._stop_event.clear()
+        # Reinitialize LCM if needed (e.g. after unpickling or stop())
         self._l = (
             self._l
             or self.config.lcm
             or (lcm.LCM(self.config.url) if self.config.url else lcm.LCM())
         )
-        self._owns_lcm_obj = not isinstance(self.config.lcm, lcm.LCM)
         self._thread = threading.Thread(target=self._lcm_loop)
         self._thread.daemon = True
         self._thread.start()
