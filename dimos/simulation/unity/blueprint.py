@@ -18,7 +18,7 @@ Launches the Unity simulator, displays lidar + camera in Rerun, and accepts
 keyboard teleop via TUI. No navigation stack — just raw sim data.
 
 Usage:
-    python -m dimos.simulation.unity.blueprint
+    dimos run unity-sim
 """
 
 from __future__ import annotations
@@ -55,15 +55,7 @@ rerun_config = {
 }
 
 
-unity_sim_blueprint = autoconnect(
+unity_sim = autoconnect(
     UnityBridgeModule.blueprint(),
     rerun_bridge(viewer_mode=_resolve_viewer_mode(), **rerun_config),
 )
-
-
-def main() -> None:
-    unity_sim_blueprint.build().loop()
-
-
-if __name__ == "__main__":
-    main()
