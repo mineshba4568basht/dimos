@@ -19,7 +19,6 @@ The echo script writes received CLI args to a temp file for assertions.
 """
 
 from collections.abc import Generator
-from dataclasses import dataclass
 import json
 from pathlib import Path
 import threading
