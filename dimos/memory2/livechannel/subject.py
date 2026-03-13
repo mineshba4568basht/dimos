@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""In-memory fan-out live channel (same-session, thread-safe)."""
+"""In-memory fan-out notifier (same-process, thread-safe)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 from reactivex.disposable import Disposable
 
-from dimos.memory2.type.backend import LiveChannel
+from dimos.memory2.type.backend import Notifier
 
 if TYPE_CHECKING:
     from reactivex.abc import DisposableBase
@@ -32,8 +32,8 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-class SubjectChannel(LiveChannel[T], Generic[T]):
-    """In-memory fan-out channel for same-session live notification.
+class SubjectNotifier(Notifier[T], Generic[T]):
+    """In-memory fan-out notifier for same-process live notification.
 
     Thread-safe.  ``notify()`` copies the subscriber list under the lock,
     then iterates outside the lock to avoid deadlocks with slow consumers.

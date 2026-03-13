@@ -75,7 +75,7 @@ images = store.stream("images", Image, blob_store=file_blobs)           # overri
 ## Files
 
 ```
-type/backend.py       BlobStore ABC (alongside Index, LiveChannel, VectorStore)
+type/backend.py       BlobStore ABC (alongside Index, Notifier, VectorStore)
 blobstore/
   blobstore.md        this file
   __init__.py          re-exports BlobStore, FileBlobStore, SqliteBlobStore

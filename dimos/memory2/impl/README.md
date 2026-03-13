@@ -73,7 +73,7 @@ class MyStore(Store):
             codec=codec,
             blob_store=config.get("blob_store"),
             vector_store=config.get("vector_store"),
-            live_channel=config.get("live_channel"),
+            notifier=config.get("notifier"),
             eager_blobs=config.get("eager_blobs", False),
         )
 

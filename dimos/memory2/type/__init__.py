@@ -15,7 +15,7 @@
 from dimos.memory2.type.backend import (
     BlobStore,
     Index,
-    LiveChannel,
+    Notifier,
     VectorStore,
 )
 from dimos.memory2.type.filter import (
@@ -45,8 +45,8 @@ __all__ = [
     "EmbeddedObservation",
     "Filter",
     "Index",
-    "LiveChannel",
     "NearFilter",
+    "Notifier",
     "Observation",
     "PredicateFilter",
     "StreamQuery",

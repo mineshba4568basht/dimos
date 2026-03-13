@@ -225,7 +225,7 @@ class Stream(Resource, Generic[T]):
     def live(self, buffer: BackpressureBuffer[Observation[Any]] | None = None) -> Stream[T]:
         """Return a stream whose iteration never ends — backfill then live tail.
 
-        All backends support live mode via their built-in ``LiveChannel``.
+        All backends support live mode via their built-in ``Notifier``.
         Call .live() before .transform(), not after.
 
         Default buffer: KeepLast(). The backend handles subscription, dedup,

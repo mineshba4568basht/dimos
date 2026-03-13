@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Concrete composite Backend that orchestrates Index + BlobStore + VectorStore + LiveChannel."""
+"""Concrete composite Backend that orchestrates Index + BlobStore + VectorStore + Notifier."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from dimos.memory2.codecs.base import Codec
-from dimos.memory2.livechannel.subject import SubjectChannel
+from dimos.memory2.livechannel.subject import SubjectNotifier
 from dimos.memory2.type.observation import _UNLOADED
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from reactivex.abc import DisposableBase
 
     from dimos.memory2.buffer import BackpressureBuffer
-    from dimos.memory2.type.backend import BlobStore, Index, LiveChannel, VectorStore
+    from dimos.memory2.type.backend import BlobStore, Index, Notifier, VectorStore
     from dimos.memory2.type.filter import StreamQuery
     from dimos.memory2.type.observation import Observation
 
@@ -51,14 +51,14 @@ class Backend(Generic[T]):
         codec: Codec[Any],
         blob_store: BlobStore | None = None,
         vector_store: VectorStore | None = None,
-        live_channel: LiveChannel[T] | None = None,
+        notifier: Notifier[T] | None = None,
         eager_blobs: bool = False,
     ) -> None:
         self._index = index
         self._codec = codec
         self._blob_store = blob_store
         self._vector_store = vector_store
-        self._channel: LiveChannel[T] = live_channel or SubjectChannel()
+        self._notifier: Notifier[T] = notifier or SubjectNotifier()
         self._eager_blobs = eager_blobs
 
     @property
@@ -66,8 +66,8 @@ class Backend(Generic[T]):
         return self._index.name
 
     @property
-    def live_channel(self) -> LiveChannel[T]:
-        return self._channel
+    def notifier(self) -> Notifier[T]:
+        return self._notifier
 
     @property
     def index(self) -> Index[T]:
@@ -128,7 +128,7 @@ class Backend(Generic[T]):
                 self._index.rollback()
             raise
 
-        self._channel.notify(obs)
+        self._notifier.notify(obs)
         return obs
 
     # ── Read ─────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ class Backend(Generic[T]):
             raise TypeError("Cannot combine .search() with .live() — search is a batch operation.")
         buf = query.live_buffer
         if buf is not None:
-            sub = self._channel.subscribe(buf)
+            sub = self._notifier.subscribe(buf)
             return self._iterate_live(query, buf, sub)
         return self._iterate_snapshot(query)
 

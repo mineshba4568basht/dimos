@@ -9,10 +9,10 @@ Observation storage and streaming layer for DimOS. Pull-based, lazy, composable.
                     ↓
 Store → Stream → [filters / transforms / terminals] → Stream  → [filters / transforms / terminals] → Stream → Live hooks
                     ↓                                              ↓                                             ↓
-    Backend (Index + BlobStore + VectorStore + LiveChannel)     Backend                                      In Memory
+    Backend (Index + BlobStore + VectorStore + Notifier)     Backend                                      In Memory
 ```
 
-**Store** owns a storage location (file, in-memory) and directly manages named streams. **Stream** is the query/iteration surface — lazy until a terminal is called. **Backend** is a concrete composite that orchestrates Index + BlobStore + VectorStore + LiveChannel for each stream.
+**Store** owns a storage location (file, in-memory) and directly manages named streams. **Stream** is the query/iteration surface — lazy until a terminal is called. **Backend** is a concrete composite that orchestrates Index + BlobStore + VectorStore + Notifier for each stream.
 
 Supporting Systems:
 
@@ -37,9 +37,9 @@ Supporting Systems:
 
 | Package         | What                                                 | Docs                                             |
 |-----------------|------------------------------------------------------|--------------------------------------------------|
-| `type/`         | Observation, EmbeddedObservation, Index Protocol, Filter/StreamQuery, BlobStore/VectorStore/LiveChannel ABCs | |
+| `type/`         | Observation, EmbeddedObservation, Index Protocol, Filter/StreamQuery, BlobStore/VectorStore/Notifier ABCs | |
 | `impl/`         | Index implementations (ListIndex, SqliteIndex) and Stores (MemoryStore, SqliteStore) | [impl/README.md](impl/README.md)                 |
-| `livechannel/`  | Live notification channels (SubjectChannel)          |                                                  |
+| `livechannel/`  | Live notification (SubjectNotifier)                  |                                                  |
 | `blobstore/`    | Pluggable blob storage (file, sqlite)                | [blobstore/blobstore.md](blobstore/blobstore.md) |
 | `codecs/`       | Encode/decode for storage (pickle, JPEG, LCM)        | [codecs/README.md](codecs/README.md)             |
 | `vectorstore/`  | Pluggable vector storage (memory, sqlite)            |                                                  |

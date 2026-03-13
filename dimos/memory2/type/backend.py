@@ -58,14 +58,14 @@ class Index(Protocol[T]):
         ...
 
 
-# ── Live notification channel ────────────────────────────────────
+# ── Live notification ─────────────────────────────────────────────
 
 
-class LiveChannel(ABC, Generic[T]):
-    """Push-notification channel for live observation delivery.
+class Notifier(ABC, Generic[T]):
+    """Push-notification for live observation delivery.
 
     Decouples the notification mechanism from storage.  The built-in
-    ``SubjectChannel`` handles same-session fan-out (thread-safe, zero
+    ``SubjectNotifier`` handles same-process fan-out (thread-safe, zero
     config).  External implementations (Redis pub/sub, Postgres
     LISTEN/NOTIFY, inotify) can be injected for cross-process use.
     """

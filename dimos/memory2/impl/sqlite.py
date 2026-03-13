@@ -541,7 +541,7 @@ class SqliteStore(Store):
             codec=codec,
             blob_store=bs,
             vector_store=vs,
-            live_channel=config.get("live_channel"),
+            notifier=config.get("notifier"),
             eager_blobs=config.get("eager_blobs", False),
         )
         from reactivex.disposable import Disposable

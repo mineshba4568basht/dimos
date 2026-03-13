@@ -1,4 +1,4 @@
-from dimos.memory2.livechannel.subject import SubjectChannel
-from dimos.memory2.type.backend import LiveChannel
+from dimos.memory2.livechannel.subject import SubjectNotifier
+from dimos.memory2.type.backend import Notifier
 
-__all__ = ["LiveChannel", "SubjectChannel"]
+__all__ = ["Notifier", "SubjectNotifier"]

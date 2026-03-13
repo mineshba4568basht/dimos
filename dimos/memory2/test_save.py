@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for Stream.save() and LiveChannel integration."""
+"""Tests for Stream.save() and Notifier integration."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from dimos.memory2.codecs.pickle import PickleCodec
 from dimos.memory2.impl.memory import ListIndex
 from dimos.memory2.stream import Stream
 from dimos.memory2.transform import FnTransformer
-from dimos.memory2.type.backend import LiveChannel
+from dimos.memory2.type.backend import Notifier
 from dimos.memory2.type.observation import Observation
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -46,9 +46,9 @@ def make_stream(n: int = 5, start_ts: float = 0.0) -> Stream[int]:
 
 
 class TestProtocol:
-    def test_backend_has_live_channel(self) -> None:
+    def test_backend_has_notifier(self) -> None:
         b = _make_backend("x")
-        assert isinstance(b.live_channel, LiveChannel)
+        assert isinstance(b.notifier, Notifier)
 
 
 # ═══════════════════════════════════════════════════════════════════
