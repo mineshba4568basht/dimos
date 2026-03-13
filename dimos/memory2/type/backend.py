@@ -15,9 +15,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Generic, Protocol, TypeVar, runtime_checkable
 
 from dimos.core.resource import Resource
+from dimos.memory2.codecs.base import Codec
 from dimos.protocol.service.spec import BaseConfig
 
 if TYPE_CHECKING:
@@ -26,7 +27,6 @@ if TYPE_CHECKING:
     from reactivex.abc import DisposableBase
 
     from dimos.memory2.buffer import BackpressureBuffer
-    from dimos.memory2.codecs.base import Codec
     from dimos.memory2.type.filter import StreamQuery
     from dimos.memory2.type.observation import Observation
     from dimos.models.embedding.base import Embedding
@@ -44,11 +44,11 @@ class BackendConfig(BaseConfig):
     forwarded here by ``Session.stream()``.
     """
 
-    live_channel: LiveChannel[Any] | None = None
+    live_channel: LiveChannel | None = None
     blob_store: BlobStore | None = None
     vector_store: VectorStore | None = None
     eager_blobs: bool = False
-    codec: Codec[Any] | None = None
+    codec: Codec | None = None
     page_size: int = 256
 
 

@@ -15,11 +15,12 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 T = TypeVar("T")
 
 
+@runtime_checkable
 class Codec(Protocol[T]):
     """Encode/decode payloads for storage."""
 

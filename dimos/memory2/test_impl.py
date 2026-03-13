@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from dimos.memory2.type.backend import BlobStore, VectorStore
+
 if TYPE_CHECKING:
     from dimos.memory2.store import Session
 
@@ -276,7 +278,7 @@ class TestBlobLoading:
 # ── Spy stores ───────────────────────────────────────────────────
 
 
-class SpyBlobStore:
+class SpyBlobStore(BlobStore):
     """BlobStore that records all calls for verification."""
 
     def __init__(self) -> None:
@@ -302,7 +304,7 @@ class SpyBlobStore:
         self.store.pop((stream, key), None)
 
 
-class SpyVectorStore:
+class SpyVectorStore(VectorStore):
     """VectorStore that records all calls for verification."""
 
     def __init__(self) -> None:

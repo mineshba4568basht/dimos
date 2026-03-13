@@ -18,14 +18,15 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from dimos.core.resource import CompositeResource
+from dimos.memory2.codecs.base import Codec
 from dimos.memory2.stream import Stream
+from dimos.memory2.type.backend import BlobStore, LiveChannel, VectorStore
 from dimos.protocol.service.spec import BaseConfig, Configurable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dimos.memory2.codecs.base import Codec
-    from dimos.memory2.type.backend import Backend, BlobStore, LiveChannel, VectorStore
+    from dimos.memory2.type.backend import Backend
 
 T = TypeVar("T")
 
@@ -44,11 +45,11 @@ class SessionConfig(BaseConfig):
     per-stream in ``session.stream(..., **overrides)``.
     """
 
-    live_channel: LiveChannel[Any] | None = None
+    live_channel: LiveChannel | None = None
     blob_store: BlobStore | None = None
     vector_store: VectorStore | None = None
     eager_blobs: bool = False
-    codec: Codec[Any] | str | None = None
+    codec: Codec | str | None = None
 
 
 # ── Stream namespace ──────────────────────────────────────────────
