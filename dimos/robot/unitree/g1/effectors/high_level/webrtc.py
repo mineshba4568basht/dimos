@@ -24,7 +24,8 @@ from dimos.core.core import rpc
 from dimos.core.global_config import GlobalConfig, global_config
 from dimos.core.module import Module, ModuleConfig
 from dimos.core.stream import In
-from dimos.msgs.geometry_msgs import Twist, Vector3
+from dimos.msgs.geometry_msgs.Twist import Twist
+from dimos.msgs.geometry_msgs.Vector3 import Vector3
 from dimos.robot.unitree.connection import UnitreeWebRTCConnection
 from dimos.robot.unitree.g1.effectors.high_level.high_level_spec import HighLevelG1Spec
 from dimos.utils.logging_config import setup_logger
@@ -91,7 +92,7 @@ class G1HighLevelWebRtc(Module, HighLevelG1Spec):
         super().__init__(*args, g=g, **kwargs)
         self._global_config = g
 
-    # ----- lifecycle -------------------------------------------------------
+    # lifecycle
 
     @rpc
     def start(self) -> None:
@@ -107,7 +108,7 @@ class G1HighLevelWebRtc(Module, HighLevelG1Spec):
             self.connection.stop()
         super().stop()
 
-    # ----- HighLevelG1Spec -------------------------------------------------
+    # HighLevelG1Spec
 
     @rpc
     def move(self, twist: Twist, duration: float = 0.0) -> bool:
@@ -136,7 +137,7 @@ class G1HighLevelWebRtc(Module, HighLevelG1Spec):
         assert self.connection is not None
         return self.connection.liedown()
 
-    # ----- skills (LLM-callable) -------------------------------------------
+    # skills (LLM-callable)
 
     @skill
     def move_velocity(
@@ -190,7 +191,7 @@ class G1HighLevelWebRtc(Module, HighLevelG1Spec):
         {_MODE_COMMANDS_DOC}
         """
 
-    # ----- private helpers -------------------------------------------------
+    # private helpers
 
     def _execute_g1_command(
         self,

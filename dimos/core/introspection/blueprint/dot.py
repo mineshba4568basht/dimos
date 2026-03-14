@@ -89,15 +89,15 @@ def render(
     module_classes: dict[str, type[Module]] = {}
 
     for bp in blueprint_set.blueprints:
-        module_classes[bp.module.__name__] = bp.module
+        module_classes[bp.module.__name__] = bp.module  # type: ignore[assignment]
         for conn in bp.streams:
             # Apply remapping
             remapped_name = blueprint_set.remapping_map.get((bp.module, conn.name), conn.name)
             key = (remapped_name, conn.type)
             if conn.direction == "out":
-                producers[key].append(bp.module)  # type: ignore[index]
+                producers[key].append(bp.module)  # type: ignore[arg-type, index]
             else:
-                consumers[key].append(bp.module)  # type: ignore[index]
+                consumers[key].append(bp.module)  # type: ignore[arg-type, index]
 
     # Find all active channels (have both producers AND consumers)
     active_channels: dict[tuple[str, type], str] = {}  # key -> color

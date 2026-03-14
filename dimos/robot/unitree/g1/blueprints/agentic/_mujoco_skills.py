@@ -31,7 +31,8 @@ from dimos.agents.web_human_input import web_input
 from dimos.core.blueprints import autoconnect
 from dimos.core.core import rpc
 from dimos.core.module import Module
-from dimos.msgs.geometry_msgs import Twist, Vector3
+from dimos.msgs.geometry_msgs.Twist import Twist
+from dimos.msgs.geometry_msgs.Vector3 import Vector3
 from dimos.robot.unitree.g1.legacy.skill_container import (
     _ARM_COMMANDS,
     _MODE_COMMANDS,

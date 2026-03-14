@@ -25,9 +25,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 
-# ---------------------------------------------------------------------------
 # Stub out unitree_sdk2py so we can import dds_sdk without the real SDK
-# ---------------------------------------------------------------------------
 def _install_sdk_stubs() -> dict[str, MagicMock]:
     stubs: dict[str, MagicMock] = {}
     for mod_name in [
@@ -92,7 +90,8 @@ def _install_webrtc_stubs() -> dict[str, MagicMock]:
 _sdk_stubs = _install_sdk_stubs()
 _webrtc_stubs = _install_webrtc_stubs()
 
-from dimos.msgs.geometry_msgs import Twist, Vector3
+from dimos.msgs.geometry_msgs.Twist import Twist
+from dimos.msgs.geometry_msgs.Vector3 import Vector3
 from dimos.robot.unitree.g1.effectors.high_level.dds_sdk import (
     FsmState,
     G1HighLevelDdsSdk,
@@ -107,9 +106,7 @@ from dimos.robot.unitree.g1.effectors.high_level.webrtc import (
     G1HighLevelWebRtcConfig,
 )
 
-# ===================================================================
 # FsmState enum tests
-# ===================================================================
 
 
 class TestFsmState:
@@ -145,9 +142,7 @@ class TestFsmState:
         assert len(names) == 6
 
 
-# ===================================================================
 # Config tests
-# ===================================================================
 
 
 class TestDdsSdkConfig:
@@ -179,9 +174,7 @@ class TestWebRtcConfig:
         assert cfg.connection_mode == "ai"
 
 
-# ===================================================================
 # DDS SDK module tests (mocked)
-# ===================================================================
 
 
 def _make_dds_module(**config_overrides: Any) -> G1HighLevelDdsSdk:
@@ -345,9 +338,7 @@ class TestDdsSdkPublishRequest:
         assert "boom" in result["error"]
 
 
-# ===================================================================
 # WebRTC module tests (mocked)
-# ===================================================================
 
 
 def _make_webrtc_module(**config_overrides: Any) -> G1HighLevelWebRtc:
@@ -454,9 +445,7 @@ class TestWebRtcModeCommand:
         assert "no" in result.lower() or "There's" in result
 
 
-# ===================================================================
 # FSM State Machine model + transition tests
-# ===================================================================
 
 
 class FsmSimulator:

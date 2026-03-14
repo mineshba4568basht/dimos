@@ -34,7 +34,7 @@ from dimos.perception.spatial_perception import spatial_memory
 from dimos.robot.unitree.g1.blueprints.perceptive.unitree_g1_rosnav_onboard import (
     unitree_g1_rosnav_onboard,
 )
-from dimos.robot.unitree.g1.legacy.sim import _camera_info_static
+from dimos.robot.unitree.go2.connection import _camera_info_static
 
 unitree_g1_agentic_onboard = autoconnect(
     unitree_g1_rosnav_onboard,

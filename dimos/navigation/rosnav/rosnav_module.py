@@ -73,16 +73,15 @@ from dimos.core.core import rpc
 from dimos.core.docker_runner import DockerModuleConfig
 from dimos.core.module import Module
 from dimos.core.stream import In, Out
-from dimos.msgs.geometry_msgs import (
-    PointStamped,
-    PoseStamped,
-    Quaternion,
-    Transform,
-    Twist,
-    Vector3,
-)
-from dimos.msgs.nav_msgs import Path as NavPath
-from dimos.msgs.sensor_msgs import Image, ImageFormat, PointCloud2
+from dimos.msgs.geometry_msgs.PointStamped import PointStamped
+from dimos.msgs.geometry_msgs.PoseStamped import PoseStamped
+from dimos.msgs.geometry_msgs.Quaternion import Quaternion
+from dimos.msgs.geometry_msgs.Transform import Transform
+from dimos.msgs.geometry_msgs.Twist import Twist
+from dimos.msgs.geometry_msgs.Vector3 import Vector3
+from dimos.msgs.nav_msgs.Path import Path as NavPath
+from dimos.msgs.sensor_msgs.Image import Image, ImageFormat
+from dimos.msgs.sensor_msgs.PointCloud2 import PointCloud2
 from dimos.msgs.tf2_msgs.TFMessage import TFMessage
 from dimos.navigation.base import NavigationState
 from dimos.utils.data import get_data
@@ -93,21 +92,15 @@ from dimos.utils.transform_utils import euler_to_quaternion
 logger = setup_logger(level=logging.INFO)
 
 
-# ---------------------------------------------------------------------------
-# ROS → DimOS message conversion shims
-# These replace the removed from_ros_msg classmethods on the message types.
-# ---------------------------------------------------------------------------
-
-
 class ROSNavConfig(DockerModuleConfig):
-    # --- Module settings ---
+    # Module settings
     local_pointcloud_freq: float = 2.0
     global_map_freq: float = 1.0
     sensor_to_base_link_transform: Transform = field(
         default_factory=lambda: Transform(frame_id="sensor", child_frame_id="base_link")
     )
 
-    # --- Docker settings ---
+    # Docker settings
     docker_restart_policy: str = "no"  # Don't auto-restart; host process manages lifecycle
     docker_startup_timeout: float = 180
     docker_image: str = "dimos_rosnav:humble"
@@ -150,20 +143,20 @@ class ROSNavConfig(DockerModuleConfig):
         ]
     )
 
-    # --- Vehicle geometry ---
+    # Vehicle geometry
     # Height of the robot's base_link above the ground plane (metres).
     # The CMU nav stack uses this to position the simulated sensor origin;
     # it is forwarded to the ROS launch as the ``vehicleHeight`` parameter.
     vehicle_height: float = 0.75
 
-    # --- Teleop override ---
+    # Teleop override
     # Seconds of silence after the last teleop cmd_vel before switching back
     # to the ROS nav stack.  At the end of the cooldown the module publishes
     # a goal at the robot's current position so the nav stack re-engages at
     # standstill instead of resuming the old goal.
     teleop_cooldown_sec: float = 1.0
 
-    # --- Runtime mode settings ---
+    # Runtime mode settings
     # mode controls which ROS launch file the entrypoint selects:
     #   "simulation"  — system_simulation[_with_route_planner].launch.py + Unity if present
     #   "unity_sim"   — same as simulation but hard-exits if Unity binary is missing
@@ -183,7 +176,7 @@ class ROSNavConfig(DockerModuleConfig):
     use_rviz: bool = False
     foxglove_port: int = 8765
 
-    # --- Hardware sensor / network settings (used when mode="hardware") ---
+    # Hardware sensor / network settings (used when mode="hardware")
     # lidar_interface: host ethernet interface connected to Mid-360 lidar (e.g. "eth0")
     # lidar_computer_ip: IP to assign/use on that interface for lidar communication
     # lidar_gateway: gateway IP for the lidar subnet
@@ -243,8 +236,6 @@ class ROSNavConfig(DockerModuleConfig):
         self.docker_env["QT_X11_NO_MITSHM"] = "1"
 
         repo_root = Path(__file__).parent.parent.parent.parent
-        # Ensure the Unity sim environment is downloaded from LFS before Docker build.
-        sim_data_dir = str(get_data("office_building_1"))
         self.docker_volumes += [
             # X11 socket for display forwarding (RViz, Unity)
             ("/tmp/.X11-unix", "/tmp/.X11-unix", "rw"),
@@ -260,33 +251,39 @@ class ROSNavConfig(DockerModuleConfig):
                 "/usr/local/bin/entrypoint.sh",
                 "ro",
             ),
-            # Mount Unity sim (office_building_1) — downloaded via get_data / LFS
-            # Provides map.ply, traversable_area.ply and environment/Model.x86_64
-            (
-                sim_data_dir,
-                "/ros2_ws/src/ros-navigation-autonomy-stack/src/base_autonomy/vehicle_simulator/mesh/unity/",
-                "rw",
-            ),
-            # real_world uses the same sim data
-            (
-                sim_data_dir,
-                "/ros2_ws/src/ros-navigation-autonomy-stack/src/base_autonomy/vehicle_simulator/mesh/real_world/",
-                "rw",
-            ),
-            # Some CMU stack nodes (e.g., visualizationTools.cpp) rewrite install paths
-            # to /ros2_ws/src/base_autonomy/... directly. Mirror the same sim asset
-            # directory at that legacy path to avoid "map.ply not found" errors.
-            (
-                sim_data_dir,
-                "/ros2_ws/src/base_autonomy/vehicle_simulator/mesh/unity/",
-                "rw",
-            ),
-            (
-                sim_data_dir,
-                "/ros2_ws/src/base_autonomy/vehicle_simulator/mesh/real_world/",
-                "rw",
-            ),
         ]
+
+        # Only download and mount sim assets for simulation modes (avoids slow LFS pull in hardware mode)
+        if effective_mode in ("simulation", "unity_sim"):
+            sim_data_dir = str(get_data("office_building_1"))
+            self.docker_volumes += [
+                # Mount Unity sim (office_building_1) — downloaded via get_data / LFS
+                # Provides map.ply, traversable_area.ply and environment/Model.x86_64
+                (
+                    sim_data_dir,
+                    "/ros2_ws/src/ros-navigation-autonomy-stack/src/base_autonomy/vehicle_simulator/mesh/unity/",
+                    "rw",
+                ),
+                # real_world uses the same sim data
+                (
+                    sim_data_dir,
+                    "/ros2_ws/src/ros-navigation-autonomy-stack/src/base_autonomy/vehicle_simulator/mesh/real_world/",
+                    "rw",
+                ),
+                # Some CMU stack nodes (e.g., visualizationTools.cpp) rewrite install paths
+                # to /ros2_ws/src/base_autonomy/... directly. Mirror the same sim asset
+                # directory at that legacy path to avoid "map.ply not found" errors.
+                (
+                    sim_data_dir,
+                    "/ros2_ws/src/base_autonomy/vehicle_simulator/mesh/unity/",
+                    "rw",
+                ),
+                (
+                    sim_data_dir,
+                    "/ros2_ws/src/base_autonomy/vehicle_simulator/mesh/real_world/",
+                    "rw",
+                ),
+            ]
 
         # Mount Xauthority cookie for X11 forwarding.
         # Honour $XAUTHORITY on the host (falls back to ~/.Xauthority) and
@@ -591,7 +588,7 @@ class ROSNav(Module):
         """
         pose_to = PoseStamped(
             position=Vector3(x, y, 0),
-            orientation=Quaternion(0.0, 0.0, 0.0, 0.0),
+            orientation=Quaternion(0.0, 0.0, 0.0, 1.0),
             frame_id="base_link",
             ts=time.time(),
         )
@@ -609,7 +606,7 @@ class ROSNav(Module):
             ts=time.time(),
             frame_id="map",
             position=Vector3(x, y, 0.0),
-            orientation=Quaternion(0.0, 0.0, 0.0, 0.0),
+            orientation=Quaternion(0.0, 0.0, 0.0, 1.0),
         )
 
         self.navigate_to(target)
@@ -685,22 +682,25 @@ class ROSNav(Module):
         return True
 
     @rpc
-    def set_goal(self, goal: PoseStamped) -> bool:
+    def set_goal(self, goal: PoseStamped, timeout: float = 60.0) -> bool:
         """Set a new navigation goal (non-blocking)."""
         with self._state_lock:
             self._current_goal = goal
             self._goal_reached = False
             self._navigation_state = NavigationState.FOLLOWING_PATH
 
-        # Start navigation in a separate thread to make it non-blocking
+        # Cancel previous navigation and wait for thread to exit.
+        # stop_navigation() sets _goal_reach = False which unblocks navigate_to().
         if self._navigation_thread and self._navigation_thread.is_alive():
             logger.warning("Previous navigation still running, cancelling")
             self.stop_navigation()
-            self._navigation_thread.join(timeout=1.0)
+            self._navigation_thread.join(timeout=2.0)
+            if self._navigation_thread.is_alive():
+                logger.warning("Previous navigation thread did not exit in time, proceeding anyway")
 
         self._navigation_thread = threading.Thread(
             target=self._navigate_to_goal_async,
-            args=(goal,),
+            args=(goal, timeout),
             daemon=True,
             name="ROSNavNavigationThread",
         )
@@ -708,10 +708,10 @@ class ROSNav(Module):
 
         return True
 
-    def _navigate_to_goal_async(self, goal: PoseStamped) -> None:
+    def _navigate_to_goal_async(self, goal: PoseStamped, timeout: float = 60.0) -> None:
         """Internal method to handle navigation in a separate thread."""
         try:
-            result = self.navigate_to(goal, timeout=60.0)
+            result = self.navigate_to(goal, timeout=timeout)
             with self._state_lock:
                 self._goal_reached = result
                 self._navigation_state = NavigationState.IDLE

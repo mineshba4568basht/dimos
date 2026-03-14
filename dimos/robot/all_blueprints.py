@@ -143,7 +143,7 @@ all_modules = {
     "realsense-camera": "dimos.hardware.sensors.camera.realsense.camera",
     "replanning-a-star-planner": "dimos.navigation.replanning_a_star.module",
     "rerun-bridge": "dimos.visualization.rerun.bridge",
-    "ros-nav": "dimos.navigation.rosnav",
+    "ros-nav": "dimos.navigation.rosnav_legacy",
     "simple-phone-teleop-module": "dimos.teleop.phone.phone_extensions",
     "simulation": "dimos.simulation.manipulators.sim_module",
     "spatial-memory": "dimos.perception.spatial_perception",

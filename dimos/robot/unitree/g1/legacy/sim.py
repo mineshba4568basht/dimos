@@ -32,7 +32,7 @@ from dimos.msgs.geometry_msgs.Vector3 import Vector3
 from dimos.msgs.sensor_msgs.CameraInfo import CameraInfo
 from dimos.msgs.sensor_msgs.Image import Image
 from dimos.msgs.sensor_msgs.PointCloud2 import PointCloud2
-from dimos.robot.unitree.g1.connection import G1ConnectionBase
+from dimos.robot.unitree.g1.connection import G1ConnectionBase  # type: ignore[import-untyped]
 from dimos.robot.unitree.mujoco_connection import MujocoConnection
 from dimos.robot.unitree.type.odometry import Odometry as SimOdometry
 from dimos.utils.logging_config import setup_logger
@@ -44,7 +44,7 @@ class G1SimConfig(ModuleConfig):
     ip: str = Field(default_factory=lambda m: m["g"].robot_ip)
 
 
-class G1SimConnection(G1ConnectionBase[G1SimConfig]):
+class G1SimConnection(G1ConnectionBase[G1SimConfig]):  # type: ignore[misc]
     default_config = G1SimConfig
 
     cmd_vel: In[Twist]
