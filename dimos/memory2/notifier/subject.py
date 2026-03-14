@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from reactivex.disposable import Disposable
 
@@ -36,7 +36,7 @@ class SubjectNotifierConfig(NotifierConfig):
     pass
 
 
-class SubjectNotifier(Notifier[T], Generic[T]):
+class SubjectNotifier(Notifier[T]):
     """In-memory fan-out notifier for same-process live notification.
 
     Thread-safe.  ``notify()`` copies the subscriber list under the lock,
