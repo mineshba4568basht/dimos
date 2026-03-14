@@ -83,8 +83,8 @@ _rerun_config = {
 unitree_g1_nav_onboard = (
     autoconnect(
         FastLio2.blueprint(
-            host_ip=os.getenv("LIDAR_HOST_IP", "192.168.1.5"),
-            lidar_ip=os.getenv("LIDAR_IP", "192.168.1.155"),
+            host_ip=os.getenv("LIDAR_HOST_IP", "192.168.123.5"),
+            lidar_ip=os.getenv("LIDAR_IP", "192.168.123.120"),
         ),
         SensorScanGeneration.blueprint(),
         TerrainAnalysis.blueprint(
@@ -93,6 +93,8 @@ unitree_g1_nav_onboard = (
                 "0.2",
                 "--maxRelZ",
                 "1.5",
+                "--vehicleHeight",
+                "1.2",
             ]
         ),
         TerrainMapExt.blueprint(),
