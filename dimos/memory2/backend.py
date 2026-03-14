@@ -19,8 +19,9 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from dimos.memory2.codecs.base import Codec
+from dimos.memory2.codecs.base import Codec, codec_from_id, codec_id
 from dimos.memory2.livechannel.subject import SubjectNotifier
+from dimos.memory2.registry import deserialize_component
 from dimos.memory2.type.observation import _UNLOADED
 
 if TYPE_CHECKING:
@@ -225,6 +226,46 @@ class Backend(Generic[T]):
         if query.search_vec:
             return sum(1 for _ in self.iterate(query))
         return self.metadata_store.count(query)
+
+    # ── Serialization ────────────────────────────────────────────
+
+    def serialize(self) -> dict[str, Any]:
+        """Serialize the fully-resolved backend config to a dict."""
+        return {
+            "codec_id": codec_id(self.codec),
+            "eager_blobs": self.eager_blobs,
+            "metadata_store": self.metadata_store.serialize()
+            if hasattr(self.metadata_store, "serialize")
+            else None,
+            "blob_store": self.blob_store.serialize()
+            if self.blob_store and hasattr(self.blob_store, "serialize")
+            else None,
+            "vector_store": self.vector_store.serialize()
+            if self.vector_store and hasattr(self.vector_store, "serialize")
+            else None,
+            "notifier": self.notifier.serialize() if hasattr(self.notifier, "serialize") else None,
+        }
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any], payload_module: str) -> Backend[Any]:
+        """Reconstruct Backend + all sub-stores from stored config."""
+        metadata_store = (
+            deserialize_component(data["metadata_store"]) if data.get("metadata_store") else None
+        )
+        blob_store = deserialize_component(data["blob_store"]) if data.get("blob_store") else None
+        vector_store = (
+            deserialize_component(data["vector_store"]) if data.get("vector_store") else None
+        )
+        notifier = deserialize_component(data["notifier"]) if data.get("notifier") else None
+        codec = codec_from_id(data["codec_id"], payload_module)
+        return cls(
+            metadata_store=metadata_store,
+            codec=codec,
+            blob_store=blob_store,
+            vector_store=vector_store,
+            notifier=notifier,
+            eager_blobs=data.get("eager_blobs", False),
+        )
 
     def stop(self) -> None:
         """Stop the metadata store (closes per-stream connections if any)."""

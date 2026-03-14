@@ -24,6 +24,7 @@ from reactivex.disposable import Disposable
 
 from dimos.core.resource import CompositeResource
 from dimos.memory2.codecs.base import Codec
+from dimos.memory2.registry import qual
 from dimos.memory2.type.filter import (
     AfterFilter,
     AtFilter,
@@ -35,6 +36,7 @@ from dimos.memory2.type.filter import (
 )
 from dimos.memory2.type.observation import _UNLOADED, Observation
 from dimos.memory2.utils import open_sqlite_connection
+from dimos.protocol.service.spec import BaseConfig
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -230,6 +232,10 @@ def _compile_count(
 # ── SqliteObservationStore ────────────────────────────────────────────────
 
 
+class SqliteObservationStoreConfig(BaseConfig):
+    page_size: int = 256
+
+
 class SqliteObservationStore(CompositeResource, Generic[T]):
     """SQLite-backed metadata store for a single stream (table).
 
@@ -266,6 +272,7 @@ class SqliteObservationStore(CompositeResource, Generic[T]):
         self._name = name
         self._codec = codec
         self._blob_store_conn_match = blob_store_conn_match
+        self._config = SqliteObservationStoreConfig(page_size=page_size)
         self._page_size = page_size
         self._lock = threading.Lock()
         self._tag_indexes: set[str] = set()
@@ -440,6 +447,21 @@ class SqliteObservationStore(CompositeResource, Generic[T]):
 
         rows = self._conn.execute(sql, ids).fetchall()
         return [self._row_to_obs(r, has_blob=join) for r in rows]
+
+    # ── Serialization ─────────────────────────────────────────────
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "class": qual(type(self)),
+            "config": self._config.model_dump(),
+        }
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any]) -> SqliteObservationStore[Any]:
+        raise ValueError(
+            "SqliteObservationStore requires conn and name at runtime — "
+            "use _assemble_backend instead"
+        )
 
     def stop(self) -> None:
         super().stop()

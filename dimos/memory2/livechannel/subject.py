@@ -17,10 +17,11 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from reactivex.disposable import Disposable
 
+from dimos.memory2.registry import qual
 from dimos.memory2.type.backend import Notifier
 
 if TYPE_CHECKING:
@@ -61,3 +62,12 @@ class SubjectNotifier(Notifier[T], Generic[T]):
             subs = list(self._subscribers)
         for buf in subs:
             buf.put(obs)
+
+    # ── Serialization ─────────────────────────────────────────────
+
+    def serialize(self) -> dict[str, Any]:
+        return {"class": qual(type(self)), "config": {}}
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any]) -> SubjectNotifier[Any]:
+        return cls()

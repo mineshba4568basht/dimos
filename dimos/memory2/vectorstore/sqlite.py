@@ -16,15 +16,21 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from reactivex.disposable import Disposable
 
+from dimos.memory2.registry import qual
 from dimos.memory2.type.backend import VectorStore
 from dimos.memory2.utils import open_sqlite_connection, validate_identifier
+from dimos.protocol.service.spec import BaseConfig
 
 if TYPE_CHECKING:
     from dimos.models.embedding.base import Embedding
+
+
+class SqliteVectorStoreConfig(BaseConfig):
+    path: str | None = None
 
 
 class SqliteVectorStore(VectorStore):
@@ -45,6 +51,7 @@ class SqliteVectorStore(VectorStore):
             raise ValueError("Specify either conn or path, not both")
         if conn is None and path is None:
             raise ValueError("Specify either conn or path")
+        self._config = SqliteVectorStoreConfig(path=path)
         if conn is not None:
             self._conn = conn
         else:
@@ -93,3 +100,17 @@ class SqliteVectorStore(VectorStore):
         if stream_name not in self._tables:
             return
         self._conn.execute(f'DELETE FROM "{stream_name}_vec" WHERE rowid = ?', (key,))
+
+    # ── Serialization ─────────────────────────────────────────────
+
+    def serialize(self) -> dict[str, Any]:
+        return {"class": qual(type(self)), "config": self._config.model_dump()}
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any]) -> SqliteVectorStore:
+        path = data.get("path")
+        if path is not None:
+            return cls(path=path)
+        raise ValueError(
+            "Cannot deserialize SqliteVectorStore without path (conn-shared mode is runtime-only)"
+        )
