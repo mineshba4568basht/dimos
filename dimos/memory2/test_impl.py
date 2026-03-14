@@ -442,6 +442,7 @@ class TestStandaloneComponents:
         db = str(tmp_path / "obs.db")
         codec = codec_for(str)
         store = SqliteObservationStore(path=db, name="events", codec=codec)
+        store.start()
         try:
             obs = Observation(id=0, ts=1.0, _data="hello")
             row_id = store.insert(obs)
@@ -461,6 +462,7 @@ class TestStandaloneComponents:
 
         db = str(tmp_path / "blob.db")
         store = SqliteBlobStore(path=db)
+        store.start()
         try:
             store.put("stream1", 1, b"data1")
             store.put("stream1", 2, b"data2")
@@ -477,6 +479,7 @@ class TestStandaloneComponents:
 
         db = str(tmp_path / "vec.db")
         store = SqliteVectorStore(path=db)
+        store.start()
         try:
             emb1 = Embedding(vector=np.array([1, 0, 0], dtype=np.float32))
             emb2 = Embedding(vector=np.array([0, 1, 0], dtype=np.float32))

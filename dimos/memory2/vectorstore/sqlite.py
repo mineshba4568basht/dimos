@@ -51,12 +51,8 @@ class SqliteVectorStore(VectorStore):
         if conn is None and path is None:
             raise ValueError("Specify either conn or path")
         self._config = SqliteVectorStoreConfig(path=path)
-        if conn is not None:
-            self._conn = conn
-        else:
-            assert path is not None
-            self._conn = open_sqlite_connection(path)
-            self.register_disposables(Disposable(action=lambda: self._conn.close()))
+        self._conn: sqlite3.Connection = conn  # type: ignore[assignment]  # set in start() if None
+        self._path = path
         self._tables: dict[str, int] = {}  # stream_name -> dimensionality
 
     def _ensure_table(self, stream_name: str, dim: int) -> None:
@@ -69,12 +65,11 @@ class SqliteVectorStore(VectorStore):
         )
         self._tables[stream_name] = dim
 
-    # ── Resource lifecycle ────────────────────────────────────────
-
     def start(self) -> None:
-        pass
-
-    # ── VectorStore interface ────────────────────────────────────
+        if self._conn is None:
+            assert self._path is not None
+            self._conn = open_sqlite_connection(self._path)
+            self.register_disposables(Disposable(action=lambda: self._conn.close()))
 
     def put(self, stream_name: str, key: int, embedding: Embedding) -> None:
         vec = embedding.to_numpy().tolist()

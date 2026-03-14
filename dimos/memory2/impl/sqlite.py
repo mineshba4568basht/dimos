@@ -78,6 +78,7 @@ class SqliteStore(Store):
                 bs = deserialize_component(bs_data)
         else:
             bs = SqliteBlobStore(backend_conn)
+        bs.start()
 
         vs_data = stored.get("vector_store")
         if vs_data is not None:
@@ -88,6 +89,7 @@ class SqliteStore(Store):
                 vs = deserialize_component(vs_data)
         else:
             vs = SqliteVectorStore(backend_conn)
+        vs.start()
 
         notifier_data = stored.get("notifier")
         if notifier_data is not None:
@@ -106,6 +108,7 @@ class SqliteStore(Store):
             blob_store_conn_match=blob_store_conn_match and eager_blobs,
             page_size=page_size,
         )
+        metadata_store.start()
 
         backend: Backend[Any] = Backend(
             metadata_store=metadata_store,
@@ -168,9 +171,13 @@ class SqliteStore(Store):
 
         # Inject conn-shared instances unless user provided overrides
         if not isinstance(config.get("blob_store"), BlobStore):
-            config["blob_store"] = SqliteBlobStore(backend_conn)
+            bs = SqliteBlobStore(backend_conn)
+            bs.start()
+            config["blob_store"] = bs
         if not isinstance(config.get("vector_store"), VectorStore):
-            config["vector_store"] = SqliteVectorStore(backend_conn)
+            vs = SqliteVectorStore(backend_conn)
+            vs.start()
+            config["vector_store"] = vs
 
         # Resolve codec early — needed for SqliteObservationStore
         codec = self._resolve_codec(payload_type, config.get("codec"))
@@ -180,13 +187,15 @@ class SqliteStore(Store):
         bs = config["blob_store"]
         blob_conn_match = isinstance(bs, SqliteBlobStore) and bs._conn is backend_conn
         eager_blobs = config.get("eager_blobs", False)
-        config["observation_store"] = SqliteObservationStore(
+        obs_store: SqliteObservationStore[Any] = SqliteObservationStore(
             backend_conn,
             name,
             codec,
             blob_store_conn_match=blob_conn_match and eager_blobs,
             page_size=config.pop("page_size", self.config.page_size),
         )
+        obs_store.start()
+        config["observation_store"] = obs_store
 
         backend = super()._create_backend(name, payload_type, **config)
 

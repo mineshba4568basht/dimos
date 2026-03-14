@@ -14,7 +14,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+from abc import abstractmethod
+from typing import TYPE_CHECKING, Generic, TypeVar
+
+from dimos.core.resource import CompositeResource
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -25,8 +28,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-@runtime_checkable
-class ObservationStore(Protocol[T]):
+class ObservationStore(CompositeResource, Generic[T]):
     """Core metadata storage and query engine for observations.
 
     Handles only observation metadata storage, query pushdown, and count.
@@ -34,18 +36,23 @@ class ObservationStore(Protocol[T]):
     """
 
     @property
+    @abstractmethod
     def name(self) -> str: ...
 
+    @abstractmethod
     def insert(self, obs: Observation[T]) -> int:
         """Insert observation metadata, return assigned id."""
         ...
 
+    @abstractmethod
     def query(self, q: StreamQuery) -> Iterator[Observation[T]]:
         """Execute query against metadata. Blobs are NOT loaded here."""
         ...
 
+    @abstractmethod
     def count(self, q: StreamQuery) -> int: ...
 
+    @abstractmethod
     def fetch_by_ids(self, ids: list[int]) -> list[Observation[T]]:
         """Batch fetch by id (for vector search results)."""
         ...

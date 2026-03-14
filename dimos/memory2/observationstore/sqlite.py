@@ -18,12 +18,12 @@ import json
 import re
 import sqlite3
 import threading
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from reactivex.disposable import Disposable
 
-from dimos.core.resource import CompositeResource
 from dimos.memory2.codecs.base import Codec
+from dimos.memory2.observationstore.base import ObservationStore
 from dimos.memory2.registry import qual
 from dimos.memory2.type.filter import (
     AfterFilter,
@@ -236,7 +236,7 @@ class SqliteObservationStoreConfig(BaseConfig):
     page_size: int = 256
 
 
-class SqliteObservationStore(CompositeResource, Generic[T]):
+class SqliteObservationStore(ObservationStore[T]):
     """SQLite-backed metadata store for a single stream (table).
 
     Handles only metadata storage and query pushdown.
@@ -263,12 +263,8 @@ class SqliteObservationStore(CompositeResource, Generic[T]):
             raise ValueError("Specify either conn or path, not both")
         if conn is None and path is None:
             raise ValueError("Specify either conn or path")
-        if conn is not None:
-            self._conn = conn
-        else:
-            assert path is not None
-            self._conn = open_sqlite_connection(path)
-            self.register_disposables(Disposable(action=lambda: self._conn.close()))
+        self._conn: sqlite3.Connection = conn  # type: ignore[assignment]  # set in start() if None
+        self._path = path
         self._name = name
         self._codec = codec
         self._blob_store_conn_match = blob_store_conn_match
@@ -278,6 +274,12 @@ class SqliteObservationStore(CompositeResource, Generic[T]):
         self._tag_indexes: set[str] = set()
         self._pending_python_filters: list[Any] = []
         self._pending_query: StreamQuery | None = None
+
+    def start(self) -> None:
+        if self._conn is None:
+            assert self._path is not None
+            self._conn = open_sqlite_connection(self._path)
+            self.register_disposables(Disposable(action=lambda: self._conn.close()))
         self._ensure_tables()
 
     def _ensure_tables(self) -> None:

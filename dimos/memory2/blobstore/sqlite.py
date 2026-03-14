@@ -52,12 +52,8 @@ class SqliteBlobStore(BlobStore):
         if conn is None and path is None:
             raise ValueError("Specify either conn or path")
         self._config = SqliteBlobStoreConfig(path=path)
-        if conn is not None:
-            self._conn = conn
-        else:
-            assert path is not None
-            self._conn = open_sqlite_connection(path)
-            self.register_disposables(Disposable(action=lambda: self._conn.close()))
+        self._conn: sqlite3.Connection = conn  # type: ignore[assignment]  # set in start() if None
+        self._path = path
         self._tables: set[str] = set()
 
     def _ensure_table(self, stream_name: str) -> None:
@@ -73,7 +69,10 @@ class SqliteBlobStore(BlobStore):
     # ── Resource lifecycle ────────────────────────────────────────
 
     def start(self) -> None:
-        pass
+        if self._conn is None:
+            assert self._path is not None
+            self._conn = open_sqlite_connection(self._path)
+            self.register_disposables(Disposable(action=lambda: self._conn.close()))
 
     # ── BlobStore interface ───────────────────────────────────────
 

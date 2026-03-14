@@ -31,9 +31,6 @@ from dimos.protocol.service.spec import BaseConfig, Configurable
 T = TypeVar("T")
 
 
-# ── Configuration ─────────────────────────────────────────────────
-
-
 class StoreConfig(BaseConfig):
     """Store-level config. These are defaults inherited by all streams.
 
@@ -47,9 +44,6 @@ class StoreConfig(BaseConfig):
     vector_store: type[VectorStore] | VectorStore | None = None
     notifier: type[Notifier] | Notifier | None = None  # type: ignore[type-arg]
     eager_blobs: bool = False
-
-
-# ── Store ─────────────────────────────────────────────────────────
 
 
 class Store(Configurable[StoreConfig], CompositeResource):
@@ -90,14 +84,17 @@ class Store(Configurable[StoreConfig], CompositeResource):
         obs = config.pop("observation_store", self.config.observation_store)
         if obs is None or isinstance(obs, type):
             obs = (obs or ListObservationStore)(name)
+            obs.start()
 
         bs = config.pop("blob_store", self.config.blob_store)
         if isinstance(bs, type):
             bs = bs()
+            bs.start()
 
         vs = config.pop("vector_store", self.config.vector_store)
         if isinstance(vs, type):
             vs = vs()
+            vs.start()
 
         notifier = config.pop("notifier", self.config.notifier)
         if notifier is None or isinstance(notifier, type):
