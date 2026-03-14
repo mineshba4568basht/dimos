@@ -28,8 +28,6 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 R = TypeVar("R")
 
-_MISSING = object()
-
 
 class Transformer(FilterRepr, ABC, Generic[T, R]):
     """Transforms a stream of observations lazily via iterator -> iterator.
@@ -45,15 +43,14 @@ class Transformer(FilterRepr, ABC, Generic[T, R]):
     def __str__(self) -> str:
         parts: list[str] = []
         for name in inspect.signature(self.__init__).parameters:  # type: ignore[misc]
-            val = getattr(self, name, _MISSING)
-            if val is _MISSING:
-                val = getattr(self, f"_{name}", _MISSING)
-            if val is _MISSING:
-                continue
-            if callable(val):
-                parts.append(f"{name}={getattr(val, '__name__', '...')}")
-            else:
-                parts.append(f"{name}={val!r}")
+            for attr in (name, f"_{name}"):
+                if hasattr(self, attr):
+                    val = getattr(self, attr)
+                    if callable(val):
+                        parts.append(f"{name}={getattr(val, '__name__', '...')}")
+                    else:
+                        parts.append(f"{name}={val!r}")
+                    break
         return f"{self.__class__.__name__}({', '.join(parts)})"
 
 

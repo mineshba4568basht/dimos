@@ -101,6 +101,8 @@ class SqliteBlobStore(BlobStore):
 
     def delete(self, stream_name: str, key: int) -> None:
         try:
-            self._conn.execute(f'DELETE FROM "{stream_name}_blob" WHERE id = ?', (key,))
+            cur = self._conn.execute(f'DELETE FROM "{stream_name}_blob" WHERE id = ?', (key,))
         except Exception:
-            pass
+            raise KeyError(f"No blob for stream={stream_name!r}, key={key}") from None
+        if cur.rowcount == 0:
+            raise KeyError(f"No blob for stream={stream_name!r}, key={key}")

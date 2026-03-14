@@ -25,6 +25,11 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from dimos.memory2.codecs.base import Codec, codec_for
+from dimos.memory2.codecs.jpeg import JpegCodec
+from dimos.memory2.codecs.lcm import LcmCodec
+from dimos.memory2.codecs.pickle import PickleCodec
+from dimos.msgs.geometry_msgs.PoseStamped import PoseStamped
+from dimos.msgs.sensor_msgs.Image import Image
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -163,27 +168,14 @@ class TestCodecFor:
     """codec_for() auto-selects the right codec."""
 
     def test_none_returns_pickle(self) -> None:
-        from dimos.memory2.codecs.pickle import PickleCodec
-
         assert isinstance(codec_for(None), PickleCodec)
 
     def test_unknown_type_returns_pickle(self) -> None:
-        from dimos.memory2.codecs.pickle import PickleCodec
-
         assert isinstance(codec_for(dict), PickleCodec)
 
     def test_lcm_type_returns_lcm(self) -> None:
-        from dimos.memory2.codecs.lcm import LcmCodec
-        from dimos.msgs.geometry_msgs.PoseStamped import PoseStamped
-
         assert isinstance(codec_for(PoseStamped), LcmCodec)
 
     def test_image_type_returns_jpeg(self) -> None:
         pytest.importorskip("turbojpeg")
-        from dimos.memory2.codecs.jpeg import JpegCodec
-        from dimos.msgs.sensor_msgs.Image import Image
-
-        assert isinstance(codec_for(Image), JpegCodec)
-        assert isinstance(codec_for(Image), JpegCodec)
-        assert isinstance(codec_for(Image), JpegCodec)
         assert isinstance(codec_for(Image), JpegCodec)

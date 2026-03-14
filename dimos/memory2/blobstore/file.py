@@ -64,4 +64,7 @@ class FileBlobStore(BlobStore):
 
     def delete(self, stream_name: str, key: int) -> None:
         p = self._path(stream_name, key)
-        p.unlink(missing_ok=True)
+        try:
+            p.unlink()
+        except FileNotFoundError:
+            raise KeyError(f"No blob for stream={stream_name!r}, key={key}") from None

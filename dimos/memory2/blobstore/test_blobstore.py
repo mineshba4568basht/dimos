@@ -45,8 +45,9 @@ class TestBlobStore:
         with pytest.raises(KeyError):
             blob_store.get("s", 1)
 
-    def test_delete_missing_is_silent(self, blob_store: BlobStore) -> None:
-        blob_store.delete("s", 999)  # should not raise
+    def test_delete_missing_raises(self, blob_store: BlobStore) -> None:
+        with pytest.raises(KeyError):
+            blob_store.delete("s", 999)
 
     def test_stream_isolation(self, blob_store: BlobStore) -> None:
         blob_store.put("a", 1, b"alpha")
