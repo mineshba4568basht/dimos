@@ -17,8 +17,7 @@ from typing import Literal, TypeAlias
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from dimos.mapping.occupancy.path_map import NavigationStrategy
-from dimos.models.vl.create import VlModelName
+from dimos.core.types import NavigationStrategy, VlModelName
 
 ViewerBackend: TypeAlias = Literal["rerun", "rerun-web", "rerun-connect", "foxglove", "none"]
 
