@@ -59,6 +59,8 @@ class HardwareComponent:
     address: str | None = None
     auto_enable: bool = True
     gripper_joints: list[JointName] = field(default_factory=list)
+    kp: float | None = None
+    kd: float | None = None
 
     @property
     def all_joints(self) -> list[JointName]:
@@ -125,10 +127,18 @@ def make_twist_base_joints(
 
 
 _QUADRUPED_LEG_JOINTS = [
-    "FR_0", "FR_1", "FR_2",
-    "FL_0", "FL_1", "FL_2",
-    "RR_0", "RR_1", "RR_2",
-    "RL_0", "RL_1", "RL_2",
+    "FR_0",
+    "FR_1",
+    "FR_2",
+    "FL_0",
+    "FL_1",
+    "FL_2",
+    "RR_0",
+    "RR_1",
+    "RR_2",
+    "RL_0",
+    "RL_1",
+    "RL_2",
 ]
 
 

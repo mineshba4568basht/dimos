@@ -39,7 +39,11 @@ from dimos.control.components import (
     JointName,
     TaskName,
 )
-from dimos.control.hardware_interface import ConnectedHardware, ConnectedQuadruped, ConnectedTwistBase
+from dimos.control.hardware_interface import (
+    ConnectedHardware,
+    ConnectedQuadruped,
+    ConnectedTwistBase,
+)
 from dimos.control.task import ControlTask
 from dimos.control.tick_loop import TickLoop
 from dimos.core.core import rpc
@@ -93,6 +97,13 @@ class TaskConfig:
     gripper_joint: str | None = None
     gripper_open_pos: float = 0.0
     gripper_closed_pos: float = 0.0
+    # RL policy specific
+    policy_path: str | Path | None = None
+    hardware_id: str | None = None
+    default_positions: list[float] = field(default_factory=list)
+    action_scale: float = 0.25
+    decimation: int = 2
+    isaac_to_robot_map: list[int] = field(default_factory=list)
 
 
 class ControlCoordinatorConfig(ModuleConfig):
@@ -336,6 +347,36 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
                 ),
             )
 
+        elif task_type == "rl_policy":
+            from dimos.control.tasks.rl_policy_task import RLPolicyTask, RLPolicyTaskConfig
+
+            if cfg.policy_path is None:
+                raise ValueError(f"RLPolicyTask '{cfg.name}' requires policy_path in TaskConfig")
+            if cfg.hardware_id is None:
+                raise ValueError(f"RLPolicyTask '{cfg.name}' requires hardware_id in TaskConfig")
+
+            hw = self._hardware.get(cfg.hardware_id)
+            if hw is None:
+                raise ValueError(
+                    f"RLPolicyTask '{cfg.name}' references unknown hardware '{cfg.hardware_id}'. "
+                    f"Ensure hardware is listed before tasks in config."
+                )
+
+            return RLPolicyTask(
+                cfg.name,
+                RLPolicyTaskConfig(
+                    policy_path=cfg.policy_path,
+                    joint_names=cfg.joint_names,
+                    default_positions=cfg.default_positions,
+                    action_scale=cfg.action_scale,
+                    isaac_to_robot_map=cfg.isaac_to_robot_map
+                    or [3, 0, 9, 6, 4, 1, 10, 7, 5, 2, 11, 8],
+                    priority=cfg.priority,
+                    decimation=cfg.decimation,
+                ),
+                adapter=hw.adapter,
+            )
+
         else:
             raise ValueError(f"Unknown task type: {task_type}")
 
@@ -573,6 +614,13 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
             joint_state = JointState(name=names, velocity=velocities)
             self._on_joint_command(joint_state)
 
+        # Also route twist to RL policy tasks (quadruped velocity command input)
+        t_now = time.perf_counter()
+        with self._task_lock:
+            for task in self._tasks.values():
+                if hasattr(task, "set_velocity_command"):
+                    task.set_velocity_command(msg.linear.x, msg.linear.y, msg.angular.z, t_now)
+
     def _on_buttons(self, msg: Buttons) -> None:
         """Forward button state to all tasks."""
         with self._task_lock:
@@ -690,8 +738,11 @@ class ControlCoordinator(Module[ControlCoordinatorConfig]):
                     "Use task_invoke RPC or set transport via blueprint."
                 )
 
-        # Subscribe to twist commands if any twist base hardware configured
-        has_twist_base = any(c.hardware_type == HardwareType.BASE for c in self.config.hardware)
+        # Subscribe to twist commands if any twist base or quadruped hardware configured
+        has_twist_base = any(
+            c.hardware_type in (HardwareType.BASE, HardwareType.QUADRUPED)
+            for c in self.config.hardware
+        )
         if has_twist_base:
             try:
                 self._twist_command_unsub = self.twist_command.subscribe(self._on_twist_command)

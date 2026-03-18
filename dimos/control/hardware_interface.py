@@ -350,6 +350,8 @@ class ConnectedQuadruped(ConnectedHardware):
         self._quad_adapter = adapter
         self._component = component
         self._joint_names = component.joints
+        self._kp = component.kp if component.kp is not None else _DEFAULT_KP
+        self._kd = component.kd if component.kd is not None else _DEFAULT_KD
 
         self._last_commanded: dict[str, float] = {}
         self._initialized = False
@@ -408,8 +410,8 @@ class ConnectedQuadruped(ConnectedHardware):
             MotorCommand(
                 q=self._last_commanded[name],
                 dq=0.0,
-                kp=_DEFAULT_KP,
-                kd=_DEFAULT_KD,
+                kp=self._kp,
+                kd=self._kd,
                 tau=0.0,
             )
             for name in self._joint_names
