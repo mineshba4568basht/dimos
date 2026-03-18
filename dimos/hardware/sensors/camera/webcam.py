@@ -166,6 +166,10 @@ class Webcam(CameraHardware[WebcamConfig]):
 
     @property
     def camera_info(self) -> CameraInfo:
-        return self.config.camera_info
+        info = self.config.camera_info
+        if info.width == 0 or info.height == 0:
+            info.width = self.config.width
+            info.height = self.config.height
+        return info
 
     def emit(self, image: Image) -> None: ...

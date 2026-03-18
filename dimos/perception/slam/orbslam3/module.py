@@ -68,8 +68,8 @@ class OrbSlam3Config(NativeModuleConfig):
     use_viewer: bool = False
 
     # Frame IDs for output messages
-    frame_id: str = "map"
-    child_frame_id: str = "camera"
+    frame_id: str = "world"
+    child_frame_id: str = "camera_link"
 
     # Camera settings YAML (absolute path, or override with your own calibration)
     settings_path: str = str(
