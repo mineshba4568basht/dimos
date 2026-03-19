@@ -108,7 +108,19 @@ def test_empty_paths_returns_false() -> None:
 
 
 def test_nonexistent_path_warns(caplog: pytest.LogCaptureFixture) -> None:
-    """A non-existent path logs a warning and doesn't crash."""
+    """A non-existent absolute path logs a warning and doesn't crash."""
     result = did_change("missing_test", ["/nonexistent/path/to/file.c"])
-    # First call with no resolvable files still returns True (no cache)
-    assert isinstance(result, bool)
+    # No resolvable files → returns False (skip rebuild)
+    assert result is False
+
+
+def test_relative_path_without_cwd_raises() -> None:
+    """Relative paths without cwd= should raise ValueError."""
+    with pytest.raises(ValueError, match="Relative path.*without a cwd"):
+        did_change("rel_test", ["some/relative/path.c"])
+
+
+def test_relative_path_with_cwd(src_dir: Path) -> None:
+    """Relative paths should resolve against the provided cwd."""
+    assert did_change("cwd_test", ["src/a.c"], cwd=src_dir.parent) is True
+    assert did_change("cwd_test", ["src/a.c"], cwd=src_dir.parent) is False

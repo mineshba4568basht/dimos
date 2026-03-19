@@ -46,12 +46,23 @@ def _get_cache_dir() -> Path:
 
 
 def _resolve_paths(paths: Sequence[str | Path], cwd: str | Path | None = None) -> list[Path]:
-    """Expand globs/directories into a sorted list of individual file paths."""
+    """Expand globs/directories into a sorted list of individual file paths.
+
+    When *cwd* is provided, relative paths and glob patterns are resolved
+    against it.  When *cwd* is ``None``, every entry must be absolute (or an
+    absolute glob); a relative path will raise :class:`ValueError` so that
+    callers don't silently resolve against an unpredictable process CWD.
+    """
     files: set[Path] = set()
     for entry in paths:
         entry_str = str(entry)
-        # Resolve relative paths against cwd when provided
-        if cwd is not None and not Path(entry_str).is_absolute():
+        is_relative = not Path(entry_str).is_absolute()
+        if is_relative:
+            if cwd is None:
+                raise ValueError(
+                    f"Relative path {entry_str!r} passed to change detection without a cwd. "
+                    "Either provide an absolute path or pass cwd= so relatives can be resolved."
+                )
             entry_str = str(Path(cwd) / entry_str)
         # Try glob expansion first (handles both glob patterns and plain paths)
         expanded = glob_mod.glob(entry_str, recursive=True)
@@ -91,24 +102,57 @@ def did_change(
     paths: Sequence[str | Path],
     cwd: str | Path | None = None,
 ) -> bool:
-    """Check if any files/dirs matching the given paths have changed since last check.
+    """Check if any files/dirs matching *paths* have changed since last check.
+
+    Examples::
+
+        # Absolute paths — no cwd needed
+        did_change("my_build", ["/src/main.cpp", "/src/utils/*.hpp"])
+
+        # Relative paths — must pass cwd
+        did_change("my_build", ["src/main.cpp", "common/*.hpp"], cwd="/home/user/project")
+
+        # Track a whole directory (walked recursively)
+        did_change("assets", ["/data/models/"], cwd="/project")
+
+        # Second call with no file changes → False
+        did_change("my_build", ["/src/main.cpp"])  # True  (first call, no cache)
+        did_change("my_build", ["/src/main.cpp"])  # False (nothing changed)
+
+        # After editing a file → True again
+        Path("/src/main.cpp").write_text("// changed")
+        did_change("my_build", ["/src/main.cpp"])  # True
+
+        # Relative path without cwd → ValueError
+        did_change("bad", ["src/main.cpp"])  # raises ValueError
 
     Args:
-        cache_name: Unique identifier for this cache (e.g. ``"mymodule_build_cache"``).
-                    Different cache names track independently.
-        paths: List of file paths, directory paths, or glob patterns.
+        cache_name: Unique identifier for this cache. Different names track independently.
+        paths: File paths, directory paths, or glob patterns.
                Directories are walked recursively.
-               Globs are expanded with :func:`glob.glob`.
-        cwd: Optional working directory for resolving relative paths.
+               Relative paths require *cwd*; without it a ``ValueError`` is raised.
+        cwd: Working directory for resolving relative paths.
 
     Returns:
-        ``True`` if any file has changed (or if no previous cache exists).
-        ``False`` if all files are identical to the cached state.
+        ``True`` if any file has changed (or first call with no prior cache).
+        ``False`` if all files match the cached state, or if no files were found.
     """
     if not paths:
         return False
 
     files = _resolve_paths(paths, cwd=cwd)
+
+    # If none of the monitored paths resolve to actual files (e.g. source
+    # files don't exist on this branch or checkout), don't claim anything
+    # changed — deleting a working binary because we can't find the sources
+    # to compare against is destructive.
+    if not files:
+        logger.warning(
+            "No source files found for change detection, skipping rebuild check",
+            cache_name=cache_name,
+        )
+        return False
+
     current_hash = _hash_files(files)
 
     cache_dir = _get_cache_dir()

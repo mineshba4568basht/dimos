@@ -259,13 +259,19 @@ class NativeModule(Module[_NativeConfig]):
 
         if exe.exists() and not needs_rebuild:
             return
+
         if self.config.build_command is None:
             raise FileNotFoundError(
                 f"Executable not found: {exe}. "
                 "Set build_command in config to auto-build, or build it manually."
             )
+
+        # Don't unlink the exe before rebuilding — the build command is
+        # responsible for replacing it.  For nix builds the exe lives inside
+        # a read-only store; `nix build -o` atomically swaps the output
+        # symlink without touching store contents.
         logger.info(
-            "Executable not found, running build",
+            "Rebuilding" if needs_rebuild else "Executable not found, building",
             executable=str(exe),
             build_command=self.config.build_command,
         )
@@ -296,7 +302,7 @@ class NativeModule(Module[_NativeConfig]):
         # Update the change cache so next check is clean
         if self.config.rebuild_on_change:
             cache_name = f"native_{type(self).__name__}_build"
-            did_change(cache_name, self.config.rebuild_on_change)
+            did_change(cache_name, self.config.rebuild_on_change, cwd=self.config.cwd)
 
     def _collect_topics(self) -> dict[str, str]:
         """Extract LCM topic strings from blueprint-assigned stream transports."""
