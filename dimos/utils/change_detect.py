@@ -30,7 +30,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 import fcntl
 import glob as glob_mod
-import hashlib
 import os
 from pathlib import Path
 from typing import Union
@@ -71,54 +70,42 @@ def _get_cache_dir() -> Path:
     return Path.home() / ".cache" / "dimos" / "change_detect"
 
 
-def _safe_filename(cache_name: str) -> str:
-    """Convert an arbitrary cache name into a safe filename.
+def _resolve_paths(paths: Sequence[str | Path], cwd: str | Path | None = None) -> list[Path]:
+    """Expand globs/directories into a sorted list of individual file paths.
 
-    If the cache name is already a simple identifier it is returned as-is.
-    Otherwise a short SHA-256 prefix is appended so that names containing
-    path separators or other special characters produce unique, safe filenames.
-    """
-    safe_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
-    if all(c in safe_chars for c in cache_name) and len(cache_name) <= 200:
-        return cache_name
-    digest = hashlib.sha256(cache_name.encode()).hexdigest()[:16]
-    return digest
-
-
-def _add_path(files: set[Path], p: Path) -> None:
-    """Add *p* (file or directory, walked recursively) to *files*."""
-    if p.is_file():
-        files.add(p.resolve())
-    elif p.is_dir():
-        for root, _dirs, filenames in os.walk(p):
-            for fname in filenames:
-                files.add(Path(root, fname).resolve())
-
-
-def _resolve_paths(paths: Sequence[PathEntry]) -> list[Path]:
-    """Resolve a mixed list of path entries into a sorted list of files.
-
-    ``Glob`` entries are expanded via :func:`glob.glob`.  All other types
-    (``str``, ``Path``, ``LfsPath``) are treated as literal paths — no
-    wildcard expansion is performed.
+    When *cwd* is provided, relative paths and glob patterns are resolved
+    against it.  When *cwd* is ``None``, every entry must be absolute (or an
+    absolute glob); a relative path will raise :class:`ValueError` so that
+    callers don't silently resolve against an unpredictable process CWD.
     """
     files: set[Path] = set()
     for entry in paths:
-        if isinstance(entry, Glob):
-            expanded = glob_mod.glob(entry, recursive=True)
-            if not expanded:
-                logger.warning("Glob pattern matched no files", pattern=entry)
-                continue
-            for match in expanded:
-                _add_path(files, Path(match))
-        else:
-            # str, Path, LfsPath — literal path, no glob expansion
-            path_str = str(entry)
-            p = Path(path_str)
-            if not p.exists():
-                logger.warning("Path does not exist", path=path_str)
-                continue
-            _add_path(files, p)
+        entry_str = str(entry)
+        is_relative = not Path(entry_str).is_absolute()
+        if is_relative:
+            if cwd is None:
+                raise ValueError(
+                    f"Relative path {entry_str!r} passed to change detection without a cwd. "
+                    "Either provide an absolute path or pass cwd= so relatives can be resolved."
+                )
+            entry_str = str(Path(cwd) / entry_str)
+        # Try glob expansion first (handles both glob patterns and plain paths)
+        expanded = glob_mod.glob(entry_str, recursive=True)
+        if not expanded:
+            # Nothing matched — could be a non-existent path or empty glob
+            if any(c in entry_str for c in ("*", "?", "[")):
+                logger.warning("Glob pattern matched no files", pattern=entry_str)
+            else:
+                logger.warning("Path does not exist", path=entry_str)
+            continue
+        for match in expanded:
+            p = Path(match)
+            if p.is_file():
+                files.add(p.resolve())
+            elif p.is_dir():
+                for root, _dirs, filenames in os.walk(p):
+                    for fname in filenames:
+                        files.add(Path(root, fname).resolve())
     return sorted(files)
 
 
@@ -135,36 +122,62 @@ def _hash_files(files: list[Path]) -> str:
     return h.hexdigest()
 
 
-def did_change(cache_name: str, paths: Sequence[PathEntry]) -> bool:
-    """Check if any files/dirs matching the given paths have changed since last check.
+def did_change(
+    cache_name: str,
+    paths: Sequence[str | Path],
+    cwd: str | Path | None = None,
+) -> bool:
+    """Check if any files/dirs matching *paths* have changed since last check.
 
-    Example::
+    Examples::
 
-        # Track a single file
-        if did_change("my_build", ["src/main.c"]):
-            rebuild()
+        # Absolute paths — no cwd needed
+        did_change("my_build", ["/src/main.cpp", "/src/utils/*.hpp"])
+
+        # Relative paths — must pass cwd
+        did_change("my_build", ["src/main.cpp", "common/*.hpp"], cwd="/home/user/project")
 
         # Track a whole directory (walked recursively)
-        if did_change("assets", ["/data/models"]):
-            reload_models()
+        did_change("assets", ["/data/models/"], cwd="/project")
 
-        # Use Glob for wildcard patterns (str is always literal)
-        if did_change("c_sources", [Glob("src/**/*.c"), Glob("include/**/*.h")]):
-            recompile()
+        # Second call with no file changes → False
+        did_change("my_build", ["/src/main.cpp"])  # True  (first call, no cache)
+        did_change("my_build", ["/src/main.cpp"])  # False (nothing changed)
 
-        # Mix literal paths and globs
-        if did_change("config_check", ["config.yaml", Glob("templates/*.j2")]):
-            regenerate()
+        # After editing a file → True again
+        Path("/src/main.cpp").write_text("// changed")
+        did_change("my_build", ["/src/main.cpp"])  # True
 
-    Returns ``True`` on the first call (no previous cache), and on subsequent
-    calls returns ``True`` only if file contents differ from the last check.
-    The cache is always updated, so two consecutive calls with no changes
-    return ``True`` then ``False``.
+        # Relative path without cwd → ValueError
+        did_change("bad", ["src/main.cpp"])  # raises ValueError
+
+    Args:
+        cache_name: Unique identifier for this cache. Different names track independently.
+        paths: File paths, directory paths, or glob patterns.
+               Directories are walked recursively.
+               Relative paths require *cwd*; without it a ``ValueError`` is raised.
+        cwd: Working directory for resolving relative paths.
+
+    Returns:
+        ``True`` if any file has changed (or first call with no prior cache).
+        ``False`` if all files match the cached state, or if no files were found.
     """
     if not paths:
         return False
 
-    files = _resolve_paths(paths)
+    files = _resolve_paths(paths, cwd=cwd)
+
+    # If none of the monitored paths resolve to actual files (e.g. source
+    # files don't exist on this branch or checkout), don't claim anything
+    # changed — deleting a working binary because we can't find the sources
+    # to compare against is destructive.
+    if not files:
+        logger.warning(
+            "No source files found for change detection, skipping rebuild check",
+            cache_name=cache_name,
+        )
+        return False
+
     current_hash = _hash_files(files)
 
     cache_dir = _get_cache_dir()
