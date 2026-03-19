@@ -255,20 +255,28 @@ class NativeModule(Module[_NativeConfig]):
         exe = Path(self.config.executable)
 
         # Check if rebuild needed due to source changes
+        needs_rebuild = False
         if self.config.rebuild_on_change and exe.exists():
-            if did_change(self._build_cache_name(), self.config.rebuild_on_change):
+            cache_name = f"native_{type(self).__name__}_build"
+            if did_change(cache_name, self.config.rebuild_on_change, cwd=self.config.cwd):
                 logger.info("Source files changed, triggering rebuild", executable=str(exe))
-                exe.unlink(missing_ok=True)
+                needs_rebuild = True
 
-        if exe.exists():
+        if exe.exists() and not needs_rebuild:
             return
+
         if self.config.build_command is None:
             raise FileNotFoundError(
                 f"Executable not found: {exe}. "
                 "Set build_command in config to auto-build, or build it manually."
             )
+
+        # Don't unlink the exe before rebuilding — the build command is
+        # responsible for replacing it.  For nix builds the exe lives inside
+        # a read-only store; `nix build -o` atomically swaps the output
+        # symlink without touching store contents.
         logger.info(
-            "Executable not found, running build",
+            "Rebuilding" if needs_rebuild else "Executable not found, building",
             executable=str(exe),
             build_command=self.config.build_command,
         )
@@ -299,7 +307,8 @@ class NativeModule(Module[_NativeConfig]):
         # Seed the cache after a successful build so the next check has a baseline
         # (needed for the initial build when the pre-build change check was skipped)
         if self.config.rebuild_on_change:
-            did_change(self._build_cache_name(), self.config.rebuild_on_change)
+            cache_name = f"native_{type(self).__name__}_build"
+            did_change(cache_name, self.config.rebuild_on_change, cwd=self.config.cwd)
 
     def _collect_topics(self) -> dict[str, str]:
         """Extract LCM topic strings from blueprint-assigned stream transports."""
