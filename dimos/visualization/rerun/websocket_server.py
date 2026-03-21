@@ -89,7 +89,9 @@ class RerunWebSocketServer(Module[Config]):
             target=self._run_server, daemon=True, name="rerun-ws-server"
         )
         self._server_thread.start()
-        logger.info(f"RerunWebSocketServer starting on ws://{self.config.host}:{self.config.port}/ws")
+        logger.info(
+            f"RerunWebSocketServer starting on ws://{self.config.host}:{self.config.port}/ws"
+        )
 
     @rpc
     def stop(self) -> None:
@@ -124,7 +126,9 @@ class RerunWebSocketServer(Module[Config]):
             host=self.config.host,
             port=self.config.port,
         ):
-            logger.info(f"RerunWebSocketServer listening on ws://{self.config.host}:{self.config.port}/ws")
+            logger.info(
+                f"RerunWebSocketServer listening on ws://{self.config.host}:{self.config.port}/ws"
+            )
             await self._stop_event.wait()
 
     async def _handle_client(self, websocket: Any) -> None:
@@ -151,9 +155,9 @@ class RerunWebSocketServer(Module[Config]):
 
         if msg_type == "click":
             pt = PointStamped(
-                x=float(msg["x"]),
-                y=float(msg["y"]),
-                z=float(msg["z"]),
+                x=float(msg.get("x", 0)),
+                y=float(msg.get("y", 0)),
+                z=float(msg.get("z", 0)),
                 ts=float(msg.get("timestamp_ms", 0)) / 1000.0,
                 frame_id=str(msg.get("entity_path", "")),
             )
