@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dimos.memory2.store.sqlite import SqliteStore
-from dimos.memory2.transform import QualityWindow
+from dimos.memory2.transform import Batch, QualityWindow
 from dimos.models.embedding.clip import CLIPModel
 from dimos.models.vl.florence import Florence2Model
 from dimos.msgs.sensor_msgs.Image import Image
@@ -137,7 +137,11 @@ class TestVisualizer:
         with florence:
             pipeline = store.streams.color_image.transform(
                 QualityWindow(lambda img: img.sharpness, window=5.0)
-            ).map(lambda obs: obs.derive(data=florence.caption(obs.data)))
+                # we are batch processing images here,
+                # so we can use the more efficient batch captioning API
+                # (instead of using .map() and calling caption() for each image,
+            ).transform(Batch(lambda imgs: florence.caption_batch(*imgs)))
+            # this can be stored, further embedded etc
 
             for obs in pipeline:
                 print(obs.ts, obs.data)
