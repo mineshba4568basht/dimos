@@ -152,11 +152,11 @@ class RerunWebSocketServer(Module[Config]):
 
         if msg_type == "click":
             pt = PointStamped(
-                x=float(msg.get("x", 0)),
-                y=float(msg.get("y", 0)),
-                z=float(msg.get("z", 0)),
-                ts=float(msg.get("timestamp_ms", 0)) / 1000.0,
-                frame_id=str(msg.get("entity_path", "")),
+                x=float(msg.get("x") or 0),
+                y=float(msg.get("y") or 0),
+                z=float(msg.get("z") or 0),
+                ts=float(msg.get("timestamp_ms") or 0) / 1000.0,
+                frame_id=str(msg.get("entity_path") or ""),
             )
             logger.debug(f"RerunWebSocketServer: click → {pt}")
             self.clicked_point.publish(pt)

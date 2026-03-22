@@ -36,6 +36,7 @@ class ReplanningAStarPlanner(Module, NavigationInterface):
     goal_request: In[PoseStamped]
     clicked_point: In[PointStamped]
     target: In[PoseStamped]
+    tele_cmd_vel: In[Twist]
 
     goal_reached: Out[Bool]
     navigation_state: Out[String]  # TODO: set it
@@ -69,6 +70,8 @@ class ReplanningAStarPlanner(Module, NavigationInterface):
                 )
             )
         )
+
+        self._disposables.add(Disposable(self.tele_cmd_vel.subscribe(self._handle_tele_cmd_vel)))
 
         self._disposables.add(self._planner.path.subscribe(self.path.publish))
 
@@ -107,6 +110,13 @@ class ReplanningAStarPlanner(Module, NavigationInterface):
     def cancel_goal(self) -> bool:
         self._planner.cancel_goal()
         return True
+
+    def _handle_tele_cmd_vel(self, twist: Twist) -> None:
+        with self._planner._lock:
+            has_goal = self._planner._current_goal is not None
+        if has_goal:
+            self.cancel_goal()
+        self.cmd_vel.publish(twist)
 
     @rpc
     def set_replanning_enabled(self, enabled: bool) -> None:
