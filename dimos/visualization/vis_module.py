@@ -30,8 +30,8 @@ def vis_module(
     """Create a visualization blueprint based on the selected viewer backend.
 
     Bundles the appropriate viewer module (Rerun or Foxglove) together with
-    the ``RerunWebSocketServer`` so that remote viewer connections (click,
-    teleop) work out of the box when using a Rerun backend.
+    the ``WebsocketVisModule`` and ``RerunWebSocketServer`` so that the web
+    dashboard and remote viewer connections work out of the box.
 
     Example usage::
 
@@ -48,6 +48,8 @@ def vis_module(
             },
         )
     """
+    from dimos.web.websocket_vis.websocket_vis_module import WebsocketVisModule
+
     if foxglove_config is None:
         foxglove_config = {}
     if rerun_config is None:
@@ -59,8 +61,11 @@ def vis_module(
         case "foxglove":
             from dimos.robot.foxglove_bridge import FoxgloveBridge
 
-            return autoconnect(FoxgloveBridge.blueprint(**foxglove_config))
-        case "rerun" | "rerun-web" | "rerun-connect":
+            return autoconnect(
+                FoxgloveBridge.blueprint(**foxglove_config),
+                WebsocketVisModule.blueprint(),
+            )
+        case "rerun" | "rerun-web":
             from dimos.visualization.rerun.bridge import _BACKEND_TO_MODE, RerunBridgeModule
             from dimos.visualization.rerun.websocket_server import RerunWebSocketServer
 
@@ -68,6 +73,15 @@ def vis_module(
             return autoconnect(
                 RerunBridgeModule.blueprint(viewer_mode=viewer_mode, **rerun_config),
                 RerunWebSocketServer.blueprint(),
+                WebsocketVisModule.blueprint(),
+            )
+        case "rerun-connect":
+            from dimos.visualization.rerun.bridge import RerunBridgeModule
+            from dimos.visualization.rerun.websocket_server import RerunWebSocketServer
+
+            return autoconnect(
+                RerunBridgeModule.blueprint(viewer_mode="connect", **rerun_config),
+                RerunWebSocketServer.blueprint(),
             )
         case _:
-            return autoconnect()
+            return autoconnect(WebsocketVisModule.blueprint())

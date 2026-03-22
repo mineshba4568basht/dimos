@@ -25,7 +25,6 @@ from dimos.msgs.sensor_msgs.Image import Image
 from dimos.protocol.service.system_configurator.clock_sync import ClockSyncConfigurator
 from dimos.robot.unitree.go2.connection import GO2Connection
 from dimos.visualization.vis_module import vis_module
-from dimos.web.websocket_vis.websocket_vis_module import WebsocketVisModule
 
 # Mac has some issue with high bandwidth UDP, so we use pSHMTransport for color_image
 # actually we can use pSHMTransport for all platforms, and for all streams
@@ -116,7 +115,6 @@ unitree_go2_basic = (
     autoconnect(
         _with_vis,
         GO2Connection.blueprint(),
-        WebsocketVisModule.blueprint(),
     )
     .global_config(n_workers=4, robot_model="unitree_go2")
     .configurators(ClockSyncConfigurator())

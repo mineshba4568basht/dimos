@@ -41,7 +41,6 @@ from dimos.navigation.frontier_exploration.wavefront_frontier_goal_selector impo
     WavefrontFrontierExplorer,
 )
 from dimos.visualization.vis_module import vis_module
-from dimos.web.websocket_vis.websocket_vis_module import WebsocketVisModule
 
 
 def _convert_camera_info(camera_info: Any) -> Any:
@@ -135,8 +134,6 @@ uintree_g1_primitive_no_nav = (
         VoxelGridMapper.blueprint(voxel_size=0.1),
         CostMapper.blueprint(),
         WavefrontFrontierExplorer.blueprint(),
-        # Visualization
-        WebsocketVisModule.blueprint(),
     )
     .global_config(n_workers=4, robot_model="unitree_g1")
     .transports(

@@ -23,7 +23,6 @@ from dimos.core.global_config import global_config
 from dimos.robot.drone.camera_module import DroneCameraModule
 from dimos.robot.drone.connection_module import DroneConnectionModule
 from dimos.visualization.vis_module import vis_module
-from dimos.web.websocket_vis.websocket_vis_module import WebsocketVisModule
 
 
 def _static_drone_body(rr: Any) -> list[Any]:
@@ -81,7 +80,6 @@ drone_basic = autoconnect(
         outdoor=False,
     ),
     DroneCameraModule.blueprint(camera_intrinsics=[1000.0, 1000.0, 960.0, 540.0]),
-    WebsocketVisModule.blueprint(),
 )
 
 __all__ = [
