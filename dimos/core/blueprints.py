@@ -37,7 +37,11 @@ from dimos.utils.logging_config import setup_logger
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
+<<<<<<< HEAD
+    from typing import Any as Self
+=======
     from typing_extensions import Self
+>>>>>>> origin/dev
 
 logger = setup_logger()
 

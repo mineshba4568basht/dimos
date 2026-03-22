@@ -2,8 +2,14 @@ from typing import Any
 
 from dimos.models.vl.types import VlModelName
 from dimos.models.vl.base import VlModel
+<<<<<<< HEAD
+from dimos.models.vl.types import VlModelName
 
 
+=======
+
+
+>>>>>>> origin/dev
 def create(name: VlModelName) -> VlModel[Any]:
     # This uses inline imports to only import what's needed.
     match name:

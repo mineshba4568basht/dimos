@@ -15,6 +15,9 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+<<<<<<< HEAD
+from typing import TYPE_CHECKING, Self
+=======
 import sys
 from typing import TYPE_CHECKING
 
@@ -22,6 +25,7 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
+>>>>>>> origin/dev
 
 if TYPE_CHECKING:
     from types import TracebackType
