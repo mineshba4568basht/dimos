@@ -1714,6 +1714,7 @@ dependencies = [
     { name = "toolz" },
     { name = "typer" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "xxhash" },
 ]
 
 [package.optional-dependencies]
@@ -2150,6 +2151,7 @@ requires-dist = [
     { name = "xarm-python-sdk", marker = "extra == 'manipulation'", specifier = ">=1.17.0" },
     { name = "xarm-python-sdk", marker = "extra == 'misc'", specifier = ">=1.17.0" },
     { name = "xformers", marker = "platform_machine == 'x86_64' and extra == 'cuda'", specifier = ">=0.0.20" },
+    { name = "xxhash", specifier = ">=3.0.0" },
     { name = "yapf", marker = "extra == 'misc'", specifier = "==0.40.2" },
 ]
 provides-extras = ["misc", "visualization", "agents", "web", "perception", "unitree", "manipulation", "cpu", "cuda", "dev", "psql", "sim", "drone", "dds", "docker", "base"]
