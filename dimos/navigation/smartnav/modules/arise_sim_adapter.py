@@ -1,15 +1,12 @@
-"""AriseSimAdapter: synthesizes IMU data from sim odometry for AriseSLAM.
+"""AriseSimAdapter: adapts Unity sim data for AriseSLAM input.
 
-In simulation, the Unity bridge provides ground-truth odometry but no IMU.
-AriseSLAM needs IMU for motion prediction. This adapter derives synthetic
-IMU (orientation + angular velocity + gravity-aligned acceleration) from
-consecutive odometry messages.
+AriseSLAM expects body-frame lidar (raw_points) and IMU data.
+Unity provides world-frame registered_scan and ground-truth odometry.
+This adapter:
+  1. Transforms registered_scan from world-frame → body-frame using odom
+  2. Synthesizes IMU (orientation + angular velocity + gravity) from odom
 
-Use with SensorScanGeneration which provides body-frame scans from
-world-frame registered_scan. Wire via remappings:
-
-    (SensorScanGeneration, "sensor_scan", "raw_points")   # → AriseSLAM
-    (AriseSimAdapter, "imu", "imu")                       # → AriseSLAM (autoconnect)
+This lets AriseSLAM run in simulation without real hardware.
 """
 
 from __future__ import annotations
@@ -17,32 +14,36 @@ from __future__ import annotations
 import threading
 import time
 
-import numpy as np
-
 from dimos.core.module import Module, ModuleConfig
 from dimos.core.stream import In, Out
 from dimos.msgs.geometry_msgs.Quaternion import Quaternion
+from dimos.msgs.geometry_msgs.Transform import Transform
 from dimos.msgs.geometry_msgs.Vector3 import Vector3
 from dimos.msgs.nav_msgs.Odometry import Odometry
 from dimos.msgs.sensor_msgs.Imu import Imu
+from dimos.msgs.sensor_msgs.PointCloud2 import PointCloud2
 
 
 class AriseSimAdapterConfig(ModuleConfig):
     gravity: float = 9.80511
-    publish_rate: float = 200.0  # Hz — AriseSLAM expects high-rate IMU
+    imu_rate: float = 200.0  # Hz — AriseSLAM expects high-rate IMU
 
 
 class AriseSimAdapter(Module[AriseSimAdapterConfig]):
-    """Synthesizes IMU from odometry for testing AriseSLAM in simulation.
+    """Adapts sim data (world-frame scans + odom) → AriseSLAM inputs (body-frame + IMU).
 
     Ports:
+        registered_scan (In[PointCloud2]): World-frame scan from simulator.
         odometry (In[Odometry]): Ground-truth odom from simulator.
-        imu (Out[Imu]): Synthetic IMU (orientation + angular vel + gravity).
+        raw_points (Out[PointCloud2]): Body-frame scan for AriseSLAM.
+        imu (Out[Imu]): Synthetic IMU for AriseSLAM.
     """
 
     default_config = AriseSimAdapterConfig
 
+    registered_scan: In[PointCloud2]
     odometry: In[Odometry]
+    raw_points: Out[PointCloud2]
     imu: Out[Imu]
 
     def __init__(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
@@ -51,7 +52,6 @@ class AriseSimAdapter(Module[AriseSimAdapterConfig]):
         self._running = False
         self._thread: threading.Thread | None = None
         self._latest_odom: Odometry | None = None
-        self._prev_odom: Odometry | None = None
 
     def __getstate__(self) -> dict:
         state = super().__getstate__()
@@ -66,10 +66,11 @@ class AriseSimAdapter(Module[AriseSimAdapterConfig]):
 
     def start(self) -> None:
         self.odometry._transport.subscribe(self._on_odom)
+        self.registered_scan._transport.subscribe(self._on_scan)
         self._running = True
-        self._thread = threading.Thread(target=self._publish_loop, daemon=True)
+        self._thread = threading.Thread(target=self._imu_loop, daemon=True)
         self._thread.start()
-        print("[AriseSimAdapter] Started — synthesizing IMU from odom")
+        print("[AriseSimAdapter] Started — converting sim data for AriseSLAM")
 
     def stop(self) -> None:
         self._running = False
@@ -79,11 +80,32 @@ class AriseSimAdapter(Module[AriseSimAdapterConfig]):
 
     def _on_odom(self, msg: Odometry) -> None:
         with self._lock:
-            self._prev_odom = self._latest_odom
             self._latest_odom = msg
 
-    def _publish_loop(self) -> None:
-        dt = 1.0 / self.config.publish_rate
+    def _on_scan(self, cloud: PointCloud2) -> None:
+        """Transform world-frame scan → body-frame using latest odom."""
+        with self._lock:
+            odom = self._latest_odom
+        if odom is None:
+            return
+
+        try:
+            tf_map_to_sensor = Transform(
+                translation=Vector3(odom.x, odom.y, odom.z),
+                rotation=odom.orientation,
+                frame_id="map",
+                child_frame_id="sensor",
+            )
+            tf_sensor_to_map = tf_map_to_sensor.inverse()
+            body_cloud = cloud.transform(tf_sensor_to_map)
+            body_cloud.frame_id = "sensor"
+            self.raw_points._transport.publish(body_cloud)
+        except Exception:
+            pass
+
+    def _imu_loop(self) -> None:
+        """Publish synthetic IMU at high rate from latest odom."""
+        dt = 1.0 / self.config.imu_rate
         g = self.config.gravity
 
         while self._running:
@@ -91,18 +113,9 @@ class AriseSimAdapter(Module[AriseSimAdapterConfig]):
 
             with self._lock:
                 odom = self._latest_odom
-                prev = self._prev_odom
 
             if odom is not None:
-                # Orientation directly from odom
-                orientation = Quaternion(
-                    odom.pose.orientation.x,
-                    odom.pose.orientation.y,
-                    odom.pose.orientation.z,
-                    odom.pose.orientation.w,
-                )
-
-                # Angular velocity from odom twist (if available)
+                q = odom.pose.orientation
                 ang_vel = Vector3(0.0, 0.0, 0.0)
                 if odom.twist is not None:
                     ang_vel = Vector3(
@@ -111,46 +124,33 @@ class AriseSimAdapter(Module[AriseSimAdapterConfig]):
                         odom.twist.angular.z,
                     )
 
-                # Linear acceleration: gravity in body frame + odom acceleration
-                # Rotate gravity [0, 0, g] into body frame using inverse of orientation
-                q = orientation
-                # Quaternion rotation of gravity vector into body frame
-                # Using q^{-1} * [0,0,g] * q
+                # Rotate gravity [0, 0, g] into body frame
                 gx, gy, gz = _rotate_vec_by_quat_inv(0.0, 0.0, g, q.x, q.y, q.z, q.w)
-                lin_accel = Vector3(gx, gy, gz)
 
-                now = time.time()
-                imu_msg = Imu(
+                self.imu._transport.publish(Imu(
                     angular_velocity=ang_vel,
-                    linear_acceleration=lin_accel,
-                    orientation=orientation,
-                    ts=now,
+                    linear_acceleration=Vector3(gx, gy, gz),
+                    orientation=Quaternion(q.x, q.y, q.z, q.w),
+                    ts=time.time(),
                     frame_id="sensor",
-                )
-                self.imu._transport.publish(imu_msg)
+                ))
 
             elapsed = time.monotonic() - t0
-            sleep_time = max(0.0, dt - elapsed)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+            if dt - elapsed > 0:
+                time.sleep(dt - elapsed)
 
 
 def _rotate_vec_by_quat_inv(
     vx: float, vy: float, vz: float,
     qx: float, qy: float, qz: float, qw: float,
 ) -> tuple[float, float, float]:
-    """Rotate vector [vx,vy,vz] by the inverse of quaternion [qx,qy,qz,qw]."""
-    # q_inv = [-qx, -qy, -qz, qw] for unit quaternion
-    # result = q_inv * v * q
-    # Using the formula: v' = v + 2*w*(w x v) + 2*(q x (q x v))
-    # where q = [-qx,-qy,-qz], w = qw
+    """Rotate vector by the inverse of a unit quaternion."""
     nqx, nqy, nqz = -qx, -qy, -qz
-    # t = 2 * cross(q, v)
     tx = 2.0 * (nqy * vz - nqz * vy)
     ty = 2.0 * (nqz * vx - nqx * vz)
     tz = 2.0 * (nqx * vy - nqy * vx)
-    # result = v + qw*t + cross(q, t)
-    rx = vx + qw * tx + (nqy * tz - nqz * ty)
-    ry = vy + qw * ty + (nqz * tx - nqx * tz)
-    rz = vz + qw * tz + (nqx * ty - nqy * tx)
-    return rx, ry, rz
+    return (
+        vx + qw * tx + (nqy * tz - nqz * ty),
+        vy + qw * ty + (nqz * tx - nqx * tz),
+        vz + qw * tz + (nqx * ty - nqy * tx),
+    )

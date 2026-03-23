@@ -16,16 +16,17 @@
 """G1 nav sim with AriseSLAM — tests SLAM in simulation.
 
 Instead of using Unity's ground-truth odometry, this blueprint feeds
-the sim's body-frame lidar + synthetic IMU into AriseSLAM, which
-estimates the pose via scan-to-map matching. This lets you test and
-tune SLAM without real hardware.
+the sim's lidar + synthetic IMU into AriseSLAM, which estimates the
+pose via scan-to-map matching. This lets you test and tune SLAM
+without real hardware.
+
+AriseSimAdapter handles both:
+  1. Transforming world-frame scans → body-frame using Unity's odom
+  2. Synthesizing IMU from Unity's odom (orientation + angular vel + gravity)
 
 Data flow:
-    Unity → registered_scan → SensorScanGeneration → sensor_scan (body-frame)
-         → AriseSLAM.raw_points → SLAM → registered_scan + odometry
-    Unity → odometry → AriseSimAdapter → synthetic imu → AriseSLAM.imu
-
-    AriseSLAM odometry + registered_scan feed into the nav stack as usual.
+    Unity → registered_scan + odometry → AriseSimAdapter → raw_points + imu
+    → AriseSLAM → registered_scan + odometry → nav stack
 
 Note: AriseSLAM's odometry replaces Unity's ground-truth, so navigation
 accuracy depends on how well SLAM tracks. Any drift is real SLAM drift.
@@ -40,7 +41,6 @@ from dimos.core.global_config import global_config
 from dimos.navigation.smartnav.blueprints._rerun_helpers import (
     goal_path_override,
     path_override,
-    sensor_scan_override,
     static_floor,
     static_robot,
     terrain_map_ext_override,
@@ -53,9 +53,6 @@ from dimos.navigation.smartnav.modules.click_to_goal.click_to_goal import ClickT
 from dimos.navigation.smartnav.modules.cmd_vel_mux import CmdVelMux
 from dimos.navigation.smartnav.modules.local_planner.local_planner import LocalPlanner
 from dimos.navigation.smartnav.modules.path_follower.path_follower import PathFollower
-from dimos.navigation.smartnav.modules.sensor_scan_generation.sensor_scan_generation import (
-    SensorScanGeneration,
-)
 from dimos.navigation.smartnav.modules.terrain_analysis.terrain_analysis import TerrainAnalysis
 from dimos.navigation.smartnav.modules.terrain_map_ext.terrain_map_ext import TerrainMapExt
 from dimos.navigation.smartnav.modules.unity_bridge.unity_bridge import UnityBridgeModule
@@ -83,7 +80,6 @@ _vis = vis_module(
         "min_interval_sec": 0.25,
         "visual_override": {
             "world/camera_info": UnityBridgeModule.rerun_suppress_camera_info,
-            "world/sensor_scan": sensor_scan_override,
             "world/terrain_map": terrain_map_override,
             "world/terrain_map_ext": terrain_map_ext_override,
             "world/path": path_override,
@@ -105,9 +101,7 @@ unitree_g1_nav_arise_sim = autoconnect(
         unity_scene="home_building_1",
         vehicle_height=1.24,
     ),
-    # Body-frame scan from world-frame (using Unity's ground-truth odom)
-    SensorScanGeneration.blueprint(),
-    # Synthetic IMU from Unity's ground-truth odom
+    # Adapter: transforms scan to body-frame + synthesizes IMU from odom
     AriseSimAdapter.blueprint(),
     # SLAM — estimates pose from body-frame lidar + synthetic IMU
     AriseSLAM.blueprint(use_imu=True),
@@ -142,17 +136,11 @@ unitree_g1_nav_arise_sim = autoconnect(
     [
         (PathFollower, "cmd_vel", "nav_cmd_vel"),
         (UnityBridgeModule, "terrain_map", "terrain_map_ext"),
-        # SensorScanGeneration's body-frame output → AriseSLAM input
-        (SensorScanGeneration, "sensor_scan", "raw_points"),
-        # Prevent Unity's registered_scan/odometry from feeding directly into
-        # the nav stack — AriseSLAM's outputs should be used instead.
         # Rename Unity's outputs so they don't collide with AriseSLAM's.
+        # The adapter reads sim_* and AriseSLAM outputs the canonical names.
         (UnityBridgeModule, "registered_scan", "sim_registered_scan"),
         (UnityBridgeModule, "odometry", "sim_odometry"),
-        # SensorScanGeneration needs Unity's odom + scan (renamed above)
-        (SensorScanGeneration, "registered_scan", "sim_registered_scan"),
-        (SensorScanGeneration, "odometry", "sim_odometry"),
-        # AriseSimAdapter needs Unity's odom too
+        (AriseSimAdapter, "registered_scan", "sim_registered_scan"),
         (AriseSimAdapter, "odometry", "sim_odometry"),
     ]
 ).global_config(n_workers=8, robot_model="unitree_g1", simulation=True)
