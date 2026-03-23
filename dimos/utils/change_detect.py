@@ -29,11 +29,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 import fcntl
-import threading
 import glob as glob_mod
 import hashlib
 import os
 from pathlib import Path
+import threading
 from typing import Union
 
 import xxhash

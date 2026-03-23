@@ -188,8 +188,11 @@ class NativeModule(Module[_NativeConfig]):
         if self._watchdog is not None and self._watchdog is not threading.current_thread():
             self._watchdog.join(timeout=2)
         self._watchdog = None
-        self._process = None
+        # Clean up the asyncio loop thread (from ModuleBase) BEFORE
+        # clearing _process — tests use _process=None as their exit
+        # signal, and the loop thread must be joined first.
         super().stop()
+        self._process = None
 
     def _watch_process(self) -> None:
         """Block until the native process exits; trigger stop() if it crashed."""
