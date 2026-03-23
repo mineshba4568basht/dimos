@@ -141,6 +141,8 @@ unitree_g1_nav_sim = autoconnect(
     [
         # PathFollower cmd_vel → CmdVelMux nav input (avoid name collision with mux output)
         (PathFollower, "cmd_vel", "nav_cmd_vel"),
+        # Unity needs the extended (persistent) terrain map for Z-height, not the local one
+        (UnityBridgeModule, "terrain_map", "terrain_map_ext"),
     ]
 ).global_config(n_workers=8, robot_model="unitree_g1", simulation=True)
 
