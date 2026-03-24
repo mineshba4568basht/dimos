@@ -54,6 +54,43 @@ _HEAVY_MSG_TYPES: tuple[type, ...] = (Image, PointCloud2)
 
 RERUN_GRPC_PORT = 9876
 RERUN_WEB_PORT = 9090
+RERUN_WS_PORT = 3030
+
+
+def _log_viewer_connect_hints(connect_url: str) -> None:
+    """Log the dimos-viewer / rerun command users should run to connect."""
+    import socket
+
+    # Extract port from connect URL (e.g. "rerun+http://127.0.0.1:9877/proxy")
+    from dimos.utils.generic import get_local_ips
+
+    local_ips = get_local_ips()
+    hostname = socket.gethostname()
+
+    ws_url = f"ws://127.0.0.1:{RERUN_WS_PORT}/ws"
+
+    lines = [
+        "",
+        "=" * 60,
+        "Connect a Rerun viewer to this machine:",
+        "",
+        f"  dimos-viewer --connect {connect_url} --ws-url {ws_url}",
+        "",
+    ]
+    if local_ips:
+        lines.append("From another machine on the network:")
+        for ip, iface in local_ips:
+            remote_connect = connect_url.replace("127.0.0.1", ip)
+            remote_ws = ws_url.replace("127.0.0.1", ip)
+            lines.append(
+                f"  dimos-viewer --connect {remote_connect} --ws-url {remote_ws}  # {iface}"
+            )
+        lines.append("")
+    lines.append(f"  hostname: {hostname}")
+    lines.append("=" * 60)
+    lines.append("")
+
+    logger.info("\n".join(lines))
 
 # TODO OUT visual annotations
 #
@@ -290,6 +327,7 @@ class RerunBridgeModule(Module[Config]):
         rr.init("dimos")
 
         if self.config.viewer_mode == "native":
+            spawned = False
             try:
                 import rerun_bindings
 
@@ -298,6 +336,7 @@ class RerunBridgeModule(Module[Config]):
                     executable_name="dimos-viewer",
                     memory_limit=self.config.memory_limit,
                 )
+                spawned = True
             except ImportError:
                 pass  # dimos-viewer not installed
             except Exception:
@@ -305,12 +344,22 @@ class RerunBridgeModule(Module[Config]):
                     "dimos-viewer found but failed to spawn, falling back to stock rerun",
                     exc_info=True,
                 )
-            rr.spawn(connect=True, memory_limit=self.config.memory_limit)
+            if not spawned:
+                try:
+                    rr.spawn(connect=True, memory_limit=self.config.memory_limit)
+                except (RuntimeError, FileNotFoundError):
+                    logger.warning(
+                        "Rerun native viewer not available (headless?). "
+                        "Bridge will continue without a viewer — data is still "
+                        "accessible via rerun-connect or rerun-web.",
+                        exc_info=True,
+                    )
         elif self.config.viewer_mode == "web":
             server_uri = rr.serve_grpc()
             rr.serve_web_viewer(connect_to=server_uri, open_browser=False)
         elif self.config.viewer_mode == "connect":
-            rr.connect_grpc(self.config.connect_url)
+            server_uri = rr.connect_grpc(self.config.connect_url)
+            _log_viewer_connect_hints(server_uri)
         # "none" - just init, no viewer (connect externally)
 
         if self.config.blueprint:
