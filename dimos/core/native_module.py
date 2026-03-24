@@ -169,8 +169,8 @@ class NativeModule(Module[_NativeConfig]):
         self._watchdog = threading.Thread(target=self._watch_process, daemon=True)
         self._watchdog.start()
 
-    @rpc
-    def stop(self) -> None:
+    def _clean_all_but_watchdog(self) -> None:
+        """A cleanup helper designed to be called inside of the watchdog and outside of the watchdong"""
         self._stopping = True
         if self._process is not None and self._process.poll() is None:
             logger.info("Stopping native process", pid=self._process.pid)
@@ -182,21 +182,23 @@ class NativeModule(Module[_NativeConfig]):
                     "Native process did not exit, sending SIGKILL", pid=self._process.pid
                 )
                 self._process.kill()
-                self._process.wait(timeout=5)
+                try:
+                    self._process.wait(timeout=5)
+                except Exception as error:
+                    print(f'''error = {error}''')
         self._process = None
+    
+
+    @rpc
+    def stop(self) -> None:
+        self._clean_all_but_watchdog()
         super().stop()
-        # Join the watchdog AFTER super().stop() so all module threads are
-        # cleaned up first.  When the watchdog itself is the caller (crash
-        # path), it skips joining itself — but the thread exits naturally
-        # right after this returns.  A second stop() from external code
-        # (e.g. test teardown) will reach here and join the now-finished
-        # watchdog thread, preventing monitor_threads from seeing a leak.
-        if self._watchdog is not None and self._watchdog is not threading.current_thread():
+        if self._watchdog is not None:
             self._watchdog.join(timeout=2)
             self._watchdog = None
 
     def _watch_process(self) -> None:
-        """Block until the native process exits; trigger stop() if it crashed."""
+        """Block until the native process exits; trigger cleanup if it crashed."""
         if self._process is None:
             return
 
@@ -213,7 +215,7 @@ class NativeModule(Module[_NativeConfig]):
             pid=self._process.pid,
             returncode=rc,
         )
-        self.stop()
+        self._clean_all_but_watchdog()
 
     def _start_reader(self, stream: IO[bytes] | None, level: str) -> threading.Thread:
         """Spawn a daemon thread that pipes a subprocess stream through the logger."""
