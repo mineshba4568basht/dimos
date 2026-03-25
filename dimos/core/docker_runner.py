@@ -11,11 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""
+Docker module support: image building, Dockerfile conversion, host-side
+proxy (DockerModuleOuter), and container-side runner (DockerModuleInner).
+"""
+
 from __future__ import annotations
 
 import argparse
 from contextlib import suppress
 from dataclasses import field
+import hashlib
 import importlib
 import json
 import signal
@@ -53,7 +60,7 @@ class DockerModuleConfig(ModuleConfig):
     For advanced Docker options not listed here, use docker_extra_args.
     Example: docker_extra_args=["--cap-add=SYS_ADMIN", "--read-only"]
 
-    NOTE: a DockerModule will rebuild automatically if the Dockerfile or build args change
+    NOTE: a DockerModuleOuter will rebuild automatically if the Dockerfile or build args change
     """
 
     # Build / image
@@ -160,10 +167,122 @@ def _extract_module_config(cfg: DockerModuleConfig) -> dict[str, Any]:
     return out
 
 
+# Image building and Dockerfile conversion
+
+
+_BUILD_HASH_LABEL = "dimos.build.hash"
+
+# the way of detecting already-converted Dockerfiles (UUID ensures uniqueness)
+DIMOS_SENTINEL = "DIMOS-MODULE-CONVERSION-427593ae-c6e8-4cf1-9b2d-ee81a420a5dc"
+
+# Footer appended to Dockerfiles for DimOS module conversion
+DIMOS_FOOTER = f"""
+# ==== {DIMOS_SENTINEL} ====
+# Copy DimOS source from build context
+COPY dimos /dimos/source/dimos/
+COPY pyproject.toml /dimos/source/
+COPY docker/python/module-install.sh /tmp/module-install.sh
+
+# Install DimOS and create entrypoint
+RUN bash /tmp/module-install.sh /dimos/source && rm /tmp/module-install.sh
+
+ENTRYPOINT ["/dimos/entrypoint.sh"]
+"""
+
+
+def _convert_dockerfile(dockerfile: Path) -> Path:
+    """Append DimOS footer to Dockerfile. Returns path to converted file."""
+    content = dockerfile.read_text()
+
+    # Already converted?
+    if DIMOS_SENTINEL in content:
+        return dockerfile
+
+    logger.info(f"Converting {dockerfile.name} to DimOS format")
+
+    converted = dockerfile.parent / f".{dockerfile.name}.ignore"
+    converted.write_text(content.rstrip() + "\n" + DIMOS_FOOTER.lstrip("\n"))
+    return converted
+
+
+def _compute_build_hash(cfg: DockerModuleConfig) -> str:
+    """Hash Dockerfile contents and build args."""
+    if cfg.docker_file is None:
+        raise ValueError("docker_file is required for computing build hash")
+    digest = hashlib.sha256()
+    digest.update(cfg.docker_file.read_bytes())
+    for key, val in sorted(cfg.docker_build_args.items()):
+        digest.update(f"{key}={val}".encode())
+    for arg in cfg.docker_build_extra_args:
+        digest.update(arg.encode())
+    return digest.hexdigest()
+
+
+def _get_image_build_hash(cfg: DockerModuleConfig) -> str | None:
+    """Read the build hash label from an existing Docker image."""
+    r = subprocess.run(
+        [
+            cfg.docker_bin,
+            "image",
+            "inspect",
+            "-f",
+            '{{index .Config.Labels "' + _BUILD_HASH_LABEL + '"}}',
+            cfg.docker_image,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=DOCKER_CMD_TIMEOUT,
+        check=False,
+    )
+    if r.returncode != 0:
+        return None
+    value = r.stdout.strip()
+    # docker prints "<no value>" when the label is missing
+    return value if value and value != "<no value>" else None
+
+
+def build_image(cfg: DockerModuleConfig) -> None:
+    """Build Docker image using footer mode conversion."""
+    if cfg.docker_file is None:
+        raise ValueError("docker_file is required for building Docker images")
+
+    build_hash = _compute_build_hash(cfg)
+    dockerfile = _convert_dockerfile(cfg.docker_file)
+
+    context = cfg.docker_build_context or cfg.docker_file.parent
+    cmd = [cfg.docker_bin, "build", "-t", cfg.docker_image, "-f", str(dockerfile)]
+    cmd.extend(["--label", f"{_BUILD_HASH_LABEL}={build_hash}"])
+    for k, v in cfg.docker_build_args.items():
+        cmd.extend(["--build-arg", f"{k}={v}"])
+    cmd.extend(cfg.docker_build_extra_args)
+    cmd.append(str(context))
+
+    logger.info(f"Building Docker image: {cfg.docker_image}")
+    # Stream stdout to terminal so the user sees build progress, but capture
+    # stderr separately so we can include it in the error message on failure.
+    result = subprocess.run(cmd, text=True, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Docker build failed with exit code {result.returncode}\nSTDERR:\n{result.stderr}"
+        )
+
+
+def image_exists(cfg: DockerModuleConfig) -> bool:
+    """Check if the configured Docker image exists locally."""
+    r = subprocess.run(
+        [cfg.docker_bin, "image", "inspect", cfg.docker_image],
+        capture_output=True,
+        text=True,
+        timeout=DOCKER_CMD_TIMEOUT,
+        check=False,
+    )
+    return r.returncode == 0
+
+
 # Host-side Docker-backed Module handle
 
 
-class DockerModule(ModuleProxyProtocol):
+class DockerModuleOuter(ModuleProxyProtocol):
     """
     Host-side handle for a module running inside Docker.
 
@@ -218,13 +337,6 @@ class DockerModule(ModuleProxyProtocol):
         """
         if self._is_built:
             return
-
-        from dimos.core.docker_build import (
-            _compute_build_hash,
-            _get_image_build_hash,
-            build_image,
-            image_exists,
-        )
 
         config = self.config
         try:
@@ -401,7 +513,7 @@ class DockerModule(ModuleProxyProtocol):
         using_host_network = cfg.docker_network is None and cfg.docker_network_mode == "host"
         if not using_host_network:
             logger.warning(
-                "DockerModule not using host network. LCM multicast requires --network=host. "
+                "DockerModuleOuter not using host network. LCM multicast requires --network=host. "
                 "RPC communication may not work with bridge/custom networks."
             )
 
@@ -523,7 +635,7 @@ class DockerModule(ModuleProxyProtocol):
             payload_json = json.dumps(payload, separators=(",", ":"))
         except TypeError as e:
             raise TypeError(
-                f"Cannot serialize DockerModule payload to JSON: {e}\n"
+                f"Cannot serialize DockerModuleOuter payload to JSON: {e}\n"
                 f"Ensure all constructor args/kwargs for {self._module_class.__name__} are "
                 f"JSON-serializable, or use docker_command to bypass automatic payload generation."
             ) from e
@@ -559,10 +671,14 @@ class DockerModule(ModuleProxyProtocol):
         )
 
 
+# Backwards compatibility alias
+DockerModule = DockerModuleOuter
+
+
 # Container-side runner
 
 
-class StandaloneModuleRunner:
+class DockerModuleInner:
     """Runs a module inside Docker container. Blocks until SIGTERM/SIGINT."""
 
     def __init__(self, module_path: str, args: list[Any], kwargs: dict[str, Any]) -> None:
@@ -597,7 +713,7 @@ class StandaloneModuleRunner:
         self._shutdown.wait()
 
 
-def _install_signal_handlers(runner: StandaloneModuleRunner) -> None:
+def _install_signal_handlers(runner: DockerModuleInner) -> None:
     def shutdown(_sig: int, _frame: Any) -> None:
         runner.stop()
 
@@ -607,7 +723,7 @@ def _install_signal_handlers(runner: StandaloneModuleRunner) -> None:
 
 def _cli_run(payload_json: str) -> None:
     payload = json.loads(payload_json)
-    runner = StandaloneModuleRunner(
+    runner = DockerModuleInner(
         payload["module_path"],
         payload.get("args", []),
         payload.get("kwargs", {}),
@@ -640,5 +756,10 @@ if __name__ == "__main__":
 __all__ = [
     "DockerModule",
     "DockerModuleConfig",
+    "DockerModuleInner",
+    "DockerModuleOuter",
+    "DIMOS_FOOTER",
+    "build_image",
+    "image_exists",
     "is_docker_module",
 ]

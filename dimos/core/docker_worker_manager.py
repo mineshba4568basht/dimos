@@ -20,7 +20,7 @@ from dimos.core.module import ModuleSpec
 from dimos.utils.safe_thread_map import ExceptionGroup, safe_thread_map
 
 if TYPE_CHECKING:
-    from dimos.core.docker_runner import DockerModule
+    from dimos.core.docker_runner import DockerModuleOuter
 
 
 class DockerWorkerManager:
@@ -29,24 +29,24 @@ class DockerWorkerManager:
     @staticmethod
     def deploy_parallel(
         specs: list[ModuleSpec],
-    ) -> list[DockerModule]:
+    ) -> list[DockerModuleOuter]:
         """Deploy multiple DockerModules in parallel.
 
         If any deployment fails, all successfully-started containers are
         stopped before an ExceptionGroup is raised.
         """
-        from dimos.core.docker_runner import DockerModule
+        from dimos.core.docker_runner import DockerModuleOuter
 
         def _on_errors(
-            _outcomes: list[Any], successes: list[DockerModule], errors: list[Exception]
+            _outcomes: list[Any], successes: list[DockerModuleOuter], errors: list[Exception]
         ) -> None:
             for mod in successes:
                 with suppress(Exception):
                     mod.stop()
             raise ExceptionGroup("docker deploy_parallel failed", errors)
 
-        def _deploy_one(spec: ModuleSpec) -> DockerModule:
-            mod = DockerModule(spec[0], g=spec[1], **spec[2])  # type: ignore[arg-type]
+        def _deploy_one(spec: ModuleSpec) -> DockerModuleOuter:
+            mod = DockerModuleOuter(spec[0], g=spec[1], **spec[2])  # type: ignore[arg-type]
             mod.build()
             return mod
 

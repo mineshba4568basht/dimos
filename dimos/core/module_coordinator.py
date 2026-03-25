@@ -125,14 +125,14 @@ class ModuleCoordinator(Resource):  # type: ignore[misc]
         **kwargs: Any,
     ) -> ModuleProxy:
         # Inline to avoid circular import: module_coordinator → docker_runner → module → blueprints → module_coordinator
-        from dimos.core.docker_runner import DockerModule, is_docker_module
+        from dimos.core.docker_runner import DockerModuleOuter, is_docker_module
 
         if not self._client:
             raise ValueError("Trying to dimos.deploy before the client has started")
 
         deployed_module: ModuleProxyProtocol
         if is_docker_module(module_class):
-            deployed_module = DockerModule(module_class, g=global_config, **kwargs)  # type: ignore[arg-type]
+            deployed_module = DockerModuleOuter(module_class, g=global_config, **kwargs)  # type: ignore[arg-type]
         else:
             deployed_module = self._client.deploy(module_class, global_config, kwargs)
         self._deployed_modules[module_class] = deployed_module  # type: ignore[assignment]

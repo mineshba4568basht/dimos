@@ -16,7 +16,7 @@
 Smoke tests for Docker module deployment routing.
 
 These tests verify that the ModuleCoordinator correctly detects and routes
-docker modules to DockerModule WITHOUT actually running Docker.
+docker modules to DockerModuleOuter WITHOUT actually running Docker.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from dimos.core.docker_runner import DockerModule, DockerModuleConfig, is_docker_module
+from dimos.core.docker_runner import DockerModuleOuter, DockerModuleConfig, is_docker_module
 from dimos.core.global_config import global_config
 from dimos.core.module import Module
 from dimos.core.module_coordinator import ModuleCoordinator
@@ -76,7 +76,7 @@ class TestIsDockerModule:
 
 
 class TestModuleCoordinatorDockerRouting:
-    @patch("dimos.core.docker_runner.DockerModule")
+    @patch("dimos.core.docker_runner.DockerModuleOuter")
     @patch("dimos.core.module_coordinator.WorkerManager")
     def test_deploy_routes_docker_module(self, mock_worker_manager_cls, mock_docker_module_cls):
         mock_worker_mgr = MagicMock()
@@ -92,7 +92,7 @@ class TestModuleCoordinatorDockerRouting:
 
             # Should NOT go through worker manager
             mock_worker_mgr.deploy.assert_not_called()
-            # Should construct a DockerModule (container launch happens inside __init__)
+            # Should construct a DockerModuleOuter (container launch happens inside __init__)
             mock_docker_module_cls.assert_called_once_with(FakeDockerModule, g=global_config)
             # start() is NOT called during deploy — it's called in start_all_modules
             mock_dm.start.assert_not_called()
@@ -101,7 +101,7 @@ class TestModuleCoordinatorDockerRouting:
         finally:
             coordinator.stop()
 
-    @patch("dimos.core.docker_runner.DockerModule")
+    @patch("dimos.core.docker_runner.DockerModuleOuter")
     @patch("dimos.core.module_coordinator.WorkerManager")
     def test_deploy_docker_propagates_constructor_failure(
         self, mock_worker_manager_cls, mock_docker_module_cls
@@ -109,7 +109,7 @@ class TestModuleCoordinatorDockerRouting:
         mock_worker_mgr = MagicMock()
         mock_worker_manager_cls.return_value = mock_worker_mgr
 
-        # Container launch fails inside __init__; DockerModule handles its own cleanup
+        # Container launch fails inside __init__; DockerModuleOuter handles its own cleanup
         mock_docker_module_cls.side_effect = RuntimeError("launch failed")
 
         coordinator = ModuleCoordinator()
@@ -173,7 +173,7 @@ class TestModuleCoordinatorDockerRouting:
         finally:
             coordinator.stop()
 
-    @patch("dimos.core.docker_runner.DockerModule")
+    @patch("dimos.core.docker_runner.DockerModuleOuter")
     @patch("dimos.core.module_coordinator.WorkerManager")
     def test_stop_cleans_up_docker_modules(self, mock_worker_manager_cls, mock_docker_module_cls):
         mock_worker_mgr = MagicMock()
@@ -195,13 +195,13 @@ class TestModuleCoordinatorDockerRouting:
         mock_worker_mgr.close_all.assert_called_once()
 
 
-class TestDockerModuleGetattr:
-    """Tests for DockerModule.__getattr__ avoiding infinite recursion."""
+class TestDockerModuleOuterGetattr:
+    """Tests for DockerModuleOuter.__getattr__ avoiding infinite recursion."""
 
     def test_getattr_no_recursion_when_rpcs_not_set(self):
         """If __init__ fails before self.rpcs is assigned, __getattr__ must not recurse."""
 
-        dm = DockerModule.__new__(DockerModule)
+        dm = DockerModuleOuter.__new__(DockerModuleOuter)
         # Don't set rpcs, _module_class, or any instance attrs — simulates early __init__ failure
         with pytest.raises(AttributeError):
             _ = dm.some_method
@@ -209,14 +209,14 @@ class TestDockerModuleGetattr:
     def test_getattr_no_recursion_on_cleanup_attrs(self):
         """Accessing cleanup-related attrs before they exist must raise, not recurse."""
 
-        dm = DockerModule.__new__(DockerModule)
+        dm = DockerModuleOuter.__new__(DockerModuleOuter)
         # These are accessed during _cleanup() — if rpcs isn't set, they must not recurse
         for attr in ("rpc", "config", "_container_name", "_unsub_fns"):
             with pytest.raises(AttributeError):
                 getattr(dm, attr)
 
     def test_getattr_delegates_to_rpc_when_rpcs_set(self):
-        dm = DockerModule.__new__(DockerModule)
+        dm = DockerModuleOuter.__new__(DockerModuleOuter)
         dm.rpcs = {"do_thing"}
 
         # _module_class needs a real method with __name__ for RpcCall
@@ -232,19 +232,19 @@ class TestDockerModuleGetattr:
         assert isinstance(result, RpcCall)
 
     def test_getattr_raises_for_unknown_method(self):
-        dm = DockerModule.__new__(DockerModule)
+        dm = DockerModuleOuter.__new__(DockerModuleOuter)
         dm.rpcs = {"do_thing"}
 
         with pytest.raises(AttributeError, match="not found"):
             _ = dm.nonexistent
 
 
-class TestDockerModuleCleanupReconnect:
-    """Tests for DockerModule._cleanup with docker_reconnect_container."""
+class TestDockerModuleOuterCleanupReconnect:
+    """Tests for DockerModuleOuter._cleanup with docker_reconnect_container."""
 
     def test_cleanup_skips_stop_when_reconnect(self):
-        with patch.object(DockerModule, "__init__", lambda self: None):
-            dm = DockerModule.__new__(DockerModule)
+        with patch.object(DockerModuleOuter, "__init__", lambda self: None):
+            dm = DockerModuleOuter.__new__(DockerModuleOuter)
             dm._running = threading.Event()
             dm._running.set()
             dm._container_name = "test_container"
@@ -263,8 +263,8 @@ class TestDockerModuleCleanupReconnect:
                 mock_rm.assert_not_called()
 
     def test_cleanup_stops_container_when_not_reconnect(self):
-        with patch.object(DockerModule, "__init__", lambda self: None):
-            dm = DockerModule.__new__(DockerModule)
+        with patch.object(DockerModuleOuter, "__init__", lambda self: None):
+            dm = DockerModuleOuter.__new__(DockerModuleOuter)
             dm._running = threading.Event()
             dm._running.set()
             dm._container_name = "test_container"
