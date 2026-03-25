@@ -301,7 +301,6 @@ class ModuleProcess:
 
             @rpc
             def stop(self) -> None:
-                # ModuleProcess.stop() is also called automatically via disposables
                 super().stop()
     """
 

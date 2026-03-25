@@ -46,7 +46,7 @@ from dimos.utils import colors
 from dimos.utils.generic import classproperty
 from dimos.utils.thread_utils import AsyncModuleThread, ThreadSafeVal
 
-ModState = Literal["init", "started", "stopping", "stopped"]
+ModState = Literal["init", "started", "stopped"]
 
 if TYPE_CHECKING:
     from dimos.core.blueprints import Blueprint
@@ -130,9 +130,9 @@ class ModuleBase(Configurable[ModuleConfigT], Resource):
 
     def _stop(self) -> None:
         with self.mod_state as state:
-            if state in ("stopping", "stopped"):
+            if state == "stopped":
                 return
-            self.mod_state.set("stopping")
+            self.mod_state.set("stopped")
 
         if self.rpc:
             self.rpc.stop()  # type: ignore[attr-defined]

@@ -210,11 +210,11 @@ class TestThreadSafeVal:
         assert v.get() == "started"
 
         with v as state:
-            if state in ("stopping", "stopped"):
+            if state == "stopped":
                 pass  # no-op
             else:
-                v.set("stopping")
-        assert v.get() == "stopping"
+                v.set("stopped")
+        assert v.get() == "stopped"
 
     def test_nested_with_no_deadlock(self) -> None:
         """RLock should allow the same thread to nest with blocks."""
