@@ -161,6 +161,7 @@ all_modules = {
     "simple-phone-teleop": "dimos.teleop.phone.phone_extensions",
     "spatial-memory": "dimos.perception.spatial_perception",
     "speak-skill": "dimos.agents.skills.speak_skill",
+    "stream-module": "dimos.memory2.module",
     "temporal-memory": "dimos.perception.experimental.temporal_memory.temporal_memory",
     "twist-teleop-module": "dimos.teleop.quest.quest_extensions",
     "unitree-g1-skill-container": "dimos.robot.unitree.g1.skill_container",
