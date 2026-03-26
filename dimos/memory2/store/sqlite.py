@@ -51,7 +51,7 @@ class SqliteStore(Store):
     def _open_connection(self) -> sqlite3.Connection:
         """Open a new WAL-mode connection with sqlite-vec loaded."""
         disposable, connection = open_disposable_sqlite_connection(self.config.path)
-        self.register_disposables(disposable)
+        self.register_disposable(disposable)
         return connection
 
     def _assemble_backend(self, name: str, stored: dict[str, Any]) -> Backend[Any]:

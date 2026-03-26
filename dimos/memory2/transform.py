@@ -107,6 +107,8 @@ class Batch(Transformer[T, R]):
 
 def stride(n: int) -> FnIterTransformer[T, T]:
     """Yield every *n*-th observation, skipping the rest."""
+    if n < 1:
+        raise ValueError(f"stride(n) requires n >= 1, got {n}")
 
     def _stride(upstream: Iterator[Observation[T]]) -> Iterator[Observation[T]]:
         for i, obs in enumerate(upstream):

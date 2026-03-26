@@ -36,7 +36,7 @@ from dimos.core.core import T, rpc
 from dimos.core.global_config import GlobalConfig, global_config
 from dimos.core.introspection.module.info import extract_module_info
 from dimos.core.introspection.module.render import render_module_io
-from dimos.core.resource import Resource
+from dimos.core.resource import CompositeResource
 from dimos.core.rpc_client import RpcCall
 from dimos.core.stream import In, Out, RemoteOut, Transport
 from dimos.protocol.rpc.pubsubrpc import LCMRPC
@@ -92,7 +92,7 @@ class _BlueprintPartial(Protocol):
     def __call__(self, **kwargs: Any) -> "Blueprint": ...
 
 
-class ModuleBase(Configurable[ModuleConfigT], Resource):
+class ModuleBase(Configurable[ModuleConfigT], CompositeResource):
     # This won't type check against the TypeVar, but we need it as the default.
     default_config: type[ModuleConfigT] = ModuleConfig  # type: ignore[assignment]
 

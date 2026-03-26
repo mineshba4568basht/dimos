@@ -251,7 +251,6 @@ class VoxelGridMapper(StreamModule[VoxelGridMapperConfig]):
         cfg = self.config.model_dump(
             include=set(VoxelGridMapperConfig.model_fields) - set(ModuleConfig.model_fields)
         )
-        cfg["frame_id"] = self.config.frame_id
         return stream.transform(VoxelMap(**cfg))
 
     lidar: In[PointCloud2]

@@ -107,7 +107,7 @@ def test_carving(grid: VoxelGrid, moment1: Go2MapperMoment, moment2: Go2MapperMo
     )
 
 
-def test_injest_a_few(grid: VoxelGrid) -> None:
+def test_ingest_a_few(grid: VoxelGrid) -> None:
     data_dir = get_data("unitree_go2_office_walk2")
     lidar_store = TimedSensorReplay(f"{data_dir}/lidar")
 
