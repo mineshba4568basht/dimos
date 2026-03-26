@@ -197,11 +197,11 @@ class WebsocketVisModule(Module[WebsocketConfig]):
             logger.warning(f"Failed to subscribe to path: {e}")
 
         transport = getattr(self.global_costmap, "_transport", "MISSING")
-        logger.info(f"[DEBUG] global_costmap transport before subscribe: {transport}")
+        logger.debug(f"[DEBUG] global_costmap transport before subscribe: {transport}")
         try:
             unsub = self.global_costmap.subscribe(self._on_global_costmap)
             self._disposables.add(Disposable(unsub))
-            logger.info(f"[DEBUG] Subscribed to global_costmap OK, transport={transport}")
+            logger.debug(f"[DEBUG] Subscribed to global_costmap OK, transport={transport}")
         except Exception as e:
             logger.warning(f"Failed to subscribe to global_costmap: {e}", exc_info=True)
 
@@ -221,7 +221,11 @@ class WebsocketVisModule(Module[WebsocketConfig]):
             async def _disconnect_all() -> None:
                 await self.sio.disconnect()
 
-            asyncio.run_coroutine_threadsafe(_disconnect_all(), self._broadcast_loop)
+            fut = asyncio.run_coroutine_threadsafe(_disconnect_all(), self._broadcast_loop)
+            try:
+                fut.result(timeout=2.0)
+            except Exception:
+                pass
 
         if self._broadcast_loop and not self._broadcast_loop.is_closed():
             self._broadcast_loop.call_soon_threadsafe(self._broadcast_loop.stop)
