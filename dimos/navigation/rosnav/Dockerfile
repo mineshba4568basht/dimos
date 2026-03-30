@@ -1,7 +1,5 @@
 # syntax=docker/dockerfile:1
-# =============================================================================
 # DimOS Navigation Docker Image
-# =============================================================================
 #
 # Multi-stage build for ROS 2 navigation with SLAM support.
 # Includes both arise_slam and FASTLIO2 - select at runtime via LOCALIZATION_METHOD.
@@ -9,7 +7,6 @@
 # The ros-navigation-autonomy-stack repo is cloned at build time via SSH.
 # Build with:  docker build --ssh default ...
 #
-# =============================================================================
 
 # Build argument for ROS distribution (default: humble)
 ARG ROS_DISTRO=humble
@@ -17,17 +14,13 @@ ARG TARGETARCH
 # Pinned git ref for ros-navigation-autonomy-stack (branch, tag, or commit SHA)
 ARG NAV_STACK_REF=fastlio2
 
-# -----------------------------------------------------------------------------
 # Platform-specific base images
 # - amd64: Use osrf/ros desktop-full (includes Gazebo, full GUI)
 # - arm64: Use ros-base (desktop-full not available for ARM)
-# -----------------------------------------------------------------------------
 FROM osrf/ros:${ROS_DISTRO}-desktop-full AS base-amd64
 FROM ros:${ROS_DISTRO}-ros-base AS base-arm64
 
-# -----------------------------------------------------------------------------
 # STAGE 1: Build Stage - compile all C++ dependencies
-# -----------------------------------------------------------------------------
 FROM base-${TARGETARCH} AS builder
 
 ARG ROS_DISTRO
@@ -199,9 +192,7 @@ RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
     echo 'Building with both arise_slam and FASTLIO2' && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release"
 
-# -----------------------------------------------------------------------------
 # STAGE 2: Runtime Stage - minimal image for running
-# -----------------------------------------------------------------------------
 ARG ROS_DISTRO
 ARG TARGETARCH
 FROM base-${TARGETARCH} AS runtime
