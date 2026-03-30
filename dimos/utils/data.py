@@ -245,9 +245,6 @@ def get_data(name: str | Path) -> Path:
     """
     import traceback
 
-    print(f"[get_data] requested: {name!r}")
-    traceback.print_stack()
-
     data_dir = get_data_dir()
     file_path = data_dir / name
 
