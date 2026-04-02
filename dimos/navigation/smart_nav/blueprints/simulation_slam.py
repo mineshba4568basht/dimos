@@ -95,16 +95,10 @@ simulation_slam_blueprint = autoconnect(
         unity_scene="home_building_1",
     ),
     AriseSLAM.blueprint(
-        extra_args=[
-            "--scanVoxelSize",
-            "0.1",
-            "--maxRange",
-            "50.0",
-            "--publishMap",
-            "true",
-            "--mapPublishRate",
-            "0.2",
-        ]
+        scan_voxel_size=0.1,
+        max_range=50.0,
+        publish_map=True,
+        map_publish_rate=0.2,
     ),
     SensorScanGeneration.blueprint(),
     TerrainAnalysis.blueprint(obstacle_height_threshold=0.2, max_relative_z=1.5),
