@@ -6,6 +6,10 @@ This directory contains test scripts for validating DiMOS connectivity to the
 Galaxea R1 Pro humanoid robot over ethernet. The robot runs ROS2 Humble on a
 Jetson Orin (Ubuntu 22.04 / L4T). The laptop runs Ubuntu 24.04 with ROS2 Jazzy.
 
+**Current status**: Chassis movement, arm control, and keyboard teleop all
+working end-to-end through DiMOS adapters. Dual-arm manipulation planning is
+in progress.
+
 ---
 
 ## Network Setup
@@ -52,13 +56,17 @@ bash ~/can.sh
 # Step 2: Launch full robot stack (ros2_discovery, mobiman, hdas, tools)
 cd ~/galaxea/install/startup_config/share/startup_config/script
 ./robot_startup.sh boot ../sessions.d/ATCStandard/R1PROBody.d/
+
+# Step 3: Wait ~30 seconds for HDAS to fully init (arms open/close = healthy)
+
+# Step 4: Start chassis gatekeeper (required for chassis control from laptop)
+source ~/galaxea/install/setup.bash
+export ROS_DOMAIN_ID=41
+python3 ~/chassis_gatekeeper.py
 ```
 
-Wait ~30 seconds. The arms will open and close during HDAS initialization —
-this is normal and confirms arm hardware is healthy.
-
 ```bash
-# Step 3: Verify all topics are up (use --no-daemon, the daemon is unreliable)
+# Step 5: Verify all topics are up (use --no-daemon, the daemon is unreliable)
 source ~/galaxea/install/setup.bash
 export ROS_DOMAIN_ID=41
 ros2 topic list --no-daemon | grep hdas | head -5
@@ -92,6 +100,37 @@ Tip: add these to a shell script `scripts/r1pro_test/env.sh` and `source` it.
 
 ---
 
+## Chassis Gatekeeper (Key Concept)
+
+The R1 Pro `chassis_control_node` has **three internal gates** that all must be
+unlocked simultaneously for chassis movement to work. The gatekeeper runs on the
+robot and handles all three, exposing a simple `/cmd_vel` topic for the laptop.
+
+### The 3 Gates
+
+| Gate | What blocks it | How gatekeeper fixes it |
+|---|---|---|
+| **Gate 1**: Subscriber count | Node skips IK if nobody subscribes to `/motion_control/chassis_speed` | Subscribes to the topic |
+| **Gate 2**: `breaking_mode_` flag | HDAS publishes `mode=2` at 200Hz on `/controller`, setting `breaking_mode_=1` | Launch file remaps `/controller` → `/controller_unused`; gatekeeper publishes `mode=5` on `/controller_unused` |
+| **Gate 3**: `acc_limit` defaults to zero | `calculateNextVelocity` uses `acc_limit * dt` which stays 0 | Publishes nonzero `TwistStamped` on `/motion_target/chassis_acc_limit` |
+
+### Prerequisites (one-time on robot)
+1. Edit `~/galaxea/src/mobiman/launch/r1_pro_chassis_control_launch.py`
+2. Uncomment/add: `remappings=[('/controller', '/controller_unused')]`
+3. Rebuild and restart mobiman
+
+### Running
+```bash
+# On robot:
+source ~/galaxea/install/setup.bash && export ROS_DOMAIN_ID=41
+python3 ~/chassis_gatekeeper.py
+
+# From laptop (test):
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.3}}" --rate 20
+```
+
+---
+
 ## Verification Tests
 
 Run in order after startup:
@@ -103,11 +142,14 @@ python3 scripts/r1pro_test/test_01_topic_discovery.py
 # Test 2: Read live arm joint data (safe, read-only)
 python3 scripts/r1pro_test/test_02_read_arm_feedback.py
 
-# Test 4: Arm hold command (safe, no movement expected)
+# Test 4: Arm movement (moves joint 0 by 0.3 rad, then returns home)
 python3 scripts/r1pro_test/test_04_arm_joint_command.py
 
-# Test 3: Chassis movement (WARNING: robot moves ~5cm)
+# Test 3: Chassis movement — requires chassis_gatekeeper on robot
 python3 scripts/r1pro_test/test_03_chassis_command.py
+
+# Test 5: DiMOS ROS layer integration
+python3 scripts/r1pro_test/test_05_dimos_ros_layer.py
 ```
 
 ### Test status
@@ -115,9 +157,35 @@ python3 scripts/r1pro_test/test_03_chassis_command.py
 |---|---|---|
 | 01 topic discovery | PASS | 70 topics visible |
 | 02 arm feedback | PASS | 7-joint positions/velocities/efforts streaming |
-| 03 chassis command | Pending | Message type fixed (TwistStamped not Twist) |
-| 04 arm hold command | Pending | DDS discovery wait added |
-| 05 DiMOS ROS layer | Pending | Requires jeff/fix/rosnav3 branch |
+| 03 chassis command | PASS | Works via chassis_gatekeeper → `/cmd_vel` |
+| 04 arm movement | PASS | Joint 0 moves 0.3 rad and returns home |
+| 05 DiMOS ROS layer | PASS | DiMOS adapters communicate with robot |
+
+**Important**: Do NOT run tests individually back-to-back with separate
+`rclpy.init()`/`rclpy.shutdown()` cycles. FastDDS 3.x (Jazzy) creates new DDS
+participants each cycle, which corrupts the robot's Humble DDS nodes. Use
+`run_all_tests.py` for sequential testing, or wait 30+ seconds between runs.
+
+---
+
+## DiMOS Integration Architecture
+
+### Adapters
+| Component | File | Pattern |
+|---|---|---|
+| Chassis | `dimos/hardware/drive_trains/r1pro/adapter.py` | `TwistBaseAdapter` — publishes `Twist` to `/cmd_vel` (via gatekeeper) |
+| Arms | `dimos/hardware/manipulators/r1pro/adapter.py` | `ManipulatorAdapter` — parameterized by side (left/right) |
+| ROS env | `dimos/hardware/r1pro_ros_env.py` | Sets ROS_DOMAIN_ID=41, FastDDS, rmw_fastrtps_cpp |
+
+### Blueprints
+| Blueprint | File | Components |
+|---|---|---|
+| `coordinator_r1pro` | `dimos/control/blueprints/r1pro.py` | Arms + chassis |
+| `coordinator_r1pro_arms` | `dimos/control/blueprints/r1pro.py` | Arms only |
+
+### Keyboard Teleop
+`dimos/robot/galaxea/r1pro/blueprints/r1pro_keyboard_teleop.py` — keyboard
+control of chassis and arms through DiMOS.
 
 ---
 
@@ -125,11 +193,12 @@ python3 scripts/r1pro_test/test_03_chassis_command.py
 
 | Topic | Type | Direction |
 |---|---|---|
+| `/cmd_vel` | `geometry_msgs/Twist` | laptop → gatekeeper (RELIABLE QoS) |
 | `/hdas/feedback_arm_left` | `sensor_msgs/JointState` | robot → laptop |
 | `/hdas/feedback_arm_right` | `sensor_msgs/JointState` | robot → laptop |
 | `/hdas/feedback_chassis` | `sensor_msgs/JointState` | robot → laptop |
 | `/hdas/feedback_torso` | `sensor_msgs/JointState` | robot → laptop |
-| `/motion_target/target_speed_chassis` | `geometry_msgs/TwistStamped` | laptop → robot |
+| `/motion_target/target_speed_chassis` | `geometry_msgs/TwistStamped` | gatekeeper → chassis_control_node |
 | `/motion_target/target_joint_state_arm_left` | `sensor_msgs/JointState` | laptop → robot |
 | `/motion_target/target_joint_state_arm_right` | `sensor_msgs/JointState` | laptop → robot |
 | `/motion_target/target_joint_state_torso` | `sensor_msgs/JointState` | laptop → robot |
@@ -195,13 +264,26 @@ CAN. If you check topics too early, only chassis topics appear. The arm
 open/close cycle during boot confirms hardware is healthy. Always wait for this
 before checking topics.
 
-### 3. Wrong message types in test scripts
-`test_03_chassis_command.py` was publishing `geometry_msgs/Twist` but the robot
-expects `geometry_msgs/TwistStamped` on `/motion_target/target_speed_chassis`.
-The robot silently ignored the wrong type. Fixed to use `TwistStamped` with
-a populated header timestamp.
+### 3. FastDDS 2.x/3.x DDS participant corruption
+Running test scripts back-to-back with separate `rclpy.init()`/`rclpy.shutdown()`
+cycles created new FastDDS 3.x participants each time. The `ParticipantEntitiesInfo`
+wire format differs between FastDDS 2.x (Humble) and 3.x (Jazzy), corrupting the
+robot's DDS participant state and causing topics to disappear.
 
-### 4. ROS2 daemon unreliable on robot
+Fix: `run_all_tests.py` calls `rclpy.init()` once, runs all tests, then calls
+`rclpy.shutdown()` once. Each test exposes a `main() -> bool` function that
+assumes rclpy is already initialized.
+
+### 4. Chassis control node ignoring commands (the 3-gate problem)
+Publishing `TwistStamped` to `/motion_target/target_speed_chassis` had no effect.
+Binary analysis of `chassis_control_node` revealed three independent gates that
+all block motion when unsatisfied. See the "Chassis Gatekeeper" section above
+for the full solution.
+
+This was the hardest problem — took multiple sessions of investigation including
+binary disassembly of the node to identify the three gates.
+
+### 5. ROS2 daemon unreliable on robot
 The ros2 daemon on the robot has slow discovery and often shows only 2 topics
 (`/parameter_events`, `/rosout`) even when 70+ topics are active. Always use
 `ros2 topic list --no-daemon` on the robot for accurate results.
@@ -218,14 +300,19 @@ The ros2 daemon on the robot has slow discovery and often shows only 2 topics
   all motion commands
 - **mobiman**: Motion manager — handles kinematics, IK, safety limits
 - **Custom message package**: `hdas_msg` — used for motor control, BMS, LED,
-  version info. Standard ROS2 types used for joint states and geometry.
+  version info. Standard ROS2 types used for joint states and geometry
+- **Chassis type**: W1 (3-wheel swerve drive), from `/opt/galaxea/body/hardware.json`
 
 ---
 
 ## Next Steps
 
-- [ ] Complete test 03 (chassis movement) and test 04 (arm hold)
-- [ ] Build `R1ProAdapter` in DiMOS following the G1 adapter pattern
-- [ ] Implement `adapter.py` wrapping the ROS2 pub/sub layer
-- [ ] Integrate with DiMOS control coordinator
-- [ ] Test end-to-end DiMOS command → robot movement
+- [x] Topic discovery and DDS connectivity over ethernet
+- [x] Arm feedback reading
+- [x] Arm joint movement
+- [x] Chassis movement (via gatekeeper)
+- [x] DiMOS adapters (chassis + arms)
+- [x] Keyboard teleop through DiMOS
+- [ ] Dual-arm manipulation planning (in progress — stack improvements made)
+- [ ] Torso control adapter (4-DOF, deferred)
+- [ ] Full DiMOS control coordinator integration
