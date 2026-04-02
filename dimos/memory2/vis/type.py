@@ -39,6 +39,22 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class Color:
+    """Deferred color resolved at render time from a value range.
+
+    Elements with the same ``group`` share an auto-computed min/max range.
+    Can be used as a factory: ``speed = Color("speed", cmap="turbo"); speed(2.5)``.
+    """
+
+    group: str
+    value: float | None = None
+    cmap: str = "turbo"
+
+    def __call__(self, value: float) -> Color:
+        return Color(group=self.group, value=value, cmap=self.cmap)
+
+
+@dataclass
 class Pose:
     """Circle + heading arrow at a pose.
 
@@ -48,7 +64,7 @@ class Pose:
     """
 
     msg: PoseStamped | GeoPose
-    color: str = "#1abc9c"
+    color: str | Color = "#1abc9c"
     size: float = 0.3
     label: str | None = None
 
@@ -62,7 +78,7 @@ class Arrow:
     """
 
     msg: PoseStamped | GeoPose
-    color: str = "#e67e22"
+    color: str | Color = "#e67e22"
     length: float = 0.5
 
 
@@ -76,7 +92,7 @@ class Point:
     """
 
     msg: GeoPoint | GeoPose
-    color: str = "#e74c3c"
+    color: str | Color = "#e74c3c"
     radius: float = 0.05
     label: str | None = None
 
@@ -92,7 +108,7 @@ class Box3D:
 
     center: GeoPose
     size: Vector3
-    color: str = "#f1c40f"
+    color: str | Color = "#f1c40f"
     label: str | None = None
 
 
@@ -107,7 +123,7 @@ class Camera:
     pose: PoseStamped
     image: Image | None = None
     camera_info: CameraInfo | None = None
-    color: str = "#9b59b6"
+    color: str | Color = "#9b59b6"
     label: str | None = None
 
 
@@ -120,7 +136,7 @@ class Polyline:
     """
 
     msg: Path
-    color: str = "#3498db"
+    color: str | Color = "#3498db"
     width: float = 0.05
 
 
@@ -135,7 +151,7 @@ class Text:
     position: tuple[float, float, float]
     text: str
     font_size: float = 12.0
-    color: str = "#333333"
+    color: str | Color = "#333333"
 
 
 # Union of all types that can appear in a Drawing2D

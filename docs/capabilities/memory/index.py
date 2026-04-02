@@ -25,7 +25,7 @@ from dimos.mapping.pointclouds.occupancy import (
 from dimos.memory2.store.sqlite import SqliteStore
 from dimos.memory2.transform import normalize, smooth, speed
 from dimos.memory2.vis.color import color
-from dimos.memory2.vis.drawing2d.drawing2d import Drawing2D
+from dimos.memory2.vis.drawing.drawing import Drawing2D
 from dimos.memory2.vis.graph.graph import GraphTime
 from dimos.memory2.vis.type import Point
 from dimos.models.embedding.clip import CLIPModel

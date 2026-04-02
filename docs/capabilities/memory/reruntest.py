@@ -20,7 +20,7 @@ from dimos.mapping.pointclouds.occupancy import general_occupancy
 from dimos.memory2.store.sqlite import SqliteStore
 
 # from dimos.memory2.transform import normalize, smooth, speed
-from dimos.memory2.vis.drawing2d.drawing2d import Drawing2D
+from dimos.memory2.vis.drawing.drawing import Drawing2D
 from dimos.models.embedding.clip import CLIPModel
 from dimos.utils.data import get_data
 

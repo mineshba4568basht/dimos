@@ -29,7 +29,7 @@ from dimos.msgs.nav_msgs.OccupancyGrid import OccupancyGrid
 from dimos.msgs.sensor_msgs.PointCloud2 import PointCloud2
 
 if TYPE_CHECKING:
-    from dimos.memory2.vis.drawing2d.drawing2d import Drawing2D
+    from dimos.memory2.vis.drawing.drawing import Drawing2D
 
 # base_link → camera_optical extrinsics (applied at render time for image observations)
 _BASE_TO_OPTICAL = Transform(
@@ -45,7 +45,7 @@ _BASE_TO_OPTICAL = Transform(
 )
 
 
-def render(drawing: Drawing2D, app_id: str = "drawing2d", spawn: bool = True) -> None:
+def render(drawing: Drawing2D, app_id: str = "drawing", spawn: bool = True) -> None:
     """Render a Drawing2D to a Rerun viewer."""
     import rerun as rr
     import rerun.blueprint as rrb

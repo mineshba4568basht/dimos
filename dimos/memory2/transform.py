@@ -105,17 +105,32 @@ class Batch(Transformer[T, R]):
                 yield o.derive(data=r)
 
 
-def stride(n: int) -> FnIterTransformer[T, T]:
+def downsample(n: int) -> FnIterTransformer[T, T]:
     """Yield every *n*-th observation, skipping the rest."""
     if n < 1:
-        raise ValueError(f"stride(n) requires n >= 1, got {n}")
+        raise ValueError(f"downsample(n) requires n >= 1, got {n}")
 
-    def _stride(upstream: Iterator[Observation[T]]) -> Iterator[Observation[T]]:
+    def _downsample(upstream: Iterator[Observation[T]]) -> Iterator[Observation[T]]:
         for i, obs in enumerate(upstream):
             if i % n == 0:
                 yield obs
 
-    return FnIterTransformer(_stride)
+    return FnIterTransformer(_downsample)
+
+
+def throttle(interval: float) -> FnIterTransformer[T, T]:
+    """Yield at most one observation per *interval* seconds."""
+    if interval <= 0:
+        raise ValueError(f"throttle(interval) requires interval > 0, got {interval}")
+
+    def _throttle(upstream: Iterator[Observation[T]]) -> Iterator[Observation[T]]:
+        last_ts: float | None = None
+        for obs in upstream:
+            if last_ts is None or obs.ts - last_ts >= interval:
+                last_ts = obs.ts
+                yield obs
+
+    return FnIterTransformer(_throttle)
 
 
 def speed() -> FnIterTransformer[Any, float]:

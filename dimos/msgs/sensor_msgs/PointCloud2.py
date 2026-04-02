@@ -644,11 +644,13 @@ class PointCloud2(Timestamped):
             colormap = "turbo"  # Default colormap if no colors provided
         # Determine colors
         point_colors = None
+
         if colormap is not None:
             z = points[:, 2]
             z_norm = (z - z.min()) / (z.max() - z.min() + 1e-8)
             cmap = _get_matplotlib_cmap(colormap)
             point_colors = (cmap(z_norm)[:, :3] * 255).astype(np.uint8)
+
         elif colors is not None:
             point_colors = colors
 
@@ -657,20 +659,25 @@ class PointCloud2(Timestamped):
                 positions=points,
                 colors=point_colors,
             )
+
         elif mode == "boxes":
             box_size = size if size is not None else voxel_size
             half = box_size / 2
+
             # Snap points to voxel grid centers so boxes tile properly
             points = np.floor(points / box_size) * box_size + half
             points, unique_idx = np.unique(points, axis=0, return_index=True)
+
             if point_colors is not None and isinstance(point_colors, np.ndarray):
                 point_colors = point_colors[unique_idx]
+
             return rr.Boxes3D(
                 centers=points,
                 half_sizes=[half, half, half],
                 colors=point_colors,
                 fill_mode=fill_mode,  # type: ignore[arg-type]
             )
+
         else:
             return rr.Points3D(
                 positions=points,

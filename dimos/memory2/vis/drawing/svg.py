@@ -44,7 +44,7 @@ from dimos.msgs.nav_msgs.OccupancyGrid import OccupancyGrid
 from dimos.msgs.sensor_msgs.PointCloud2 import PointCloud2
 
 if TYPE_CHECKING:
-    from dimos.memory2.vis.drawing2d.drawing2d import Drawing2D
+    from dimos.memory2.vis.drawing.drawing import Drawing2D
 
 
 @dataclass
@@ -136,25 +136,13 @@ def _render_point(el: Point, vt: ViewTransform) -> str:
 
 
 def _render_pose(el: Pose, vt: ViewTransform) -> str:
-    sx, sy = vt.w2s(el.msg.x, el.msg.y)
-    r = max(vt.scale(el.size * 0.3), 3)
-    yaw = el.msg.yaw
-
-    # Circle at position
-    parts = [f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="{r:.1f}" fill="{el.color}" opacity="0.85"/>']
-
-    # Heading arrow
-    arrow_len = vt.scale(el.size)
-    dx = math.cos(yaw) * arrow_len
-    dy = -math.sin(yaw) * arrow_len  # Y-flip
-    parts.append(
-        f'<line x1="{sx:.1f}" y1="{sy:.1f}" x2="{sx + dx:.1f}" y2="{sy + dy:.1f}" '
-        f'stroke="{el.color}" stroke-width="2" marker-end="url(#ah)"/>'
-    )
+    arrow = Arrow(msg=el.msg, length=el.size, color=el.color)
+    parts = [_render_arrow(arrow, vt)]
 
     if el.label:
+        sx, sy = vt.w2s(el.msg.x, el.msg.y)
         parts.append(
-            f'<text x="{sx + r + 2:.1f}" y="{sy + 4:.1f}" '
+            f'<text x="{sx + 6:.1f}" y="{sy + 4:.1f}" '
             f'font-size="11" fill="{el.color}">{_esc(el.label)}</text>'
         )
     return "\n".join(parts)
@@ -164,11 +152,20 @@ def _render_arrow(el: Arrow, vt: ViewTransform) -> str:
     sx, sy = vt.w2s(el.msg.x, el.msg.y)
     yaw = el.msg.yaw
     arrow_len = vt.scale(el.length)
-    dx = math.cos(yaw) * arrow_len
-    dy = -math.sin(yaw) * arrow_len
+    half_base = arrow_len * 0.4
+
+    # Tip of the triangle
+    tx = sx + math.cos(yaw) * arrow_len
+    ty = sy - math.sin(yaw) * arrow_len
+    # Two base corners (perpendicular to yaw)
+    bx1 = sx + math.cos(yaw + math.pi / 2) * half_base
+    by1 = sy - math.sin(yaw + math.pi / 2) * half_base
+    bx2 = sx + math.cos(yaw - math.pi / 2) * half_base
+    by2 = sy - math.sin(yaw - math.pi / 2) * half_base
+
     return (
-        f'<line x1="{sx:.1f}" y1="{sy:.1f}" x2="{sx + dx:.1f}" y2="{sy + dy:.1f}" '
-        f'stroke="{el.color}" stroke-width="2.5" marker-end="url(#ah)"/>'
+        f'<polygon points="{tx:.1f},{ty:.1f} {bx1:.1f},{by1:.1f} {bx2:.1f},{by2:.1f}" '
+        f'fill="none" stroke="{el.color}" stroke-width="1.5" stroke-linejoin="round"/>'
     )
 
 
@@ -222,7 +219,7 @@ def _render_camera(el: Camera, vt: ViewTransform) -> str:
 
         parts = [
             f'<polygon points="{sx:.1f},{sy:.1f} {x1:.1f},{y1:.1f} {x2:.1f},{y2:.1f}" '
-            f'fill="{el.color}" fill-opacity="0.2" stroke="{el.color}" stroke-width="1.5"/>'
+            f'fill="none" stroke="{el.color}" stroke-width="1.5"/>'
         ]
     else:
         # No intrinsics: just a dot
@@ -271,7 +268,7 @@ def _render_occupancy_grid(el: OccupancyGrid, vt: ViewTransform) -> str:
 _ARROWHEAD_MARKER = (
     '<defs><marker id="ah" markerWidth="8" markerHeight="6" '
     'refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" '
-    'fill="context-stroke"/></marker></defs>'
+    'fill="none" stroke="context-stroke" stroke-width="1"/></marker></defs>'
 )
 
 
@@ -324,9 +321,14 @@ def _render_element(el: SceneElement, vt: ViewTransform) -> str:
     elif isinstance(el, OccupancyGrid):
         return _render_occupancy_grid(el, vt)
     elif isinstance(el, PointCloud2):
-        from dimos.mapping.pointclouds.occupancy import general_occupancy
+        from dimos.mapping.occupancy.inflation import simple_inflate
+        from dimos.mapping.pointclouds.occupancy import (
+            height_cost_occupancy,
+        )
 
-        return _render_occupancy_grid(general_occupancy(el), vt)
+        # occupancy_grid = simple_inflate(general_occupancy(el), 0.05)
+        occupancy_grid = simple_inflate(height_cost_occupancy(el), 0.05)
+        return _render_occupancy_grid(occupancy_grid, vt)
     elif isinstance(el, Observation):
         return _render_arrow(Arrow(msg=el.pose_stamped), vt)
     else:
@@ -335,4 +337,10 @@ def _render_element(el: SceneElement, vt: ViewTransform) -> str:
 
 def _esc(s: str) -> str:
     """Escape text for SVG XML."""
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _esc(s: str) -> str:
+    """Escape text for SVG XML."""
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

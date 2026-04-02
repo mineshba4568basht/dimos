@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 from dimos.memory2.type.observation import EmbeddedObservation, Observation
-from dimos.memory2.vis.drawing2d.drawing2d import Drawing2D as Drawing
+from dimos.memory2.vis.drawing.drawing import Drawing2D as Drawing
 from dimos.memory2.vis.type import Arrow, Box3D, Camera, Point, Polyline, Pose, Text
 from dimos.msgs.geometry_msgs.Point import Point as GeoPoint
 from dimos.msgs.geometry_msgs.PoseStamped import PoseStamped
