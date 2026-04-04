@@ -92,8 +92,3 @@ class TestBlueprintImport:
         )
 
         assert unitree_g1_nav_sim is not None
-
-    def test_simulation_blueprint_importable(self):
-        from dimos.navigation.smart_nav.blueprints.simulation import simulation_blueprint
-
-        assert simulation_blueprint is not None

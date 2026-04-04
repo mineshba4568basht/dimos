@@ -36,28 +36,14 @@ accuracy depends on how well SLAM tracks. Any drift is real SLAM drift.
 
 from __future__ import annotations
 
-from typing import Any
-
 from dimos.core.blueprints import autoconnect
 from dimos.core.global_config import global_config
 from dimos.navigation.smart_nav.main import smart_nav, smart_nav_rerun_config
 from dimos.navigation.smart_nav.modules.arise_sim_adapter import AriseSimAdapter
 from dimos.navigation.smart_nav.modules.arise_slam.arise_slam import AriseSLAM
+from dimos.robot.unitree.g1.blueprints.navigation.g1_rerun import g1_static_robot
 from dimos.simulation.unity.module import UnityBridgeModule
 from dimos.visualization.vis_module import vis_module
-
-
-def _rerun_blueprint() -> Any:
-    import rerun.blueprint as rrb
-
-    return rrb.Blueprint(
-        rrb.Vertical(
-            rrb.Spatial3DView(origin="world", name="3D"),
-            rrb.Spatial2DView(origin="world/color_image", name="Camera"),
-            row_shares=[2, 1],
-        ),
-    )
-
 
 unitree_g1_nav_arise_sim = (
     autoconnect(
@@ -106,12 +92,13 @@ unitree_g1_nav_arise_sim = (
             viewer_backend=global_config.viewer,
             rerun_config=smart_nav_rerun_config(
                 {
-                    "blueprint": _rerun_blueprint,
+                    "blueprint": UnityBridgeModule.rerun_blueprint,
                     "visual_override": {
                         "world/camera_info": UnityBridgeModule.rerun_suppress_camera_info,
                     },
                     "static": {
                         "world/color_image": UnityBridgeModule.rerun_static_pinhole,
+                        "world/tf/robot": g1_static_robot,
                     },
                 }
             ),

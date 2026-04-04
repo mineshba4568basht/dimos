@@ -340,6 +340,19 @@ class UnityBridgeModule(Module[UnityBridgeConfig]):
     camera_info: Out[CameraInfo]
 
     @staticmethod
+    def rerun_blueprint() -> Any:
+        """3D world view stacked over a 2D camera panel for the Unity panoramic camera."""
+        import rerun.blueprint as rrb
+
+        return rrb.Blueprint(
+            rrb.Vertical(
+                rrb.Spatial3DView(origin="world", name="3D"),
+                rrb.Spatial2DView(origin="world/color_image", name="Camera"),
+                row_shares=[2, 1],
+            ),
+        )
+
+    @staticmethod
     def rerun_static_pinhole(rr: Any) -> list[Any]:
         """Static Pinhole + Transform3D for the Unity panoramic camera."""
         return [

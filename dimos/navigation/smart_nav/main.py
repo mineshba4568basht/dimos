@@ -34,17 +34,6 @@ from typing import Any
 
 from dimos.core.blueprints import Blueprint, autoconnect
 from dimos.navigation.cmd_vel_mux import CmdVelMux
-from dimos.navigation.smart_nav.blueprints._rerun_helpers import (
-    global_map_override,
-    goal_path_override,
-    path_override,
-    sensor_scan_override,
-    static_floor,
-    static_robot,
-    terrain_map_ext_override,
-    terrain_map_override,
-    waypoint_override,
-)
 from dimos.navigation.smart_nav.modules.click_to_goal.click_to_goal import ClickToGoal
 from dimos.navigation.smart_nav.modules.far_planner.far_planner import FarPlanner
 from dimos.navigation.smart_nav.modules.global_map_updater.global_map_updater import (
@@ -57,45 +46,6 @@ from dimos.navigation.smart_nav.modules.tare_planner.tare_planner import TarePla
 from dimos.navigation.smart_nav.modules.terrain_analysis.terrain_analysis import TerrainAnalysis
 from dimos.navigation.smart_nav.modules.terrain_map_ext.terrain_map_ext import TerrainMapExt
 from dimos.protocol.pubsub.impl.lcmpubsub import LCM
-
-
-def _default_rerun_blueprint() -> Any:
-    import rerun.blueprint as rrb
-
-    return rrb.Blueprint(
-        rrb.Spatial3DView(origin="world", name="3D"),
-    )
-
-
-def smart_nav_rerun_config(
-    user_config: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Return a rerun config dict with SmartNav defaults filled in via setdefault.
-
-    The caller's entries win — this just ensures missing keys (blueprint,
-    pubsubs, min_interval_sec, visual_override entries, static entries) are
-    populated with the SmartNav defaults.
-    """
-    resolved = dict(user_config or {})
-    resolved.setdefault("blueprint", _default_rerun_blueprint)
-    resolved.setdefault("pubsubs", [LCM()])
-    resolved.setdefault("min_interval_sec", 0.25)
-    resolved.setdefault("visual_override", {})
-    resolved.setdefault("static", {})
-    visual_override = dict(resolved["visual_override"])
-    visual_override.setdefault("world/sensor_scan", sensor_scan_override)
-    visual_override.setdefault("world/terrain_map", terrain_map_override)
-    visual_override.setdefault("world/terrain_map_ext", terrain_map_ext_override)
-    visual_override.setdefault("world/global_map", global_map_override)
-    visual_override.setdefault("world/path", path_override)
-    visual_override.setdefault("world/way_point", waypoint_override)
-    visual_override.setdefault("world/goal_path", goal_path_override)
-    resolved["visual_override"] = visual_override
-    static_entries = dict(resolved["static"])
-    static_entries.setdefault("world/floor", static_floor)
-    static_entries.setdefault("world/tf/robot", static_robot)
-    resolved["static"] = static_entries
-    return resolved
 
 
 def smart_nav(
@@ -116,6 +66,25 @@ def smart_nav(
     global_map_updater: dict[str, Any] | None = None,
 ) -> Blueprint:
     """Compose a SmartNav autoconnect Blueprint with the given options.
+
+    Core external streams (always present regardless of toggles):
+
+        registered_scan: In[PointCloud2]   — world-frame lidar scan
+        odometry:        In[Odometry]      — raw SLAM odometry
+        clicked_point:   In[PointStamped]  — click-to-goal from UI
+        joy_cmd:         In[Twist]         — optional joystick override
+        tele_cmd_vel:    In[Twist]         — optional teleop command
+        agent_cmd_vel:   In[TwistDuration] — optional skill/agent command
+
+        cmd_vel:            Out[Twist]        — final velocity command (CmdVelMux)
+        corrected_odometry: Out[Odometry]     — PGO loop-closure-corrected pose
+        global_map:         Out[PointCloud2]  — PGO accumulated keyframe map
+        terrain_map:        Out[PointCloud2]  — TerrainAnalysis ground/obstacle grid
+        path:               Out[Path]         — LocalPlanner's chosen local path
+        goal_path:          Out[Path]         — FAR planner's global path
+        way_point:          Out[PointStamped] — current waypoint target
+        goal:               Out[PointStamped] — current navigation goal
+        stop_movement:      Out[Bool]         — stop signal from CmdVelMux
 
     Args:
         use_tare: Add the TARE frontier-based exploration planner. Auto-remaps
@@ -237,3 +206,177 @@ def smart_nav(
         remappings.append((ClickToGoal, "way_point", "_click_way_point_unused"))
 
     return autoconnect(*modules).remappings(remappings)
+
+
+# ─── Rerun visual overrides (robot-agnostic) ─────────────────────────────────
+
+def smart_nav_rerun_config(
+    user_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return a rerun config dict with SmartNav defaults filled in via setdefault.
+
+    The caller's entries win — this just ensures missing keys (blueprint,
+    pubsubs, min_interval_sec, visual_override entries, static entries) are
+    populated with the SmartNav defaults.
+    """
+    resolved = dict(user_config or {})
+    resolved.setdefault("blueprint", _default_rerun_blueprint)
+    resolved.setdefault("pubsubs", [LCM()])
+    resolved.setdefault("min_interval_sec", 0.25)
+    resolved.setdefault("visual_override", {})
+    resolved.setdefault("static", {})
+    visual_override = dict(resolved["visual_override"])
+    visual_override.setdefault("world/sensor_scan", _sensor_scan_override)
+    visual_override.setdefault("world/terrain_map", _terrain_map_override)
+    visual_override.setdefault("world/terrain_map_ext", _terrain_map_ext_override)
+    visual_override.setdefault("world/global_map", _global_map_override)
+    visual_override.setdefault("world/explored_areas", _explored_areas_override)
+    visual_override.setdefault("world/preloaded_map", _preloaded_map_override)
+    visual_override.setdefault("world/trajectory", _trajectory_override)
+    visual_override.setdefault("world/path", _path_override)
+    visual_override.setdefault("world/way_point", _waypoint_override)
+    visual_override.setdefault("world/goal_path", _goal_path_override)
+    resolved["visual_override"] = visual_override
+    static_entries = dict(resolved["static"])
+    static_entries.setdefault("world/floor", _static_floor)
+    resolved["static"] = static_entries
+    return resolved
+
+
+def _default_rerun_blueprint() -> Any:
+    import rerun.blueprint as rrb
+
+    return rrb.Blueprint(
+        rrb.Spatial3DView(origin="world", name="3D"),
+    )
+
+
+def _sensor_scan_override(cloud: Any) -> Any:
+    """Render sensor_scan attached to the sensor TF frame so it moves with the robot."""
+    import rerun as rr
+
+    arch = cloud.to_rerun(colormap="turbo", size=0.02)
+    return [
+        ("world/sensor_scan", rr.Transform3D(parent_frame="tf#/sensor")),
+        ("world/sensor_scan", arch),
+    ]
+
+
+def _global_map_override(cloud: Any) -> Any:
+    """Render accumulated global map — small grey/blue points for map context."""
+    return cloud.to_rerun(colormap="cool", size=0.03)
+
+
+def _terrain_map_override(cloud: Any) -> Any:
+    """Render terrain_map: big green dots = traversable, red = obstacle.
+
+    The terrain_analysis C++ module sets point intensity to the height
+    difference above the planar voxel ground. Low intensity → ground,
+    high intensity → obstacle.
+    """
+    import numpy as np
+    import rerun as rr
+
+    points, _ = cloud.as_numpy()
+    if len(points) == 0:
+        return None
+
+    # Color by z-height: low = green (ground), high = red (obstacle)
+    z = points[:, 2]
+    z_min, z_max = z.min(), z.max()
+    z_norm = (z - z_min) / (z_max - z_min + 1e-8)
+
+    colors = np.zeros((len(points), 3), dtype=np.uint8)
+    colors[:, 0] = (z_norm * 255).astype(np.uint8)  # R
+    colors[:, 1] = ((1 - z_norm) * 200 + 55).astype(np.uint8)  # G
+    colors[:, 2] = 30
+
+    return rr.Points3D(positions=points[:, :3], colors=colors, radii=0.08)
+
+
+def _explored_areas_override(cloud: Any) -> Any:
+    """Render PreloadedMapTracker's explored_areas — cumulative seen points."""
+    return cloud.to_rerun(colormap="magma", size=0.05)
+
+
+def _preloaded_map_override(cloud: Any) -> Any:
+    """Render PreloadedMapTracker's static pre-loaded reference map."""
+    return cloud.to_rerun(colormap="greys", size=0.04)
+
+
+def _trajectory_override(cloud: Any) -> Any:
+    """Render robot trajectory breadcrumb as a connected line strip."""
+    import rerun as rr
+
+    points, _ = cloud.as_numpy()
+    if len(points) < 2:
+        return None
+    pts = [[float(p[0]), float(p[1]), float(p[2]) + 0.05] for p in points]
+    return [
+        ("world/trajectory/line", rr.LineStrips3D([pts], colors=[(0, 200, 255)], radii=0.03)),
+        ("world/trajectory/nodes", rr.Points3D(pts, colors=[(0, 150, 255)], radii=0.05)),
+    ]
+
+
+def _terrain_map_ext_override(cloud: Any) -> Any:
+    """Render extended terrain map — persistent accumulated cloud."""
+    return cloud.to_rerun(colormap="viridis", size=0.06)
+
+
+def _path_override(path_msg: Any) -> Any:
+    """Render path in vehicle frame by attaching to the sensor TF."""
+    import rerun as rr
+
+    if not path_msg.poses:
+        return None
+
+    points = [[p.x, p.y, p.z + 0.3] for p in path_msg.poses]
+    return [
+        ("world/nav_path", rr.Transform3D(parent_frame="tf#/sensor")),
+        ("world/nav_path", rr.LineStrips3D([points], colors=[(0, 255, 128)], radii=0.05)),
+    ]
+
+
+def _goal_path_override(path_msg: Any) -> Any:
+    """Render FAR planner's planned path: orange line + yellow node markers."""
+    import rerun as rr
+
+    if not path_msg.poses or len(path_msg.poses) < 2:
+        return None
+
+    points = [[p.x, p.y, p.z] for p in path_msg.poses]
+    return [
+        # Edges: orange line connecting all waypoints
+        ("world/goal_path/edges", rr.LineStrips3D([points], colors=[(255, 140, 0)], radii=0.04)),
+        # Nodes: yellow spheres at each graph node in the path
+        ("world/goal_path/nodes", rr.Points3D(points, colors=[(255, 255, 0)], radii=0.12)),
+    ]
+
+
+def _waypoint_override(msg: Any) -> Any:
+    """Render the current waypoint goal as a visible marker."""
+    import math
+
+    import rerun as rr
+
+    if not all(math.isfinite(v) for v in (msg.x, msg.y, msg.z)):
+        return None
+
+    return rr.Points3D(
+        positions=[[msg.x, msg.y, msg.z + 0.5]],
+        colors=[(255, 50, 50)],
+        radii=0.3,
+    )
+
+
+def _static_floor(rr: Any) -> list[Any]:
+    """Static ground plane at z=0 as a solid textured quad."""
+
+    s = 50.0  # half-size
+    return [
+        rr.Mesh3D(
+            vertex_positions=[[-s, -s, 0], [s, -s, 0], [s, s, 0], [-s, s, 0]],
+            triangle_indices=[[0, 1, 2], [0, 2, 3]],
+            vertex_colors=[[40, 40, 40, 120]] * 4,
+        )
+    ]

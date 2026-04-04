@@ -32,6 +32,7 @@ from dimos.navigation.smart_nav.main import smart_nav, smart_nav_rerun_config
 from dimos.navigation.smart_nav.modules.sensor_scan_generation.sensor_scan_generation import (
     SensorScanGeneration,
 )
+from dimos.robot.unitree.g1.blueprints.navigation.g1_rerun import g1_static_robot
 from dimos.robot.unitree.g1.config import G1
 from dimos.robot.unitree.g1.effectors.high_level.dds_sdk import G1HighLevelDdsSdk
 from dimos.visualization.rerun.bridge import RerunBridgeModule
@@ -48,7 +49,9 @@ unitree_g1_nav_basic_onboard = (
         SensorScanGeneration.blueprint(),
         smart_nav(vehicle_height=G1.height_clearance),
         G1HighLevelDdsSdk.blueprint(),
-        RerunBridgeModule.blueprint(**smart_nav_rerun_config()),
+        RerunBridgeModule.blueprint(
+            **smart_nav_rerun_config({"static": {"world/tf/robot": g1_static_robot}})
+        ),
         RerunWebSocketServer.blueprint(),
     )
     .remappings(

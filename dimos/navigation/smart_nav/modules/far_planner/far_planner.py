@@ -30,6 +30,7 @@ from dimos.msgs.nav_msgs.Odometry import Odometry
 from dimos.msgs.nav_msgs.Path import Path as NavPath
 from dimos.msgs.sensor_msgs.PointCloud2 import PointCloud2
 
+
 class FarPlannerConfig(NativeModuleConfig):
     """Config for the FAR planner native module."""
 
@@ -41,7 +42,7 @@ class FarPlannerConfig(NativeModuleConfig):
     # TODO: remove below after finish testing
     # build_command: str | None = "nix build ./repo --no-write-lock-file"
     # rebuild_on_change: list[str] | None = [  # type: ignore[assignment]
-        # "repo/main.cpp",
+    # "repo/main.cpp",
     # ]
 
     # C++ binary uses snake_case CLI args.
