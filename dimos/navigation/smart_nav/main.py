@@ -43,9 +43,6 @@ from dimos.navigation.smart_nav.modules.local_planner.local_planner import Local
 from dimos.navigation.smart_nav.modules.path_follower.path_follower import PathFollower
 from dimos.navigation.smart_nav.modules.pgo.pgo import PGO
 from dimos.navigation.smart_nav.modules.simple_planner.simple_planner import SimplePlanner
-from dimos.navigation.smart_nav.modules.smooth_local_planner.smooth_local_planner import (
-    SmoothLocalPlanner,
-)
 from dimos.navigation.smart_nav.modules.tare_planner.tare_planner import TarePlanner
 from dimos.navigation.smart_nav.modules.terrain_analysis.terrain_analysis import TerrainAnalysis
 from dimos.navigation.smart_nav.modules.terrain_map_ext.terrain_map_ext import TerrainMapExt
@@ -58,12 +55,10 @@ def smart_nav(
     use_global_map_updater: bool = False,
     use_terrain_map_ext: bool = True,
     use_simple_planner: bool = False,
-    use_smooth_local_planner: bool = False,
     vehicle_height: float | None = None,
     terrain_analysis: dict[str, Any] | None = None,
     terrain_map_ext: dict[str, Any] | None = None,
     local_planner: dict[str, Any] | None = None,
-    smooth_local_planner: dict[str, Any] | None = None,
     path_follower: dict[str, Any] | None = None,
     far_planner: dict[str, Any] | None = None,
     simple_planner: dict[str, Any] | None = None,
@@ -154,23 +149,17 @@ def smart_nav(
                 **(terrain_analysis or {}),
             }
         ),
-        *(
-            [SmoothLocalPlanner.blueprint(**(smooth_local_planner or {}))]
-            if use_smooth_local_planner
-            else [
-                LocalPlanner.blueprint(
-                    **{
-                        "autonomy_mode": True,
-                        "use_terrain_analysis": True,
-                        "max_speed": 1.0,
-                        "autonomy_speed": 1.0,
-                        "obstacle_height_threshold": 0.2,
-                        "max_relative_z": 1.5,
-                        "min_relative_z": -1.5,
-                        **(local_planner or {}),
-                    }
-                )
-            ]
+        LocalPlanner.blueprint(
+            **{
+                "autonomy_mode": True,
+                "use_terrain_analysis": True,
+                "max_speed": 1.0,
+                "autonomy_speed": 1.0,
+                "obstacle_height_threshold": 0.2,
+                "max_relative_z": 1.5,
+                "min_relative_z": -1.5,
+                **(local_planner or {}),
+            }
         ),
         PathFollower.blueprint(
             **{
