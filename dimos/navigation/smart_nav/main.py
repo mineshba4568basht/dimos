@@ -174,6 +174,7 @@ def smart_nav(
                 "obstacle_height_threshold": 0.1,
                 "max_relative_z": 0.3,
                 "min_relative_z": -0.4,
+                "two_way_drive": False,
                 **(local_planner or {}),
             }
         ),
@@ -185,6 +186,7 @@ def smart_nav(
                 "max_acceleration": 1.0,
                 "slow_down_distance_threshold": 1.0,
                 "omni_dir_goal_threshold": 1.0,
+                "two_way_drive": False,
                 **(path_follower or {}),
             }
         ),
