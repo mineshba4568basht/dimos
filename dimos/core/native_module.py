@@ -267,6 +267,7 @@ class NativeModule(Module[_NativeConfig]):
                 self.config.rebuild_on_change,
                 cwd=self.config.cwd,
                 update=False,
+                extra_hash=self.config.build_command,
             ):
                 logger.info("Source files changed, triggering rebuild", executable=str(exe))
                 needs_rebuild = True
@@ -318,7 +319,10 @@ class NativeModule(Module[_NativeConfig]):
         # confirmed-good build — a failed build won't poison the cache.
         if self.config.rebuild_on_change:
             update_cache(
-                self._build_cache_name(), self.config.rebuild_on_change, cwd=self.config.cwd
+                self._build_cache_name(),
+                self.config.rebuild_on_change,
+                cwd=self.config.cwd,
+                extra_hash=self.config.build_command,
             )
 
     def _collect_topics(self) -> dict[str, str]:
