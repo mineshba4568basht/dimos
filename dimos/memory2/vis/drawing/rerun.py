@@ -63,10 +63,14 @@ def render(drawing: Drawing2D, app_id: str = "drawing", spawn: bool = True) -> N
     grids: list[OccupancyGrid] = []
     pointclouds: list[PointCloud2] = []
     observations: list[Observation[Any]] = []
+    panels: list[Observation[Any]] = []
 
     for el in drawing.elements:
         if isinstance(el, Observation):
-            observations.append(el)
+            if _is_image(el.data) and el.pose is None:
+                panels.append(el)
+            else:
+                observations.append(el)
         elif isinstance(el, Point):
             points.append(el)
         elif isinstance(el, Pose):
@@ -87,8 +91,10 @@ def render(drawing: Drawing2D, app_id: str = "drawing", spawn: bool = True) -> N
             pointclouds.append(el)
 
     # Build and send blueprint
-    has_images = any(c.image is not None for c in cameras) or any(
-        _has_image(obs) for obs in observations
+    has_images = (
+        any(c.image is not None for c in cameras)
+        or any(_has_image(obs) for obs in observations)
+        or bool(panels)
     )
     views: list[Any] = [
         rrb.Spatial3DView(
@@ -101,7 +107,7 @@ def render(drawing: Drawing2D, app_id: str = "drawing", spawn: bool = True) -> N
         )
     ]
     if has_images:
-        views.append(rrb.Spatial2DView(origin="scene/cameras", name="Images"))
+        views.append(rrb.Spatial2DView(origin="scene", name="Images"))
 
     blueprint = rrb.Blueprint(
         rrb.Horizontal(*views, column_shares=[2, 1]) if len(views) > 1 else views[0]
@@ -228,7 +234,12 @@ def render(drawing: Drawing2D, app_id: str = "drawing", spawn: bool = True) -> N
             focal = max(w, h)
             rr.log(
                 path,
-                rr.Pinhole(focal_length=focal, principal_point=[w / 2, h / 2], resolution=[w, h]),
+                rr.Pinhole(
+                    focal_length=focal,
+                    principal_point=[w / 2, h / 2],
+                    resolution=[w, h],
+                    image_plane_distance=1.0,
+                ),
                 static=True,
             )
             rr.log(f"{path}/image", data.to_rerun(), static=True)
@@ -284,6 +295,9 @@ def render(drawing: Drawing2D, app_id: str = "drawing", spawn: bool = True) -> N
                 rr.Points3D(positions=[[obs.pose_stamped.x, obs.pose_stamped.y, 0]], radii=[0.05]),
                 static=True,
             )
+
+    for i, obs in enumerate(panels):
+        rr.log(f"scene/panels/{i}", obs.data.to_rerun(), static=True)
 
 
 def _is_image(data: Any) -> bool:

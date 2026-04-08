@@ -84,12 +84,12 @@ class ImageDetections(Generic[T], TableStr):
             detections=[det.to_ros_detection2d() for det in self.detections],
         )
 
-    def annotated_image(self) -> Image:
+    def annotated_image(self, scale: float = 1.0) -> Image:
         """Return the image with all detection bboxes and labels drawn on it."""
         img = self.image.to_opencv().copy()
         for det in self.detections:
             if hasattr(det, "draw_on"):
-                det.draw_on(img)
+                det.draw_on(img, scale=scale)
 
         from dimos.msgs.sensor_msgs.Image import Image as ImageMsg
 

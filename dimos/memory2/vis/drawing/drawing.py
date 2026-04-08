@@ -139,13 +139,8 @@ class Drawing2D:
             )
 
     def add_embedded_observation(self, obs: EmbeddedObservation[Any], **kwargs: Any) -> None:
-        """Render as similarity-colored arrow (auto-ranged at render time)."""
-        self._elements.append(
-            Arrow(
-                msg=obs.pose_stamped,
-                color=Color("similarity", obs.similarity or 0.0, cmap="turbo"),
-            )
-        )
+        """Pass through to renderer like a regular Observation."""
+        self._elements.append(obs)
 
     def add_observation(self, obs: Observation[Any], **kwargs: Any) -> None:
         """Store the observation directly; renderers decide how to display it."""

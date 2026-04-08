@@ -336,6 +336,17 @@ class Stream(CompositeResource, Generic[T]):
         dur = t1 - t0
         return f"{self}: {n} items, {dt0} — {dt1} ({dur:.1f}s)"
 
+    def cache(self) -> Stream[T]:
+        """Materialize into memory and return a replayable stream.
+
+        Useful when you need to iterate the same results multiple times
+        without re-running the upstream query.
+        """
+        from dimos.memory2.store.memory import MemoryStore
+
+        mem = MemoryStore()
+        return self.save(mem.stream("cache"))
+
     def drain(self) -> int:
         """Consume all observations, discarding results. Returns count consumed.
 

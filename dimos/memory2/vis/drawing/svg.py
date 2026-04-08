@@ -273,6 +273,8 @@ def _render_element(el: SceneElement, b: Bounds) -> str:
 
         return _render_occupancy_grid(simple_inflate(height_cost_occupancy(el), 0.05), b)
     elif isinstance(el, Observation):
+        if el.pose is None:
+            return ""
         if el.data_type == float:
             return _render_arrow(Arrow(msg=el.pose_stamped, color="#ff0000"), b)
         else:
