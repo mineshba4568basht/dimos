@@ -99,6 +99,67 @@ class TestPlotSVG:
         assert out.exists()
         assert "<svg" in out.read_text()
 
+    def test_default_axis_is_shared(self):
+        p = Plot()
+        p.add(Series(ts=[0, 1, 2], values=[10, 20, 30], label="a"))
+        p.add(Series(ts=[0, 1, 2], values=[15, 25, 35], label="b"))
+        svg = p.to_svg()
+        assert "<svg" in svg
+
+    def test_named_axis_creates_twin(self):
+        p = Plot()
+        p.add(Series(ts=[0, 1, 2], values=[10, 20, 30], label="speed (m/s)"))
+        p.add(
+            Series(
+                ts=[0, 1, 2],
+                values=[100, 200, 300],
+                label="elapsed (s)",
+                axis="right",
+            )
+        )
+        svg = p.to_svg()
+        assert "<svg" in svg
+        # Both labels should appear in the merged legend
+        assert "speed" in svg
+        assert "elapsed" in svg
+
+    def test_auto_color_cycle_uses_theme_palette(self):
+        # First two theme colors are blue then red. Without our shared cycle,
+        # the twin-axis series would reuse the primary's first color.
+        p = Plot()
+        p.add(Series(ts=[0, 1, 2], values=[10, 20, 30]))
+        p.add(Series(ts=[0, 1, 2], values=[100, 200, 300], axis="right"))
+        svg = p.to_svg()
+        assert "#3498db" in svg  # blue (first theme color, primary axis)
+        assert "#e74c3c" in svg  # red  (second theme color, twin axis)
+
+    def test_opacity_appears_in_svg(self):
+        # opacity=0.4 should land as opacity="0.4" on the matplotlib-rendered
+        # path. matplotlib emits it as either `opacity` or `stroke-opacity`
+        # depending on the artist; we just need to see the value in the output.
+        p = Plot()
+        p.add(Series(ts=[0, 1, 2], values=[0, 1, 2], opacity=0.4))
+        svg = p.to_svg()
+        assert "0.4" in svg
+
+    def test_explicit_color_excluded_from_auto_cycle(self):
+        # If the user pins a Series to color.red, the auto-cycle for the next
+        # series should skip red and yield yellow (the third color) instead
+        # of red — otherwise we'd get two red lines.
+        from dimos.memory2.vis import color
+
+        p = Plot()
+        p.add(Series(ts=[0, 1], values=[0, 1]))  # auto → blue (first)
+        p.add(Series(ts=[0, 1], values=[2, 3], color=color.red))  # explicit red
+        p.add(Series(ts=[0, 1], values=[4, 5]))  # auto → yellow (red is excluded)
+        svg = p.to_svg()
+        # Both blue and yellow should appear, plus the explicit red.
+        assert color.blue in svg
+        assert color.red in svg
+        assert color.yellow in svg
+        # Red should appear exactly once (the explicit one, not from the cycle).
+        assert svg.count(color.red) == 1
+
 
 class TestPlotRepr:
     def test_repr_empty(self):
@@ -117,3 +178,41 @@ class TestPlotRerunStub:
 
     def test_to_rerun_does_not_raise(self):
         Plot().to_rerun()
+
+
+class TestPalette:
+    """The named palette and palette_iter live in vis/color.py."""
+
+    def test_named_constants_exist(self):
+        from dimos.memory2.vis import color
+
+        assert color.blue == "#3498db"
+        assert color.red == "#e74c3c"
+        assert color.green.startswith("#")
+        assert color.amber.startswith("#")
+        assert len(color.PALETTE) == 12
+        assert color.PALETTE[0] == color.blue
+        assert color.PALETTE[6] == color.green
+
+    def test_palette_iter_yields_palette_first(self):
+        from dimos.memory2.vis import color
+
+        it = color.palette_iter()
+        assert [next(it) for _ in range(12)] == color.PALETTE
+
+    def test_palette_iter_continues_past_palette(self):
+        from dimos.memory2.vis import color
+
+        it = color.palette_iter()
+        first_thirteen = [next(it) for _ in range(13)]
+        # 13th color is generated, must be a hex string and distinct from all 12 named.
+        assert first_thirteen[12].startswith("#")
+        assert first_thirteen[12] not in color.PALETTE
+
+    def test_palette_iter_excludes(self):
+        from dimos.memory2.vis import color
+
+        it = color.palette_iter(exclude={color.red, color.yellow})
+        first_three = [next(it) for _ in range(3)]
+        # Skipped red and yellow, so the first three are blue, teal, purple.
+        assert first_three == [color.blue, color.teal, color.purple]

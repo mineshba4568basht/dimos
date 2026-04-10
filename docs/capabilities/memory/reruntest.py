@@ -33,7 +33,6 @@ global_map = pickle.loads(get_data("unitree_go2_bigoffice_map.pickle").read_byte
 costmap = simple_inflate(general_occupancy(global_map), 0.05)
 
 clip = CLIPModel()
-
 embedded = store.streams.color_image_embedded
 
 drawing = Space()
@@ -59,7 +58,6 @@ store.streams.color_image.map(lambda obs: obs.derive(data=obs.data.brightness)).
 #         .tap(drawing.add) \
 #         .tap(lambda obs: drawing.add(store.streams.lidar.at(obs.ts).first().data)).drain()
 # # fmt: on
-
 
 from dimos.models.vl.moondream import MoondreamVlModel
 

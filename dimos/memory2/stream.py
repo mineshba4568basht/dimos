@@ -209,7 +209,9 @@ class Stream(CompositeResource, Generic[T]):
 
         return self.transform(FnIterTransformer(_tap))
 
-    def scan(self, state: Any, fn: Callable[[Any, Observation[T]], tuple[Any, R]]) -> Stream[R]:
+    def scan_data(
+        self, state: Any, fn: Callable[[Any, Observation[T]], tuple[Any, R]]
+    ) -> Stream[R]:
         """Stateful map: ``fn(state, obs) -> (new_state, new_data)``.
 
         Each observation is yielded with ``.data`` replaced by ``new_data``.
@@ -226,6 +228,10 @@ class Stream(CompositeResource, Generic[T]):
     def map(self, fn: Callable[[Observation[T]], Observation[R]]) -> Stream[R]:
         """Transform each observation's data via callable."""
         return self.transform(FnTransformer(lambda obs: fn(obs)))
+
+    def map_data(self, fn: Callable[[Observation[T]], Observation[R]]) -> Stream[R]:
+        """Transform each observation's data via callable."""
+        return self.transform(FnTransformer(lambda obs: obs.derive(data=fn(obs))))
 
     def transform(
         self,

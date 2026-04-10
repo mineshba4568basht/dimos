@@ -26,9 +26,11 @@ class Series:
 
     ts: list[float]
     values: list[float]
-    color: str = "#3498db"
+    color: str | None = None
     width: float = 1.5
     label: str | None = None
+    axis: str | None = None
+    opacity: float = 1.0
 
 
 @dataclass
@@ -37,9 +39,11 @@ class Markers:
 
     ts: list[float]
     values: list[float]
-    color: str = "#e74c3c"
+    color: str | None = None
     radius: float = 0.5
     label: str | None = None
+    axis: str | None = None
+    opacity: float = 1.0
 
 
 @dataclass
@@ -50,6 +54,8 @@ class HLine:
     color: str = "#888888"
     style: str = "dashed"
     label: str | None = None
+    axis: str | None = None
+    opacity: float = 1.0
 
 
 PlotElement = Union[Series, Markers, HLine]

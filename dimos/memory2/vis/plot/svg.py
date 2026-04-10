@@ -17,11 +17,12 @@
 from __future__ import annotations
 
 import io
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import matplotlib
 import matplotlib.pyplot as plt
 
+from dimos.memory2.vis.color import palette_iter
 from dimos.memory2.vis.plot.elements import HLine, Markers, Series
 
 if TYPE_CHECKING:
@@ -38,24 +39,81 @@ def render(plot: Plot, width: float = 10, height: float = 3.5) -> str:
         ax.set_facecolor("#16213e")
         ax.grid(True, color="#2a2a4a", linewidth=0.5)
 
-        has_legend = False
+        # Lazily create twin y-axes for any element with axis != None.
+        # All twins share the primary x-axis (matplotlib `ax.twinx()`).
+        axes: dict[str | None, Any] = {None: ax}
+
+        def axis_for(name: str | None) -> Any:
+            if name not in axes:
+                twin = ax.twinx()
+                twin.set_facecolor("none")
+                axes[name] = twin
+            return axes[name]
+
+        # Drive a single shared color cycle across all axes (primary + twins)
+        # so series on a twin don't reuse the primary's first color. Excludes
+        # any color the user has already pinned to a specific element so the
+        # auto-cycle won't double-up on it.
+        explicit_colors = {
+            el.color
+            for el in plot.elements
+            if isinstance(el, (Series, Markers)) and el.color is not None
+        }
+        color_iter = palette_iter(exclude=explicit_colors)
+
         for el in plot.elements:
+            target = axis_for(el.axis)
+            color = el.color
+            if color is None and isinstance(el, (Series, Markers)):
+                color = next(color_iter)
             if isinstance(el, Series):
-                ax.plot(el.ts, el.values, color=el.color, linewidth=el.width, label=el.label)
-                if el.label:
-                    has_legend = True
+                target.plot(
+                    el.ts,
+                    el.values,
+                    color=color,
+                    linewidth=el.width,
+                    label=el.label,
+                    alpha=el.opacity,
+                )
             elif isinstance(el, Markers):
-                ax.scatter(el.ts, el.values, color=el.color, s=el.radius**2 * 10, label=el.label)
-                if el.label:
-                    has_legend = True
+                target.scatter(
+                    el.ts,
+                    el.values,
+                    color=color,
+                    s=el.radius**2 * 10,
+                    label=el.label,
+                    alpha=el.opacity,
+                )
             elif isinstance(el, HLine):
                 style = "--" if el.style == "dashed" else "-"
-                ax.axhline(el.y, color=el.color, linestyle=style, linewidth=1, label=el.label)
-                if el.label:
-                    has_legend = True
+                target.axhline(
+                    el.y,
+                    color=el.color,
+                    linestyle=style,
+                    linewidth=1,
+                    label=el.label,
+                    alpha=el.opacity,
+                )
 
-        if has_legend:
-            ax.legend(facecolor="#1a1a2e", edgecolor="#2a2a4a", framealpha=0.9)
+        # Combine handles from all axes into a single legend. Attach it to the
+        # *last* axes created (the most recent twin, or the primary if there
+        # are no twins) so the legend paints last and isn't covered by twin
+        # tick labels / spines drawn afterward in matplotlib's axes draw order.
+        all_handles: list[Any] = []
+        all_labels: list[str] = []
+        for axes_obj in axes.values():
+            h, l = axes_obj.get_legend_handles_labels()
+            all_handles.extend(h)
+            all_labels.extend(l)
+        if all_handles:
+            legend_host = next(reversed(axes.values()))
+            legend_host.legend(
+                all_handles,
+                all_labels,
+                facecolor="#1a1a2e",
+                edgecolor="#2a2a4a",
+                framealpha=0.9,
+            )
 
         ax.set_xlabel("time (s)")
         fig.tight_layout()
