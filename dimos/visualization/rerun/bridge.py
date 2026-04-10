@@ -41,7 +41,6 @@ import typer
 
 from dimos.core.core import rpc
 from dimos.core.module import Module, ModuleConfig
-from dimos.msgs.sensor_msgs.PointCloud2 import register_colormap_annotation
 from dimos.protocol.pubsub.impl.lcmpubsub import LCM
 from dimos.protocol.pubsub.patterns import Glob, pattern_matches
 from dimos.protocol.pubsub.spec import SubscribeAllCapable
@@ -290,6 +289,9 @@ class RerunBridgeModule(Module):
 
     @rpc
     def start(self) -> None:
+        # Delay import to reduce import time (~2.4s)
+        from dimos.msgs.sensor_msgs.PointCloud2 import register_colormap_annotation
+
         super().start()
 
         logger.info("Rerun bridge starting", viewer_mode=self.config.viewer_mode)
