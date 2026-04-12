@@ -34,7 +34,7 @@ import hashlib
 import os
 from pathlib import Path
 import threading
-from typing import Union
+from typing import Any, Union
 
 import xxhash
 
@@ -154,6 +154,62 @@ def _hash_files(files: list[Path]) -> str:
     return h.hexdigest()
 
 
+def hash_dict(data: dict[Any, Any], *, extra_hash: str | None = None) -> str:
+    """Return a stable xxhash digest of a dict's keys and values.
+
+    Keys are sorted (by their ``str`` form) so insertion order doesn't affect
+    the result, and each key/value is serialized via ``str()`` — good enough
+    for config dicts holding primitives, paths, and small nested structures.
+    Not suitable for values whose ``str()`` isn't deterministic (e.g. objects
+    that include memory addresses in their repr).
+    """
+    h = xxhash.xxh64()
+    for key in sorted(data, key=str):
+        h.update(str(key).encode())
+        h.update(b"\x00")
+        h.update(str(data[key]).encode())
+        h.update(b"\x00")
+    if extra_hash:
+        h.update(extra_hash.encode())
+    return h.hexdigest()
+
+
+def hash_paths(
+    paths: Sequence[PathEntry],
+    cwd: str | Path | None = None,
+    *,
+    extra_hash: str | None = None,
+) -> str | None:
+    """Return a stable content hash of *paths*, or ``None`` if nothing resolves.
+
+    Resolves a mixed list of files, directories, and :class:`Glob` patterns
+    (see :func:`did_change` for path-entry semantics), then returns an xxhash
+    digest of the sorted file contents.  If *extra_hash* is provided it is
+    folded into the final digest, so callers can invalidate on non-file inputs
+    (e.g. a build command, a processing version string).
+
+    Use this directly when you want a content-addressed cache key without the
+    full :func:`did_change` machinery (no cache file, no lock, no previous
+    state).  :func:`did_change` and :func:`update_cache` both call this
+    internally.
+
+    Returns ``None`` when *paths* is empty or none of the entries resolve to
+    existing files — callers decide what that means (skip, rebuild, error).
+    """
+    if not paths:
+        return None
+    files = _resolve_paths(paths, cwd=cwd)
+    if not files:
+        return None
+    digest = _hash_files(files)
+    if extra_hash:
+        h = xxhash.xxh64()
+        h.update(digest.encode())
+        h.update(extra_hash.encode())
+        digest = h.hexdigest()
+    return digest
+
+
 # Thread-level locks keyed by cache_name (flock only protects cross-process).
 _thread_locks: dict[str, threading.Lock] = {}
 _thread_locks_guard = threading.Lock()
@@ -224,28 +280,18 @@ def did_change(
     When *update* is ``True`` the cache is updated, so two consecutive calls
     with no changes return ``True`` then ``False``.
     """
-    if not paths:
-        return False
-
-    files = _resolve_paths(paths, cwd=cwd)
+    current_hash = hash_paths(paths, cwd=cwd, extra_hash=extra_hash)
 
     # If none of the monitored paths resolve to actual files (e.g. source
     # files don't exist on this branch or checkout), don't claim anything
     # changed — deleting a working binary because we can't find the sources
     # to compare against is destructive.
-    if not files:
+    if current_hash is None:
         logger.warning(
             "No source files found for change detection, skipping rebuild check",
             cache_name=cache_name,
         )
         return False
-
-    current_hash = _hash_files(files)
-    if extra_hash:
-        h = xxhash.xxh64()
-        h.update(current_hash.encode())
-        h.update(extra_hash.encode())
-        current_hash = h.hexdigest()
 
     cache_dir = _get_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -288,19 +334,9 @@ def update_cache(
             run_build()          # might fail
             update_cache("my_build", sources, extra_hash=cmd)  # only on success
     """
-    if not paths:
+    current_hash = hash_paths(paths, cwd=cwd, extra_hash=extra_hash)
+    if current_hash is None:
         return
-
-    files = _resolve_paths(paths, cwd=cwd)
-    if not files:
-        return
-
-    current_hash = _hash_files(files)
-    if extra_hash:
-        h = xxhash.xxh64()
-        h.update(current_hash.encode())
-        h.update(extra_hash.encode())
-        current_hash = h.hexdigest()
 
     cache_dir = _get_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
