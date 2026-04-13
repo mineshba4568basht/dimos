@@ -195,14 +195,12 @@ def load_config_args(config: type[BaseModel], args: Iterable[str], path: Path) -
 
 async def _run(
     ctx: typer.Context,
-    robot_types: list[str] = typer.Argument(..., help="Blueprints or modules to run"),
-    daemon: bool = typer.Option(False, "--daemon", "-d", help="Run in background"),
-    disable: list[str] = typer.Option([], "--disable", help="Module names to disable"),
-    blueprint_args: list[str] = typer.Option((), "--option", "-o"),
-    config_path: Path = typer.Option(
-        CONFIG_DIR / "dimos", "--config", "-c", help="Path to config file"
-    ),
-    show_help: bool = typer.Option(False, "--help"),
+    robot_types: list[str],
+    daemon: bool,
+    disable: list[str],
+    blueprint_args: list[str],
+    config_path: Path,
+    show_help: bool,
 ) -> None:
     """Start a robot blueprint"""
     logger.info("Starting DimOS")
@@ -325,10 +323,15 @@ def run(
     robot_types: list[str] = typer.Argument(..., help="Blueprints or modules to run"),
     daemon: bool = typer.Option(False, "--daemon", "-d", help="Run in background"),
     disable: list[str] = typer.Option([], "--disable", help="Module names to disable"),
+    blueprint_args: list[str] = typer.Option((), "--option", "-o"),
+    config_path: Path = typer.Option(
+        CONFIG_DIR / "dimos", "--config", "-c", help="Path to config file"
+    ),
+    show_help: bool = typer.Option(False, "--help"),
 ) -> None:
     """Start a robot blueprint"""
     logger.info("Starting DimOS")
-    asyncio.run(_run(ctx, robot_types, daemon, disable))
+    asyncio.run(_run(ctx, robot_types, daemon, disable, blueprint_args, config_path, show_help))
 
 
 @main.command()
