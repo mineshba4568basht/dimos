@@ -27,6 +27,7 @@ from typing import Any
 import weakref
 
 from dimos_lcm.std_msgs import Bool
+from reactivex.disposable import Disposable
 
 from dimos.constants import DEFAULT_THREAD_JOIN_TIMEOUT
 from dimos.core.core import rpc
@@ -105,8 +106,8 @@ class CmdVelMux(Module):
     @rpc
     def start(self) -> None:
         super().start()
-        self.register_disposable(self.nav_cmd_vel.subscribe(self._on_nav))
-        self.register_disposable(self.tele_cmd_vel.subscribe(self._on_teleop))
+        self.register_disposable(Disposable(self.nav_cmd_vel.subscribe(self._on_nav)))
+        self.register_disposable(Disposable(self.tele_cmd_vel.subscribe(self._on_teleop)))
 
     @rpc
     def stop(self) -> None:
