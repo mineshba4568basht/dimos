@@ -225,7 +225,6 @@ class RecorderApp(App[None]):
 
     def on_mount(self) -> None:
         from dimos.protocol.pubsub.impl.lcmpubsub import LCM
-        from dimos.record import RecordReplay
         from dimos.utils.cli.lcmspy.lcmspy import GraphLCMSpy
 
         self._lcm = LCM()
