@@ -350,8 +350,10 @@ class GO2Connection(Module, Camera, Pointcloud):
         ]
 
     def _publish_tf(self, msg: PoseStamped) -> None:
-        transforms = self._odom_to_tf(msg)
-        self.tf.publish(*transforms)
+        import os as _os
+        if _os.environ.get("DIMOS_SKIP_TF") != "1":
+            transforms = self._odom_to_tf(msg)
+            self.tf.publish(*transforms)
         if self.odom.transport:
             self.odom.publish(msg)
 

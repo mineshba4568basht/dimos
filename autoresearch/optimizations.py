@@ -149,6 +149,15 @@ ENABLE_REPLAY_PREFETCH = False
 REPLAY_PREFETCH_SIZE = 5  # number of items to prefetch ahead
 
 
+# ------------------------------------------------------------------
+# KNOB 11: Skip TF publishing during replay
+# ------------------------------------------------------------------
+# Every odom message triggers 3 TF transforms published via LCM.
+# During --viewer=none replay, nobody subscribes to TF. Pure waste.
+# Controlled via env var DIMOS_SKIP_TF=1 → checked in GO2Connection._publish_tf.
+ENABLE_SKIP_TF = True
+
+
 def _build_startup_code() -> str:
     """Assemble the monkey-patch string injected via sitecustomize.py."""
     lines: list[str] = []
@@ -199,6 +208,9 @@ def apply() -> dict:
 
     if CAMERA_INFO_MODE != "default":
         env["DIMOS_CAMERA_INFO_MODE"] = CAMERA_INFO_MODE
+
+    if ENABLE_SKIP_TF:
+        env["DIMOS_SKIP_TF"] = "1"
 
     startup_code = _build_startup_code()
     if startup_code:
