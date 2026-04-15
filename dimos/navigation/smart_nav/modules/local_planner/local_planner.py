@@ -239,7 +239,7 @@ class LocalPlanner(NativeModule):
         path (Out[NavPath]): Selected local path for path follower.
     """
 
-    default_config: type[LocalPlannerConfig] = LocalPlannerConfig  # type: ignore[assignment]
+    config: LocalPlannerConfig
 
     # --- Inputs ---
     registered_scan: In[PointCloud2]
