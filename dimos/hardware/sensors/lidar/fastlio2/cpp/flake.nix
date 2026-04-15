@@ -13,7 +13,7 @@
       flake = false;
     };
     fast-lio = {
-      url = "github:leshy/FAST-LIO-NON-ROS/dimos-integration";
+      url = "github:jeff-hykin/fastlio2-pure/main";
       flake = false;
     };
     lcm-extended = {

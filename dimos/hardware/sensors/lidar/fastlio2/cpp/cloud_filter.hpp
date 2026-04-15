@@ -16,9 +16,33 @@ struct CloudFilterConfig {
     float voxel_size = 0.1f;
     int sor_mean_k = 50;
     float sor_stddev = 1.0f;
+    // Drop points within this radius of the sensor origin (world frame).
+    // Catches self-hits that the body-frame blind filter may miss.
+    float blind_radius = 0.5f;
 };
 
-/// Apply voxel grid downsample + statistical outlier removal in-place.
+/// Remove points within ``radius`` of (sx, sy, sz) in world frame.
+/// This catches self-hits from the robot body that the body-frame blind
+/// filter may miss (e.g. after world-frame registration shifts points).
+template <typename PointT>
+typename pcl::PointCloud<PointT>::Ptr remove_near_sensor(
+    const typename pcl::PointCloud<PointT>::Ptr& input,
+    float sx, float sy, float sz, float radius) {
+
+    if (!input || input->empty() || radius <= 0.0f) return input;
+
+    float r2 = radius * radius;
+    typename pcl::PointCloud<PointT>::Ptr out(new pcl::PointCloud<PointT>());
+    out->reserve(input->size());
+    for (const auto& p : *input) {
+        float dx = p.x - sx, dy = p.y - sy, dz = p.z - sz;
+        if (dx * dx + dy * dy + dz * dz > r2)
+            out->push_back(p);
+    }
+    return out;
+}
+
+/// Apply voxel grid downsample + statistical outlier removal.
 /// Returns the filtered cloud (new allocation).
 template <typename PointT>
 typename pcl::PointCloud<PointT>::Ptr filter_cloud(

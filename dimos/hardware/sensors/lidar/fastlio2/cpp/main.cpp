@@ -65,6 +65,47 @@ static std::string g_frame_id = "map";
 static std::string g_child_frame_id = "body";
 static float g_frequency = 10.0f;
 
+// Initial pose offset (applied to all SLAM outputs)
+// Position offset
+static double g_init_x = 0.0;
+static double g_init_y = 0.0;
+static double g_init_z = 0.0;
+// Orientation offset as quaternion (identity = no rotation)
+static double g_init_qx = 0.0;
+static double g_init_qy = 0.0;
+static double g_init_qz = 0.0;
+static double g_init_qw = 1.0;
+
+// Helper: quaternion multiply (Hamilton product)  q_out = q1 * q2
+static void quat_mul(double ax, double ay, double az, double aw,
+                     double bx, double by, double bz, double bw,
+                     double& ox, double& oy, double& oz, double& ow) {
+    ow = aw*bw - ax*bx - ay*by - az*bz;
+    ox = aw*bx + ax*bw + ay*bz - az*by;
+    oy = aw*by - ax*bz + ay*bw + az*bx;
+    oz = aw*bz + ax*by - ay*bx + az*bw;
+}
+
+// Helper: rotate a vector by a quaternion  v_out = q * v * q_inv
+static void quat_rotate(double qx, double qy, double qz, double qw,
+                        double vx, double vy, double vz,
+                        double& ox, double& oy, double& oz) {
+    // t = 2 * cross(q_xyz, v)
+    double tx = 2.0 * (qy*vz - qz*vy);
+    double ty = 2.0 * (qz*vx - qx*vz);
+    double tz = 2.0 * (qx*vy - qy*vx);
+    // v_out = v + qw*t + cross(q_xyz, t)
+    ox = vx + qw*tx + (qy*tz - qz*ty);
+    oy = vy + qw*ty + (qz*tx - qx*tz);
+    oz = vz + qw*tz + (qx*ty - qy*tx);
+}
+
+// Check if initial pose is non-identity
+static bool has_init_pose() {
+    return g_init_x != 0.0 || g_init_y != 0.0 || g_init_z != 0.0 ||
+           g_init_qx != 0.0 || g_init_qy != 0.0 || g_init_qz != 0.0 || g_init_qw != 1.0;
+}
+
 // Frame accumulator (Livox SDK raw → CustomMsg)
 static std::mutex g_pc_mutex;
 static std::vector<custom_messages::CustomPoint> g_accumulated_points;
@@ -126,11 +167,28 @@ static void publish_lidar(PointCloudXYZI::Ptr cloud, double timestamp,
     pc.data_length = pc.row_step;
     pc.data.resize(pc.data_length);
 
+    // Apply the full init_pose transform (rotation + translation) to point clouds.
+    // FAST-LIO's map origin is at the sensor's initial position.  The rotation
+    // corrects axis direction (e.g. 180° X for upside-down mount) and the
+    // translation shifts the origin so that ground sits at z≈0 (e.g. z=1.2
+    // for a sensor mounted 1.2m above ground).  This matches the odometry
+    // frame, which also gets the full init_pose applied.
+    const bool apply_init_pose = has_init_pose();
     for (int i = 0; i < num_points; ++i) {
         float* dst = reinterpret_cast<float*>(pc.data.data() + i * 16);
-        dst[0] = cloud->points[i].x;
-        dst[1] = cloud->points[i].y;
-        dst[2] = cloud->points[i].z;
+        if (apply_init_pose) {
+            double rx, ry, rz;
+            quat_rotate(g_init_qx, g_init_qy, g_init_qz, g_init_qw,
+                        cloud->points[i].x, cloud->points[i].y, cloud->points[i].z,
+                        rx, ry, rz);
+            dst[0] = static_cast<float>(rx + g_init_x);
+            dst[1] = static_cast<float>(ry + g_init_y);
+            dst[2] = static_cast<float>(rz + g_init_z);
+        } else {
+            dst[0] = cloud->points[i].x;
+            dst[1] = cloud->points[i].y;
+            dst[2] = cloud->points[i].z;
+        }
         dst[3] = cloud->points[i].intensity;
     }
 
@@ -148,14 +206,38 @@ static void publish_odometry(const custom_messages::Odometry& odom, double times
     msg.header = make_header(g_frame_id, timestamp);
     msg.child_frame_id = g_child_frame_id;
 
-    // Pose
-    msg.pose.pose.position.x = odom.pose.pose.position.x;
-    msg.pose.pose.position.y = odom.pose.pose.position.y;
-    msg.pose.pose.position.z = odom.pose.pose.position.z;
-    msg.pose.pose.orientation.x = odom.pose.pose.orientation.x;
-    msg.pose.pose.orientation.y = odom.pose.pose.orientation.y;
-    msg.pose.pose.orientation.z = odom.pose.pose.orientation.z;
-    msg.pose.pose.orientation.w = odom.pose.pose.orientation.w;
+    // Pose (apply initial pose offset: p_out = R_init * p_slam + t_init)
+    if (has_init_pose()) {
+        double rx, ry, rz;
+        quat_rotate(g_init_qx, g_init_qy, g_init_qz, g_init_qw,
+                    odom.pose.pose.position.x,
+                    odom.pose.pose.position.y,
+                    odom.pose.pose.position.z,
+                    rx, ry, rz);
+        msg.pose.pose.position.x = rx + g_init_x;
+        msg.pose.pose.position.y = ry + g_init_y;
+        msg.pose.pose.position.z = rz + g_init_z;
+
+        double ox, oy, oz, ow;
+        quat_mul(g_init_qx, g_init_qy, g_init_qz, g_init_qw,
+                 odom.pose.pose.orientation.x,
+                 odom.pose.pose.orientation.y,
+                 odom.pose.pose.orientation.z,
+                 odom.pose.pose.orientation.w,
+                 ox, oy, oz, ow);
+        msg.pose.pose.orientation.x = ox;
+        msg.pose.pose.orientation.y = oy;
+        msg.pose.pose.orientation.z = oz;
+        msg.pose.pose.orientation.w = ow;
+    } else {
+        msg.pose.pose.position.x = odom.pose.pose.position.x;
+        msg.pose.pose.position.y = odom.pose.pose.position.y;
+        msg.pose.pose.position.z = odom.pose.pose.position.z;
+        msg.pose.pose.orientation.x = odom.pose.pose.orientation.x;
+        msg.pose.pose.orientation.y = odom.pose.pose.orientation.y;
+        msg.pose.pose.orientation.z = odom.pose.pose.orientation.z;
+        msg.pose.pose.orientation.w = odom.pose.pose.orientation.w;
+    }
 
     // Covariance (fixed-size double[36])
     for (int i = 0; i < 36; ++i) {
@@ -322,6 +404,7 @@ int main(int argc, char** argv) {
     filter_cfg.voxel_size = mod.arg_float("voxel_size", 0.1f);
     filter_cfg.sor_mean_k = mod.arg_int("sor_mean_k", 50);
     filter_cfg.sor_stddev = mod.arg_float("sor_stddev", 1.0f);
+    filter_cfg.blind_radius = mod.arg_float("blind_radius", 0.5f);
     float map_voxel_size = mod.arg_float("map_voxel_size", 0.1f);
     float map_max_range = mod.arg_float("map_max_range", 100.0f);
     float map_freq = mod.arg_float("map_freq", 0.0f);
@@ -340,7 +423,29 @@ int main(int argc, char** argv) {
     ports.host_imu_data   = mod.arg_int("host_imu_data_port", port_defaults.host_imu_data);
     ports.host_log_data   = mod.arg_int("host_log_data_port", port_defaults.host_log_data);
 
+    // Initial pose offset [x, y, z, qx, qy, qz, qw]
+    {
+        std::string init_str = mod.arg("init_pose", "");
+        if (!init_str.empty()) {
+            double vals[7] = {0, 0, 0, 0, 0, 0, 1};
+            int n = 0;
+            size_t pos = 0;
+            while (pos < init_str.size() && n < 7) {
+                size_t comma = init_str.find(',', pos);
+                if (comma == std::string::npos) comma = init_str.size();
+                vals[n++] = std::stod(init_str.substr(pos, comma - pos));
+                pos = comma + 1;
+            }
+            g_init_x = vals[0]; g_init_y = vals[1]; g_init_z = vals[2];
+            g_init_qx = vals[3]; g_init_qy = vals[4]; g_init_qz = vals[5]; g_init_qw = vals[6];
+        }
+    }
+
     printf("[fastlio2] Starting FAST-LIO2 + Livox Mid-360 native module\n");
+    if (has_init_pose()) {
+        printf("[fastlio2] init_pose: xyz=(%.3f, %.3f, %.3f) quat=(%.4f, %.4f, %.4f, %.4f)\n",
+               g_init_x, g_init_y, g_init_z, g_init_qx, g_init_qy, g_init_qz, g_init_qw);
+    }
     printf("[fastlio2] lidar topic: %s\n",
            g_lidar_topic.empty() ? "(disabled)" : g_lidar_topic.c_str());
     printf("[fastlio2] odometry topic: %s\n",
@@ -470,6 +575,20 @@ int main(int argc, char** argv) {
             if (world_cloud && !world_cloud->empty()) {
                 auto filtered = filter_cloud<PointType>(world_cloud, filter_cfg);
 
+                // Drop points near the sensor — catches robot body
+                // self-hits that the body-frame blind filter misses.
+                // Both pose[] and world_cloud points are in FAST-LIO's
+                // internal map frame (init_pose is applied later in
+                // publish_lidar), so compare directly without transform.
+                if (filter_cfg.blind_radius > 0.0f) {
+                    filtered = remove_near_sensor<PointType>(
+                        filtered,
+                        static_cast<float>(pose[0]),
+                        static_cast<float>(pose[1]),
+                        static_cast<float>(pose[2]),
+                        filter_cfg.blind_radius);
+                }
+
                 // Per-scan publish at pointcloud_freq
                 if (!g_lidar_topic.empty() && now - last_pc_publish >= pc_interval) {
                     publish_lidar(filtered, ts);
@@ -486,6 +605,15 @@ int main(int argc, char** argv) {
                             static_cast<float>(pose[1]),
                             static_cast<float>(pose[2]));
                         auto map_cloud = global_map->to_cloud<PointType>();
+                        // Also filter the accumulated map near the sensor
+                        if (filter_cfg.blind_radius > 0.0f) {
+                            map_cloud = remove_near_sensor<PointType>(
+                                map_cloud,
+                                static_cast<float>(pose[0]),
+                                static_cast<float>(pose[1]),
+                                static_cast<float>(pose[2]),
+                                filter_cfg.blind_radius);
+                        }
                         publish_lidar(map_cloud, ts, g_map_topic);
                         last_map_publish = now;
                     }
