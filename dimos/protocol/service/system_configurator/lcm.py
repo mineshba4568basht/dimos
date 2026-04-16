@@ -14,16 +14,33 @@
 
 from __future__ import annotations
 
+import json
 import re
 import resource
 import subprocess
 
+from dimos.constants import STATE_DIR
 from dimos.protocol.service.system_configurator.base import (
     SystemConfigurator,
     _read_sysctl_int,
     _write_sysctl_int,
 )
 from dimos.utils import prompt
+
+_SYSCTL_CONF = STATE_DIR / "sysctl.json"
+
+
+def _load_sysctl_conf() -> dict[str, int]:
+    try:
+        return json.loads(_SYSCTL_CONF.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_sysctl_conf(data: dict[str, int]) -> None:
+    _SYSCTL_CONF.parent.mkdir(parents=True, exist_ok=True)
+    _SYSCTL_CONF.write_text(json.dumps(data))
+
 
 # specific checks: multicast
 
@@ -233,10 +250,12 @@ class BufferConfiguratorMacOS(SystemConfigurator):
 
     def check(self) -> bool:
         self.needs.clear()
+        saved = _load_sysctl_conf()
         for key in self.KEYS:
+            target = saved.get(key, self.TARGET)
             current = _read_sysctl_int(key) or 0
-            if current < self.TARGET:
-                self.needs.append((key, self.TARGET, current))
+            if current < target:
+                self.needs.append((key, target, current))
         return not self.needs
 
     def explanation(self) -> str | None:
@@ -246,6 +265,7 @@ class BufferConfiguratorMacOS(SystemConfigurator):
         return "\n".join(lines)
 
     def fix(self) -> None:
+        saved = _load_sysctl_conf()
         for key, target, current in self.needs:
             while target > current:
                 try:
@@ -253,7 +273,10 @@ class BufferConfiguratorMacOS(SystemConfigurator):
                 except subprocess.CalledProcessError:
                     target //= 2
                 else:
+                    saved[key] = target
                     break
+        # Write current amounts to config to avoid requesting TARGET every startup.
+        _save_sysctl_conf(saved)
 
 
 # specific checks: ulimit
