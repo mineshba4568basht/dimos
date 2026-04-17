@@ -110,7 +110,7 @@ def _find_candidate_ips(lidar_ip: str, local_ips: list[str]) -> list[str]:
 class FastLio2Config(NativeModuleConfig):
     """Config for the FAST-LIO2 + Livox Mid-360 native module."""
 
-    cwd: str | None = str(Path(__file__).parent / "cpp")
+    cwd: str | None = "cpp"
     executable: str = "result/bin/fastlio2_native"
     build_command: str | None = "nix build .#fastlio2_native"
     # Livox SDK hardware config
@@ -162,7 +162,7 @@ class FastLio2Config(NativeModuleConfig):
     host_imu_data_port: int = SDK_HOST_IMU_DATA_PORT
     host_log_data_port: int = SDK_HOST_LOG_DATA_PORT
 
-    # Passed as --config_path to the binary (resolved from ``config`` in post-init)
+    # Resolved in __post_init__, passed as --config_path to the binary
     config_path: str | None = None
 
     # init_pose is computed from mount; config is resolved to config_path

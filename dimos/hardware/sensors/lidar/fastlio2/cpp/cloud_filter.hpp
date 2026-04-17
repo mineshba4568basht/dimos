@@ -18,7 +18,7 @@ struct CloudFilterConfig {
     float sor_stddev = 1.0f;
 };
 
-/// Apply voxel grid downsample + statistical outlier removal.
+/// Apply voxel grid downsample + statistical outlier removal in-place.
 /// Returns the filtered cloud (new allocation).
 template <typename PointT>
 typename pcl::PointCloud<PointT>::Ptr filter_cloud(
