@@ -211,6 +211,10 @@ class RerunBridgeModule(Module):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._last_log = {}
+        # Manual cache replaces @lru_cache on this method.  lru_cache captures
+        # ``self`` as a cache key, which prevents garbage collection of the
+        # entire RerunBridgeModule (and everything it references).  A plain
+        # dict on the instance avoids the leak and is cleared in stop().
         self._override_cache: dict[str, Callable[[Any], RerunData | None]] = {}
 
     def _visual_override_for_entity_path(
@@ -219,8 +223,7 @@ class RerunBridgeModule(Module):
         """Return a composed visual override for the entity path.
 
         Chains matching overrides from config, ending with final_convert
-        which handles .to_rerun() or passes through Archetypes. Cached per
-        instance (not via ``lru_cache`` on a method, which would leak ``self``).
+        which handles .to_rerun() or passes through Archetypes.
         """
         cached = self._override_cache.get(entity_path)
         if cached is not None:

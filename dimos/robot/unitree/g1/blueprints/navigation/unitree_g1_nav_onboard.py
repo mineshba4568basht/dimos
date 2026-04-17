@@ -45,12 +45,12 @@ import os
 from dimos.core.coordination.blueprints import autoconnect
 from dimos.hardware.sensors.lidar.fastlio2.module import FastLio2
 from dimos.navigation.smart_nav.main import smart_nav, smart_nav_rerun_config
-from dimos.robot.unitree.g1.blueprints.navigation.g1_rerun import (
+from dimos.robot.unitree.g1.config import G1
+from dimos.robot.unitree.g1.effectors.high_level.dds_sdk import G1HighLevelDdsSdk
+from dimos.robot.unitree.g1.g1_rerun import (
     g1_odometry_tf_override,
     g1_static_robot,
 )
-from dimos.robot.unitree.g1.config import G1
-from dimos.robot.unitree.g1.effectors.high_level.dds_sdk import G1HighLevelDdsSdk
 from dimos.visualization.rerun.bridge import RerunBridgeModule
 from dimos.visualization.rerun.websocket_server import RerunWebSocketServer
 

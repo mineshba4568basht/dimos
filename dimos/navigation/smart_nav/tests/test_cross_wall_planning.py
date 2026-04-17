@@ -73,7 +73,7 @@ class TestCrossWallPlanning:
         from dimos.msgs.geometry_msgs.PointStamped import PointStamped
         from dimos.msgs.nav_msgs.Odometry import Odometry
         from dimos.navigation.smart_nav.main import smart_nav, smart_nav_rerun_config
-        from dimos.robot.unitree.g1.blueprints.navigation.g1_rerun import (
+        from dimos.robot.unitree.g1.g1_rerun import (
             g1_static_robot,
         )
         from dimos.simulation.unity.module import UnityBridgeModule
