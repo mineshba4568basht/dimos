@@ -170,7 +170,7 @@ agents = [
     # Audio
     "openai",
     "sounddevice",
-    "faster-whisper",
+    "faster-whisper>=1.0.0",
 ]
 
 whisper = [
