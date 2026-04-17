@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from typing import Any
+import warnings
 
 from reactivex import Observable, create, disposable
 
@@ -32,12 +33,17 @@ except ImportError:
     try:
         from faster_whisper import WhisperModel  # type: ignore[import-untyped]
 
+        warnings.warn(
+            "openai-whisper not installed, falling back to faster-whisper. "
+            "Install openai-whisper for the full backend: pip install dimos[whisper]",
+            stacklevel=2,
+        )
         _USE_FASTER_WHISPER = True
     except ImportError:
         raise ImportError(
             "No whisper backend found. "
-            "Install openai-whisper (pip install dimos[whisper]) "
-            "or faster-whisper (pip install dimos[whisper-cpu])."
+            "Install faster-whisper (pip install faster-whisper) "
+            "or openai-whisper (pip install dimos[whisper])."
         )
 
 logger = setup_logger()
