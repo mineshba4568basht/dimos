@@ -123,12 +123,14 @@ class UnitreeGo2TwistAdapter:
             1 = fast (default, max). Applied once after FreeWalk succeeds.
             May be ignored in non-'normal' modes (mcf runs its own planner).
             Change at runtime via set_speed_level().
-        rage_mode: If True, enable Rage Mode at the end of connect().
-            Widens the forward envelope to ~2.5 m/s. Velocity commands
-            route through rt/wirelesscontroller_unprocessed joystick
-            simulation rather than SportClient.Move (which Rage's FSM
-            ignores — see data/notes/go2_firmware_modes.md). Default
-            False until verified on hardware; safe to pass True.
+        rage_mode: If True (default), enable Rage Mode at the end of
+            connect(). Widens the forward envelope to ~2.5 m/s by
+            routing velocity commands through the
+            rt/wirelesscontroller_unprocessed joystick buffer rather
+            than SportClient.Move (which AiController's dispatch skips
+            for FsmRageMode — see data/notes/go2_firmware_modes.md).
+            Sign convention verified on our firmware: +ly = forward.
+            Pass False to stay on regular FreeWalk.
 
     TODO(network_interface): multi-NIC hosts may need an explicit DDS
     interface name passed through to ChannelFactoryInitialize(0, iface).
@@ -152,7 +154,7 @@ class UnitreeGo2TwistAdapter:
         self,
         dof: int = 3,
         speed_level: int = 1,
-        rage_mode: bool = False,
+        rage_mode: bool = True,
         **_: object,
     ) -> None:
         if dof != 3:
