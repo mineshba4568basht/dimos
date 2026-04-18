@@ -41,7 +41,7 @@ from dimos.msgs.geometry_msgs.Quaternion import Quaternion
 from dimos.msgs.geometry_msgs.Transform import Transform
 from dimos.msgs.geometry_msgs.Vector3 import Vector3
 from dimos.msgs.nav_msgs.Odometry import Odometry
-from dimos.navigation.smart_nav.frames import FRAME_BODY, FRAME_MAP, FRAME_ODOM
+from dimos.navigation.smart_nav.frames import FRAME_BODY, FRAME_MAP, FRAME_ODOM, FRAME_SENSOR
 from dimos.protocol.tf.tf import MultiTBuffer
 
 # ─── Frame constants ─────────────────────────────────────────────────────
@@ -56,6 +56,9 @@ class TestFrameConstants:
 
     def test_frame_body(self) -> None:
         assert FRAME_BODY == "body"
+
+    def test_frame_sensor(self) -> None:
+        assert FRAME_SENSOR == "sensor"
 
 
 # ─── TF chain composition via MultiTBuffer ───────────────────────────────
@@ -520,6 +523,35 @@ class TestSimplePlannerTF:
         # No goal set, so _replan_once should return early after querying TF
         p._replan_once()
         p.tf.get.assert_called_with(FRAME_MAP, FRAME_BODY)
+
+    def test_body_frame_config_overrides_lookup(self) -> None:
+        """Setting config.body_frame should change which TF child is queried."""
+        from dimos.navigation.smart_nav.modules.simple_planner.simple_planner import (
+            SimplePlannerConfig,
+        )
+
+        p = self._make_planner()
+        p.config = SimplePlannerConfig(body_frame="sensor")
+
+        sensor_tf = Transform(
+            frame_id=FRAME_MAP,
+            child_frame_id="sensor",
+            translation=Vector3(9.0, 8.0, 0.0),
+            rotation=Quaternion(0.0, 0.0, 0.0, 1.0),
+            ts=time.time(),
+        )
+
+        def _side_effect(parent: str, child: str) -> Transform | None:
+            if child == "sensor":
+                return sensor_tf
+            return None
+
+        p.tf.get.side_effect = _side_effect
+
+        result = p._query_pose()
+        assert result is True
+        assert math.isclose(p._robot_x, 9.0)
+        assert math.isclose(p._robot_y, 8.0)
 
     def test_waypoint_uses_frame_map(self) -> None:
         """Published waypoints should use FRAME_MAP as frame_id."""

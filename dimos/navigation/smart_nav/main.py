@@ -55,6 +55,7 @@ def smart_nav(
     use_terrain_map_ext: bool = True,
     use_simple_planner: bool = False,
     vehicle_height: float | None = None,
+    body_frame: str | None = None,
     terrain_analysis: dict[str, Any] | None = None,
     terrain_map_ext: dict[str, Any] | None = None,
     local_planner: dict[str, Any] | None = None,
@@ -93,6 +94,10 @@ def smart_nav(
             accumulator used for visualization and wider-range planning.
         vehicle_height: Ignore terrain points above this height (m). Threaded
             into TerrainAnalysis's `vehicle_height` config. Defaults to 1.2m.
+        body_frame: TF child frame for the robot body. Defaults to ``"body"``
+            (REP-105). Set to ``"sensor"`` for the Unity sim bridge, which
+            publishes TF with ``child_frame_id="sensor"``. Threaded into
+            SimplePlanner and MovementManager configs.
         terrain_analysis, terrain_map_ext, local_planner, path_follower,
         far_planner, pgo, movement_manager, tare_planner:
         Per-module config override dicts. Merged on top
@@ -191,6 +196,7 @@ def smart_nav(
                             if vehicle_height is not None
                             else {}
                         ),
+                        **({"body_frame": body_frame} if body_frame is not None else {}),
                         **(simple_planner or {}),
                     }
                 )
@@ -199,7 +205,12 @@ def smart_nav(
             else [FarPlanner.blueprint(**(far_planner or {}))]
         ),
         PGO.blueprint(**(pgo or {})),
-        MovementManager.blueprint(**(movement_manager or {})),
+        MovementManager.blueprint(
+            **{
+                **({"body_frame": body_frame} if body_frame is not None else {}),
+                **(movement_manager or {}),
+            }
+        ),
     ]
     if use_terrain_map_ext:
         modules.append(
@@ -225,10 +236,12 @@ def smart_nav(
     remappings: list[tuple[type[ModuleBase], str, str | type[ModuleBase] | type[Spec]]] = [
         # PathFollower cmd_vel → MovementManager nav input (avoid collision with mux output)
         (PathFollower, "cmd_vel", "nav_cmd_vel"),
-        # NativeModule planners still receive corrected odometry via the
-        # stream (C++ binaries subscribe to LCM topics directly).
-        # Python modules (SimplePlanner, MovementManager) query the TF tree
-        # instead (map→body via the PGO map→odom + FastLio2 odom→body chain).
+        # NativeModule compat: C++ binaries (TerrainAnalysis, FarPlanner)
+        # subscribe to LCM topics directly and cannot query the TF tree.
+        # They still receive PGO's corrected_odometry stream until a
+        # TF-to-Odometry bridge is added to their Python wrappers.
+        # Python modules (SimplePlanner, MovementManager) use
+        # self.tf.get("map", "body") and need no remapping.
         *([] if use_simple_planner else [(FarPlanner, "odometry", "corrected_odometry")]),
         (TerrainAnalysis, "odometry", "corrected_odometry"),
         # Planner owns way_point — disconnect MovementManager's click relay.

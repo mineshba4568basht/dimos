@@ -271,6 +271,10 @@ class SimplePlannerConfig(ModuleConfig):
     # cached path so the local planner never stops on it. Should be
     # larger than LocalPlanner's goal_reached_threshold.
     waypoint_advance_radius: float = 1.0
+    # TF child frame for the robot body.  Modules query the TF tree
+    # for ``map → body_frame`` (or ``odom → body_frame`` as fallback).
+    # Override to ``"sensor"`` for the Unity sim bridge.
+    body_frame: str = FRAME_BODY
 
 
 class SimplePlanner(Module):
@@ -380,47 +384,51 @@ class SimplePlanner(Module):
 
     # ── TF pose query ───────────────────────────────────────────────────────
 
-    # Ordered list of (parent, child) TF lookups to try for the robot pose.
-    # The first successful lookup wins.  ``body`` is the standard REP-105
-    # child frame; ``sensor`` is used by the Unity sim bridge.
-    _TF_POSE_QUERIES: list[tuple[str, str]] = [
-        (FRAME_MAP, FRAME_BODY),
-        (FRAME_ODOM, FRAME_BODY),
-        (FRAME_MAP, "sensor"),
-    ]
-
     def _query_pose(self) -> bool:
         """Update cached robot position from the TF tree.
 
-        Tries several ``(parent, child)`` pairs in priority order so the
-        planner works both on real hardware (``map → body`` via PGO +
-        FastLio2) and in simulation (``map → sensor`` from the Unity
-        bridge).
+        Prefers ``map → body_frame`` (corrected pose).  Falls back to
+        ``odom → body_frame`` when PGO hasn't published ``map → odom``
+        yet (early startup).  The body frame is set via
+        ``config.body_frame`` so sim blueprints can override it.
 
-        Returns True if a pose was obtained from any chain.
+        Caches the last successful (parent, child) pair so subsequent
+        ticks skip the failing lookup.
         """
-        tf = None
-        for parent, child in self._TF_POSE_QUERIES:
+        child = self.config.body_frame
+        # Try cached parent first (avoids repeated BFS misses).
+        cached_parent = getattr(self, "_tf_cached_parent", None)
+        if cached_parent is not None:
+            tf = self.tf.get(cached_parent, child)
+            if tf is not None:
+                with self._lock:
+                    self._robot_x = float(tf.translation.x)
+                    self._robot_y = float(tf.translation.y)
+                    self._robot_z = float(tf.translation.z)
+                    self._has_odom = True
+                return True
+        # Full search: try map frame, then odom frame.
+        for parent in (FRAME_MAP, FRAME_ODOM):
             tf = self.tf.get(parent, child)
             if tf is not None:
-                break
-        if tf is None:
-            now = time.monotonic()
-            if now - getattr(self, "_last_tf_warn", 0.0) > 5.0:
-                self._last_tf_warn = now
-                buffers = list(self.tf.buffers.keys()) if hasattr(self.tf, "buffers") else []
-                logger.warning(
-                    "TF lookup failed — no robot pose available",
-                    tried=[(p, c) for p, c in self._TF_POSE_QUERIES],
-                    available_frames=buffers,
-                )
-            return False
-        with self._lock:
-            self._robot_x = float(tf.translation.x)
-            self._robot_y = float(tf.translation.y)
-            self._robot_z = float(tf.translation.z)
-            self._has_odom = True
-        return True
+                self._tf_cached_parent = parent
+                with self._lock:
+                    self._robot_x = float(tf.translation.x)
+                    self._robot_y = float(tf.translation.y)
+                    self._robot_z = float(tf.translation.z)
+                    self._has_odom = True
+                return True
+        # Both failed — log at low frequency.
+        now = time.monotonic()
+        if now - getattr(self, "_last_tf_warn", 0.0) > 5.0:
+            self._last_tf_warn = now
+            buffers = list(self.tf.buffers.keys()) if hasattr(self.tf, "buffers") else []
+            logger.warning(
+                "TF lookup failed",
+                body_frame=child,
+                available_frames=buffers,
+            )
+        return False
 
     # ── Subscription callbacks ─────────────────────────────────────────────
 

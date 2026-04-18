@@ -78,6 +78,7 @@ unitree_g1_nav_sim = (
         smart_nav(
             use_simple_planner=True,
             vehicle_height=vehicle_height,
+            body_frame="sensor",
             terrain_analysis={
                 "obstacle_height_threshold": 0.1,
                 "ground_height_threshold": 0.05,

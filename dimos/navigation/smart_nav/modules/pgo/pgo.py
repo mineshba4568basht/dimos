@@ -362,10 +362,20 @@ class PGO(Module):
     Detects keyframes from odometry, searches for loop closures,
     optimizes with iSAM2, and publishes corrected poses + global map.
 
+    The primary pose interface is the TF tree: PGO publishes the
+    ``map → odom`` correction transform so that any module can obtain
+    the loop-closure-corrected pose via ``self.tf.get("map", "body")``.
+
     Ports:
         registered_scan (In[PointCloud2]): World-frame registered point cloud.
         odometry (In[Odometry]): Current pose estimate from SLAM.
         corrected_odometry (Out[Odometry]): Loop-closure-corrected pose.
+            **NativeModule compat only** — C++ binaries (TerrainAnalysis,
+            FarPlanner) subscribe to LCM topics directly and cannot query
+            the TF tree.  Python modules should use ``self.tf.get()``
+            instead of subscribing to this stream.  Will be removed once
+            NativeModules gain a TF-to-Odometry bridge in their Python
+            wrappers.
         global_map (Out[PointCloud2]): Accumulated keyframe map.
     """
 
@@ -428,6 +438,9 @@ class PGO(Module):
         super().stop()
 
     def _on_odom(self, msg: Odometry) -> None:
+        # Decompose to R/t matrices — GTSAM iSAM2 operates on Pose3
+        # (rotation matrix + translation vector), so this conversion is
+        # an algorithm requirement, not a TF concern.
         q = [
             msg.pose.orientation.x,
             msg.pose.orientation.y,

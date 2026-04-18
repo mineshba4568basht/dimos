@@ -21,8 +21,14 @@ Follows the ROS REP-105 frame convention:
 - **map**: Global, loop-closure-corrected frame (published by PGO).
 - **odom**: Continuous, locally smooth frame with no jumps (published by FastLio2).
 - **body**: Robot body / IMU frame.
+- **sensor**: Child frame used by the Unity simulation bridge.
+  Functionally equivalent to ``body`` — the sim publishes
+  ``map → sensor`` instead of ``map → body``.  Modules that
+  query the TF tree accept the body frame as a config parameter
+  (defaulting to ``body``) so the sim blueprint can override it.
 """
 
 FRAME_MAP = "map"
 FRAME_ODOM = "odom"
 FRAME_BODY = "body"
+FRAME_SENSOR = "sensor"

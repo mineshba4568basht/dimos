@@ -94,6 +94,7 @@ class TestCrossWallPlanning:
                     vehicle_height=1.24,
                 ),
                 smart_nav(
+                    body_frame="sensor",
                     terrain_analysis={
                         "obstacle_height_threshold": 0.1,
                         "ground_height_threshold": 0.05,

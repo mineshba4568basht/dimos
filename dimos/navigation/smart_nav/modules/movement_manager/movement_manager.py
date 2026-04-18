@@ -52,6 +52,9 @@ class MovementManagerConfig(ModuleConfig):
 
     # Seconds after the last teleop message before nav_cmd_vel is re-enabled.
     tele_cooldown_sec: float = 1.0
+    # TF child frame for the robot body.  Override to ``"sensor"`` for
+    # the Unity sim bridge.
+    body_frame: str = FRAME_BODY
 
 
 class MovementManager(Module):
@@ -128,18 +131,28 @@ class MovementManager(Module):
 
     # ── TF pose query ────────────────────────────────────────────────────
 
-    # Ordered (parent, child) TF lookups — first match wins.
-    _TF_POSE_QUERIES: list[tuple[str, str]] = [
-        (FRAME_MAP, FRAME_BODY),
-        (FRAME_ODOM, FRAME_BODY),
-        (FRAME_MAP, "sensor"),
-    ]
-
     def _query_pose(self) -> tuple[float, float, float]:
-        """Return (x, y, z) from the TF tree, falling back to cached values."""
-        for parent, child in self._TF_POSE_QUERIES:
+        """Return (x, y, z) from the TF tree, falling back to cached values.
+
+        Tries ``map → body_frame`` first (corrected pose), then
+        ``odom → body_frame`` (startup fallback).  Caches the last
+        successful parent frame to avoid repeated BFS misses.
+        """
+        child = self.config.body_frame
+        cached_parent = getattr(self, "_tf_cached_parent", None)
+        if cached_parent is not None:
+            tf = self.tf.get(cached_parent, child)
+            if tf is not None:
+                with self._lock:
+                    self._robot_x = float(tf.translation.x)
+                    self._robot_y = float(tf.translation.y)
+                    self._robot_z = float(tf.translation.z)
+                with self._lock:
+                    return self._robot_x, self._robot_y, self._robot_z
+        for parent in (FRAME_MAP, FRAME_ODOM):
             tf = self.tf.get(parent, child)
             if tf is not None:
+                self._tf_cached_parent = parent
                 with self._lock:
                     self._robot_x = float(tf.translation.x)
                     self._robot_y = float(tf.translation.y)

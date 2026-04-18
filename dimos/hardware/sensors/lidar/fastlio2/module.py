@@ -220,6 +220,10 @@ class FastLio2(NativeModule, perception.Lidar, perception.Odometry, mapping.Glob
         super().start()
         # Subscribe to our own odometry output so we can mirror each
         # pose update into the TF tree as an odom→body transform.
+        # This works because the C++ binary and the Python wrapper share
+        # the same LCM multicast group — the transport is always LCM for
+        # NativeModule streams.  If a non-LCM transport is ever used,
+        # this subscribe call would need to be adapted.
         self.odometry.transport.subscribe(self._on_odom_for_tf, self.odometry)
 
     def _on_odom_for_tf(self, msg: Odometry) -> None:
