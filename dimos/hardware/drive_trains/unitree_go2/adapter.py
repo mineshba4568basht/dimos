@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import (
         MotionSwitcherClient,
     )
-    from unitree_sdk2py.core.channel import ChannelSubscriber
+    from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber
     from unitree_sdk2py.go2.sport.sport_client import SportClient
     from unitree_sdk2py.idl.unitree_go.msg.dds_ import (
         LowCmd_,
@@ -70,6 +70,10 @@ if TYPE_CHECKING:
     from dimos.hardware.drive_trains.registry import TwistBaseAdapterRegistry
 
 logger = setup_logger()
+
+
+def _clip(x: float, lo: float, hi: float) -> float:
+    return lo if x < lo else hi if x > hi else x
 
 
 @dataclass
@@ -88,6 +92,15 @@ class _Session:
     latest_state: SportModeState_ | None = None
     enabled: bool = False
     locomotion_ready: bool = False
+    # Rage Mode joystick publisher (rt/wirelesscontroller_unprocessed path).
+    # When rage_active, rage_thread republishes rage_cmd at ~100Hz so the
+    # FsmRageMode policy reads our synthesized stick buffer instead of
+    # letting sbus_handle's idle zeros win the last-write-wins race.
+    rage_active: bool = False
+    rage_pub: ChannelPublisher | None = None
+    rage_thread: threading.Thread | None = None
+    rage_stop: threading.Event | None = None
+    rage_cmd: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 class UnitreeGo2TwistAdapter:
@@ -111,11 +124,11 @@ class UnitreeGo2TwistAdapter:
             May be ignored in non-'normal' modes (mcf runs its own planner).
             Change at runtime via set_speed_level().
         rage_mode: If True, enable Rage Mode at the end of connect().
-            DEFAULT IS FALSE — Rage toggle returns success but Move()
-            commands get filtered somewhere downstream (sport_mode_num
-            stays at 0, robot doesn't respond). Kept as opt-in for
-            future experimentation. See set_rage_mode() + notes at
-            data/notes/go2_firmware_modes.md.
+            Widens the forward envelope to ~2.5 m/s. Velocity commands
+            route through rt/wirelesscontroller_unprocessed joystick
+            simulation rather than SportClient.Move (which Rage's FSM
+            ignores — see data/notes/go2_firmware_modes.md). Default
+            False until verified on hardware; safe to pass True.
 
     TODO(network_interface): multi-NIC hosts may need an explicit DDS
     interface name passed through to ChannelFactoryInitialize(0, iface).
@@ -359,6 +372,17 @@ class UnitreeGo2TwistAdapter:
             return False
 
         vx, vy, wz = velocities
+
+        # When Rage is active, route through the wireless-controller
+        # joystick buffer (FsmRageMode reads from there; SetHighCmd
+        # dispatch is broken for it — see data/notes/go2_firmware_modes.md).
+        # We still call Move() on the SportClient side for compatibility
+        # with non-Rage FSMs the user may fall back to; it's a no-op
+        # under Rage.
+        if session.rage_active:
+            session.rage_cmd = (vx, vy, wz)
+            return True
+
         return self._send_velocity(vx, vy, wz)
 
     def write_stop(self) -> bool:
@@ -793,17 +817,32 @@ class UnitreeGo2TwistAdapter:
     def set_rage_mode(self, enable: bool) -> bool:
         """Toggle Rage Mode on the Go2 (mcf AI controller, api_id 2059).
 
-        Rage widens the forward velocity envelope to ~2.5 m/s (vs standard
-        ~1.0) via a dedicated MNN policy with stiffer PD gains. Firmware
-        clamps to up_vx=2.5, up_vy=1.0, up_vyaw=5.0.
+        Rage widens the forward envelope to ~2.5 m/s via a dedicated MNN
+        policy (stiffer PD gains, up_vx=2.5, up_vy=1.0, up_vyaw=5.0).
 
-        The mcf FSM only accepts this toggle from BalanceStand (id 1002)
-        or StopMove (1003). This method issues BalanceStand() first so
-        callers don't need to know — BalanceStand is idempotent.
+        The FSM transition itself is a simple api_id 2059 toggle. What's
+        non-obvious: Rage's velocity input does NOT arrive via
+        SportClient.Move() — AiController::Move's dispatch table omits
+        FsmRageMode (confirmed by binary RE). Instead, the policy reads
+        the wireless-controller joystick buffer on the DDS topic
+        rt/wirelesscontroller_unprocessed, which sbus_handle (physical
+        RC) and webrtc_bridge (mobile app) both write to.
 
-        Returns True on RPC return code 0. Does not verify the FSM
-        actually transitioned into FsmRageMode; inspect
-        SportModeState.mode if certainty is needed.
+        So enabling Rage does three things:
+          1. BalanceStand() to satisfy the FSM precondition (1002/1003
+             are the only states EventRageMode accepts from).
+          2. _Call(2059, {"data": True}) — transition into FsmRageMode.
+          3. SwitchJoystick(True) + start a 100 Hz publisher thread on
+             rt/wirelesscontroller_unprocessed that republishes the
+             latest velocity command as a WirelessController_ message.
+             Needs to out-rate sbus_handle's idle zeros under last-
+             write-wins.
+
+        Disable reverses all three.
+
+        Returns True if the 2059 toggle succeeded. The publisher thread
+        is best-effort; publisher/SwitchJoystick failures are logged
+        but don't fail the call.
         """
         session = self._get_session()
 
@@ -821,9 +860,118 @@ class UnitreeGo2TwistAdapter:
 
         if enable:
             time.sleep(2.0)  # let FsmRageMode transition settle
+            self._start_rage_joystick(session)
+            try:
+                with session.lock:
+                    sj_ret = session.client.SwitchJoystick(True)
+                if sj_ret != 0:
+                    logger.warning(f"[Go2] SwitchJoystick(True) after rage returned {sj_ret}")
+            except Exception as e:
+                logger.warning(f"[Go2] SwitchJoystick raised after rage enable: {e}")
+        else:
+            self._stop_rage_joystick(session)
+            try:
+                with session.lock:
+                    session.client.SwitchJoystick(False)
+            except Exception:
+                pass
 
         logger.info(f"[Go2] ✓ Rage Mode {'enabled' if enable else 'disabled'}")
         return True
+
+    # Rage velocity envelope from rage_mode_export_cfg.json — used to
+    # normalize (vx, vy, wz) to joystick axes in [-1, 1].
+    _RAGE_UP_VX: float = 2.5   # m/s
+    _RAGE_UP_VY: float = 1.0   # m/s
+    _RAGE_UP_VYAW: float = 5.0  # rad/s
+
+    # Publish rate for the synthesized joystick buffer. sbus_handle
+    # appears to publish at ~50Hz on idle; we out-rate it to win last-
+    # write-wins arbitration at the FSM's observation sample point.
+    _RAGE_PUBLISH_HZ: float = 100.0
+
+    # Sign convention for the forward-stick axis. Unitree remote builds
+    # vary: on most, stick-up = +ly; on some, stick-up = -ly. Flip this
+    # if forward presses on the keyboard drive the robot backward.
+    _RAGE_LY_SIGN: float = 1.0
+
+    def _start_rage_joystick(self, session: _Session) -> None:
+        """Create the WirelessController publisher and spawn the 100Hz thread."""
+        if session.rage_pub is not None:
+            return
+        try:
+            from unitree_sdk2py.core.channel import ChannelPublisher
+            from unitree_sdk2py.idl.unitree_go.msg.dds_ import WirelessController_
+
+            pub = ChannelPublisher("rt/wirelesscontroller_unprocessed", WirelessController_)
+            pub.Init()
+            session.rage_pub = pub
+        except Exception as e:
+            logger.error(f"[Go2] Failed to init rage joystick publisher: {e}")
+            return
+
+        session.rage_stop = threading.Event()
+        session.rage_cmd = (0.0, 0.0, 0.0)
+        session.rage_active = True
+        session.rage_thread = threading.Thread(
+            target=self._rage_joystick_loop,
+            args=(session,),
+            name="go2-rage-joystick",
+            daemon=True,
+        )
+        session.rage_thread.start()
+        logger.info(
+            "[Go2] ✓ Rage joystick publisher running on "
+            f"rt/wirelesscontroller_unprocessed @ {self._RAGE_PUBLISH_HZ:.0f}Hz"
+        )
+
+    def _stop_rage_joystick(self, session: _Session) -> None:
+        """Stop the publisher thread and release the DDS writer."""
+        session.rage_active = False
+        if session.rage_stop is not None:
+            session.rage_stop.set()
+        if session.rage_thread is not None:
+            session.rage_thread.join(timeout=1.0)
+            session.rage_thread = None
+        session.rage_stop = None
+        # ChannelPublisher has no Close() in SDK2 — drop the ref and let
+        # cyclonedds GC it. Match the pattern used in disconnect().
+        session.rage_pub = None
+
+    def _rage_joystick_loop(self, session: _Session) -> None:
+        """Publish the latest rage_cmd as a WirelessController_ message.
+
+        Runs at _RAGE_PUBLISH_HZ. On each tick, reads session.rage_cmd,
+        normalizes to stick axes via the envelope constants, and writes
+        a WirelessController_ message. Exits when rage_stop is set or
+        the session's publisher is torn down.
+        """
+        from unitree_sdk2py.idl.default import unitree_go_msg_dds__WirelessController_
+
+        period = 1.0 / self._RAGE_PUBLISH_HZ
+        msg = unitree_go_msg_dds__WirelessController_()
+        msg.keys = 0
+        msg.ry = 0.0  # unused — Rage reads ly (fwd), lx (lateral), rx (yaw)
+
+        while session.rage_stop is not None and not session.rage_stop.wait(period):
+            pub = session.rage_pub
+            if pub is None:
+                return
+            vx, vy, wz = session.rage_cmd
+
+            ly = _clip(vx / self._RAGE_UP_VX, -1.0, 1.0) * self._RAGE_LY_SIGN
+            lx = _clip(vy / self._RAGE_UP_VY, -1.0, 1.0)
+            rx = _clip(wz / self._RAGE_UP_VYAW, -1.0, 1.0)
+
+            msg.lx = float(lx)
+            msg.ly = float(ly)
+            msg.rx = float(rx)
+
+            try:
+                pub.Write(msg)
+            except Exception as e:
+                logger.warning(f"[Go2] Rage joystick publish raised: {e}")
+                return
 
     def _call_sport_api(self, api_id: int, payload: dict | None = None) -> bool:
         """Generic escape hatch for undocumented mcf sport API IDs.
