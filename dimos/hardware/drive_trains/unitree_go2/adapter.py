@@ -892,10 +892,13 @@ class UnitreeGo2TwistAdapter:
     # write-wins arbitration at the FSM's observation sample point.
     _RAGE_PUBLISH_HZ: float = 100.0
 
-    # Sign convention for the forward-stick axis. Unitree remote builds
-    # vary: on most, stick-up = +ly; on some, stick-up = -ly. Flip this
-    # if forward presses on the keyboard drive the robot backward.
-    _RAGE_LY_SIGN: float = 1.0
+    # Sign conventions per stick axis. Defaults verified on our Go2 Air
+    # firmware against the ROS Twist convention (linear.y = left-positive,
+    # angular.z = CCW-positive). If a keyboard direction drives the
+    # robot the wrong way, flip the corresponding sign.
+    _RAGE_LY_SIGN: float = 1.0   # vx → ly: stick-up = +ly, forward
+    _RAGE_LX_SIGN: float = -1.0  # vy → lx: Unitree's +lx = right; ROS +y = left
+    _RAGE_RX_SIGN: float = -1.0  # wz → rx: Unitree's +rx = CW;    ROS +z = CCW
 
     def _start_rage_joystick(self, session: _Session) -> None:
         """Create the WirelessController publisher and spawn the 100Hz thread."""
@@ -962,8 +965,8 @@ class UnitreeGo2TwistAdapter:
             vx, vy, wz = session.rage_cmd
 
             ly = _clip(vx / self._RAGE_UP_VX, -1.0, 1.0) * self._RAGE_LY_SIGN
-            lx = _clip(vy / self._RAGE_UP_VY, -1.0, 1.0)
-            rx = _clip(wz / self._RAGE_UP_VYAW, -1.0, 1.0)
+            lx = _clip(vy / self._RAGE_UP_VY, -1.0, 1.0) * self._RAGE_LX_SIGN
+            rx = _clip(wz / self._RAGE_UP_VYAW, -1.0, 1.0) * self._RAGE_RX_SIGN
 
             msg.lx = float(lx)
             msg.ly = float(ly)
