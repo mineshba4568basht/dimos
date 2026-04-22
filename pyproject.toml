@@ -90,7 +90,8 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 # removed --cov flags so a plain `pytest` run doesn't require pytest-cov installed
-addopts = "-v"
+# -p no:warnings keeps output tidy during local exploration
+addopts = "-v -p no:warnings"
 
 [tool.coverage.run]
 source = ["dimos"]
